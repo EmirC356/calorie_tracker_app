@@ -5,7 +5,7 @@ import 'dart:convert';
 
 class DatabaseService {
   static const String _dbName = 'calorie_tracker.db';
-  static const int _dbVersion = 2;
+  static const int _dbVersion = 3;
 
   static const String tablesMeals = 'meals';
   static const String tablesExercises = 'exercises';
@@ -36,6 +36,7 @@ class DatabaseService {
     await _createExercisesTable(db);
     await _createMealPrepsTable(db);
     await _createWeightEntriesTable(db);
+    await _createTimestampIndexes(db);
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -43,6 +44,17 @@ class DatabaseService {
       await _createMealPrepsTable(db);
       await _createWeightEntriesTable(db);
     }
+    if (oldVersion < 3) {
+      await _createTimestampIndexes(db);
+    }
+  }
+
+  /// Indexes the date columns the dashboard queries hit on every load.
+  Future<void> _createTimestampIndexes(Database db) async {
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_meals_timestamp ON $tablesMeals(timestamp)');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_exercises_timestamp ON $tablesExercises(timestamp)');
   }
 
   Future<void> _createMealsTable(Database db) async {
@@ -123,11 +135,11 @@ class DatabaseService {
   Future<List<Meal>> getMealsByDate(DateTime date) async {
     final database = await db;
     final start = DateTime(date.year, date.month, date.day);
-    final end = DateTime(date.year, date.month, date.day, 23, 59, 59);
+    final startOfNextDay = start.add(const Duration(days: 1));
     final maps = await database.query(
       tablesMeals,
-      where: 'timestamp >= ? AND timestamp <= ?',
-      whereArgs: [start.toIso8601String(), end.toIso8601String()],
+      where: 'timestamp >= ? AND timestamp < ?',
+      whereArgs: [start.toIso8601String(), startOfNextDay.toIso8601String()],
     );
     return maps.map(_mealFromMap).toList();
   }
@@ -170,11 +182,11 @@ class DatabaseService {
   Future<List<Exercise>> getExercisesByDate(DateTime date) async {
     final database = await db;
     final start = DateTime(date.year, date.month, date.day);
-    final end = DateTime(date.year, date.month, date.day, 23, 59, 59);
+    final startOfNextDay = start.add(const Duration(days: 1));
     final maps = await database.query(
       tablesExercises,
-      where: 'timestamp >= ? AND timestamp <= ?',
-      whereArgs: [start.toIso8601String(), end.toIso8601String()],
+      where: 'timestamp >= ? AND timestamp < ?',
+      whereArgs: [start.toIso8601String(), startOfNextDay.toIso8601String()],
     );
     return maps.map(_exerciseFromMap).toList();
   }
