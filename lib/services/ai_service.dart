@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/nutrient.dart';
+import 'prefs.dart';
 
 class AIService {
   String? _apiKey;
@@ -10,12 +12,45 @@ class AIService {
   static String _endpoint(String key) =>
       'https://generativelanguage.googleapis.com/v1beta/models/$_model:generateContent?key=$key';
 
-  void initialize(String apiKey) {
+  /// Sets the active key and persists it so it survives a cold start.
+  Future<void> initialize(String apiKey) async {
     _apiKey = apiKey.trim();
     _isInitialized = _apiKey!.isNotEmpty;
+    final prefs = await SharedPreferences.getInstance();
+    if (_isInitialized) {
+      await prefs.setString(kGeminiKeyPref, _apiKey!);
+    } else {
+      await prefs.remove(kGeminiKeyPref);
+    }
+  }
+
+  /// Restores a previously saved key. Call once on app startup.
+  Future<void> loadFromStorage() async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getString(kGeminiKeyPref);
+    if (stored != null && stored.isNotEmpty) {
+      _apiKey = stored;
+      _isInitialized = true;
+    }
+  }
+
+  /// Forgets the key in memory and on disk.
+  Future<void> clear() async {
+    _apiKey = null;
+    _isInitialized = false;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(kGeminiKeyPref);
   }
 
   bool get isInitialized => _isInitialized;
+
+  /// A display-safe version of the key, e.g. `AIza••••NFSM`. Null if unset.
+  String? get maskedKey {
+    final k = _apiKey;
+    if (k == null || k.isEmpty) return null;
+    if (k.length <= 8) return '••••';
+    return '${k.substring(0, 4)}••••${k.substring(k.length - 4)}';
+  }
 
   Future<String> getMealAdvice(String query) async {
     _requireInit();

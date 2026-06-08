@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'providers/meal_provider.dart';
 import 'providers/exercise_provider.dart';
 import 'providers/meal_prep_provider.dart';
 import 'providers/weight_provider.dart';
 import 'screens/home_screen.dart';
 import 'services/ai_service.dart';
-import 'services/prefs.dart';
 import 'theme/app_theme.dart';
 
 // Optional one-time key seed: launch with
@@ -18,13 +16,10 @@ const _seedKey = String.fromEnvironment('GEMINI_KEY');
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final prefs = await SharedPreferences.getInstance();
   if (_seedKey.isNotEmpty) {
-    await prefs.setString(kGeminiKeyPref, _seedKey);
-  }
-  final savedKey = prefs.getString(kGeminiKeyPref);
-  if (savedKey != null && savedKey.isNotEmpty) {
-    aiService.initialize(savedKey);
+    await aiService.initialize(_seedKey); // seed + persist
+  } else {
+    await aiService.loadFromStorage(); // restore on cold start
   }
   runApp(const MyApp());
 }

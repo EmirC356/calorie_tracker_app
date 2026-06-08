@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../services/ai_service.dart';
-import '../services/prefs.dart';
 import '../theme/app_theme.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -30,12 +28,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter an API key')));
       return;
     }
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(kGeminiKeyPref, key);
-    aiService.initialize(key);
+    await aiService.initialize(key);
     if (!mounted) return;
     setState(() => _isSet = true);
+    _ctrl.clear();
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('API key updated!')));
+  }
+
+  Future<void> _clear() async {
+    await aiService.clear();
+    if (!mounted) return;
+    setState(() => _isSet = false);
+    _ctrl.clear();
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('API key cleared')));
   }
 
   @override
@@ -53,10 +58,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: Row(children: [
               Icon(_isSet ? Icons.check_circle : Icons.warning_amber, color: _isSet ? kNeonGreen : kNeonYellow),
               const SizedBox(width: 10),
-              Expanded(child: Text(
-                _isSet ? 'Gemini key is active' : 'No API key — AI features disabled',
-                style: TextStyle(color: _isSet ? kNeonGreen : kNeonYellow),
-              )),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(
+                  _isSet ? 'Gemini key is active' : 'No API key — AI features disabled',
+                  style: TextStyle(color: _isSet ? kNeonGreen : kNeonYellow),
+                ),
+                if (_isSet && aiService.maskedKey != null)
+                  Text(aiService.maskedKey!,
+                    style: const TextStyle(color: kTextDim, fontSize: 12, fontFamily: 'monospace')),
+              ])),
+              if (_isSet)
+                TextButton(
+                  onPressed: _clear,
+                  child: const Text('CLEAR', style: TextStyle(color: kNeonRed, fontWeight: FontWeight.bold)),
+                ),
             ]),
           ),
           const SizedBox(height: 16),
