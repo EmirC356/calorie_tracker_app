@@ -1,7 +1,8 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/index.dart';
-import 'dart:convert';
 
 class DatabaseService {
   static const String _dbName = 'calorie_tracker.db';
@@ -39,6 +40,14 @@ class DatabaseService {
     await _createTimestampIndexes(db);
   }
 
+  /// Migration convention
+  /// ---------------------
+  /// To change the schema: bump [_dbVersion] and add one `if (oldVersion < N)`
+  /// block below. Every step MUST be additive — create tables, add columns,
+  /// or create indexes. Never DROP a table/column or rewrite existing user
+  /// rows. Add new columns with `ALTER TABLE ... ADD COLUMN` (with a default
+  /// so existing rows stay valid). Before any step that rewrites existing
+  /// rows, call [backupToJson] first so a failed migration can be recovered.
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
       await _createMealPrepsTable(db);
@@ -55,6 +64,41 @@ class DatabaseService {
         'CREATE INDEX IF NOT EXISTS idx_meals_timestamp ON $tablesMeals(timestamp)');
     await db.execute(
         'CREATE INDEX IF NOT EXISTS idx_exercises_timestamp ON $tablesExercises(timestamp)');
+  }
+
+  Future<bool> _tableExists(Database db, String name) async {
+    final rows = await db.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name = ?",
+      [name],
+    );
+    return rows.isNotEmpty;
+  }
+
+  /// Best-effort safety net: dumps every existing table to a JSON file next to
+  /// the database before a risky migration. Returns the file path, or null if
+  /// the backup could not be written (a backup failure must never block a
+  /// migration). [reason] is used in the filename.
+  Future<String?> backupToJson(Database db, {required String reason}) async {
+    try {
+      final dump = <String, dynamic>{};
+      for (final table in [
+        tablesMeals,
+        tablesExercises,
+        tablesMealPreps,
+        tablesWeightEntries,
+      ]) {
+        if (await _tableExists(db, table)) {
+          dump[table] = await db.query(table);
+        }
+      }
+      final dir = await getDatabasesPath();
+      final stamp = DateTime.now().toIso8601String().replaceAll(':', '-');
+      final file = File(join(dir, 'backup_${reason}_$stamp.json'));
+      await file.writeAsString(jsonEncode(dump));
+      return file.path;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> _createMealsTable(Database db) async {
