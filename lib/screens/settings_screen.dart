@@ -1,0 +1,100 @@
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../services/ai_service.dart';
+import '../services/prefs.dart';
+import '../theme/app_theme.dart';
+
+class SettingsScreen extends StatefulWidget {
+  const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  final _ctrl = TextEditingController();
+  bool _isSet = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _isSet = aiService.isInitialized;
+  }
+
+  @override
+  void dispose() { _ctrl.dispose(); super.dispose(); }
+
+  Future<void> _save() async {
+    final key = _ctrl.text.trim();
+    if (key.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter an API key')));
+      return;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(kGeminiKeyPref, key);
+    aiService.initialize(key);
+    if (!mounted) return;
+    setState(() => _isSet = true);
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('API key updated!')));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('SETTINGS')),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('API CONFIGURATION', style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: neonBox(_isSet ? kNeonGreen : kNeonYellow),
+            child: Row(children: [
+              Icon(_isSet ? Icons.check_circle : Icons.warning_amber, color: _isSet ? kNeonGreen : kNeonYellow),
+              const SizedBox(width: 10),
+              Expanded(child: Text(
+                _isSet ? 'Gemini key is active' : 'No API key — AI features disabled',
+                style: TextStyle(color: _isSet ? kNeonGreen : kNeonYellow),
+              )),
+            ]),
+          ),
+          const SizedBox(height: 16),
+          Text('GEMINI API KEY', style: neonLabel(kCyan, size: 12)),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _ctrl,
+            obscureText: true,
+            style: const TextStyle(color: kText),
+            decoration: const InputDecoration(
+              hintText: 'AIza...',
+              labelText: 'Paste new key here',
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _save,
+              style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+              child: const Text('SAVE KEY', style: TextStyle(letterSpacing: 1.5)),
+            ),
+          ),
+          const SizedBox(height: 32),
+          Text('ABOUT', style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: neonBox(kBorderDim),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Calorie Tracker v2.0', style: neonLabel(kCyan)),
+              const SizedBox(height: 8),
+              const Text('Track meals, meal preps, exercises, and weight.\nPowered by Google Gemini for nutrition advice.',
+                style: TextStyle(color: kTextDim, fontSize: 13, height: 1.5)),
+            ]),
+          ),
+        ]),
+      ),
+    );
+  }
+}
