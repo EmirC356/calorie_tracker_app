@@ -43,6 +43,16 @@ service cloud.firestore {
               || request.auth.uid in resource.data.readerUids);
         allow write: if isSignedIn() && uid() == userId;
       }
+
+      // ── Notification queue (Phase 8): the device writes the morning brief and
+      // pending reminders so the Cloud Functions can read + send them. Private
+      // to the owner; the functions use the admin SDK (which bypasses rules).
+      match /todaysGoalsBrief/{date} {
+        allow read, write: if isSignedIn() && uid() == userId;
+      }
+      match /pendingReminders/{occId} {
+        allow read, write: if isSignedIn() && uid() == userId;
+      }
     }
 
     // ── squadCodes/{code} ─────────────────────────────────────────────────────

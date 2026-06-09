@@ -118,6 +118,68 @@ class SnapshotService {
       try {
         await pushGoalVisibility(uid: uid, now: theNow);
       } catch (_) {/* best-effort cloud mirror */}
+      try {
+        await writeGoalNotifQueue(uid: uid, now: theNow);
+      } catch (_) {/* best-effort notification queue */}
+    }
+  }
+
+  /// Writes the device-side notification queue the Cloud Functions read:
+  ///  - `users/{uid}/todaysGoalsBrief/{today}`: the goals to mention in the 8am
+  ///    brief (those with morningBriefIncluded), as { goalsCount, items, … }.
+  ///  - `users/{uid}/pendingReminders/{goalId}_{today}`: one doc per today's
+  ///    occurrence with a reminder + time whose fire time is still in the future
+  ///    (fireAt = time − reminderMinutesBefore). Stale reminder docs are pruned.
+  ///
+  /// Functions can't read local SQLite, so the device computes these from its
+  /// goals and Firestore acts as a queue.
+  Future<void> writeGoalNotifQueue({required String uid, DateTime? now}) async {
+    final theNow = now ?? DateTime.now();
+    final today = dateOnly(theNow);
+    final key = dateKey(today);
+
+    final goals = (await _goalService.listGoals(onlyActive: true))
+        .where((g) => g.id != null)
+        .toList();
+
+    // Morning brief.
+    final items = <Map<String, dynamic>>[];
+    for (final g in goals.where((g) => g.morningBriefIncluded)) {
+      if (_engine.occursOn(g, today)) {
+        items.add({
+          'title': g.title,
+          if (g.timeOfDay != null)
+            'time': '${g.timeOfDay!.hour.toString().padLeft(2, '0')}:${g.timeOfDay!.minute.toString().padLeft(2, '0')}',
+        });
+      }
+    }
+    await _squadService.writeTodaysBrief(uid, key, {
+      'goalsCount': items.length,
+      'items': items,
+      'generatedAt': FieldValue.serverTimestamp(),
+    });
+
+    // Reminders for today's timed occurrences whose fire time is still ahead.
+    final desired = <String>{};
+    for (final g in goals) {
+      if (g.reminderMinutesBefore == null || g.timeOfDay == null) continue;
+      if (!_engine.occursOn(g, today)) continue;
+      final at = DateTime(today.year, today.month, today.day, g.timeOfDay!.hour, g.timeOfDay!.minute)
+          .subtract(Duration(minutes: g.reminderMinutesBefore!));
+      if (!at.isAfter(theNow)) continue; // already passed today
+      final occId = '${g.id}_$key';
+      desired.add(occId);
+      await _squadService.writePendingReminder(uid, occId, {
+        'fireAt': at.toUtc().toIso8601String(),
+        'title': g.title,
+      });
+    }
+    // Prune reminder docs that no longer apply (today's set only; the function
+    // deletes fired ones, so leftovers here are changed/removed goals).
+    for (final id in await _squadService.getPendingReminderIds(uid)) {
+      if (id.endsWith('_$key') && !desired.contains(id)) {
+        await _squadService.deletePendingReminder(uid, id);
+      }
     }
   }
 

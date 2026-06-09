@@ -109,6 +109,16 @@ await check('non-recipient CANNOT update a suggestion', assertFails(updateDoc(do
 await check('recipient CAN accept a suggestion (pending -> accepted)',
   assertSucceeds(updateDoc(doc(member, `${sugCol}/sug1`), { status: 'accepted' })));
 
+// ── Phase 8: notification queue (todaysGoalsBrief + pendingReminders) ─────────
+await check('owner CAN write own morning brief',
+  assertSucceeds(setDoc(doc(member, 'users/m1/todaysGoalsBrief/2026-06-09'), { goalsCount: 2, items: [] })));
+await check("outsider CANNOT read another's morning brief",
+  assertFails(getDoc(doc(outsider, 'users/m1/todaysGoalsBrief/2026-06-09'))));
+await check('owner CAN write own pending reminder',
+  assertSucceeds(setDoc(doc(member, 'users/m1/pendingReminders/g1_2026-06-09'), { fireAt: new Date().toISOString(), title: 'Read' })));
+await check("outsider CANNOT read another's pending reminders",
+  assertFails(getDoc(doc(outsider, 'users/m1/pendingReminders/g1_2026-06-09'))));
+
 await testEnv.cleanup();
 console.log(`\nALL ${n} RULES TESTS PASSED`);
-assert(n === 28);
+assert(n === 32);

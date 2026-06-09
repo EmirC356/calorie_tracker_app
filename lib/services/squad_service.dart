@@ -410,4 +410,29 @@ class SquadService {
 
   Future<void> rejectSuggestion(String squadId, String suggestionId) =>
       setSuggestionStatus(squadId, suggestionId, 'rejected');
+
+  // ── notification queue: morning brief + reminders (Phase 8) ──────────────────
+  // The device writes these so the Cloud Functions can send pushes even when the
+  // app is closed (the functions can't read the user's local SQLite).
+
+  /// Personal toggle for the morning brief + reminders, read by the functions.
+  Future<void> setGoalNotificationsEnabled(String uid, bool enabled) =>
+      _users.doc(uid).set({'goalNotificationsEnabled': enabled}, SetOptions(merge: true));
+
+  Future<void> writeTodaysBrief(String uid, String dateKey, Map<String, dynamic> data) =>
+      _users.doc(uid).collection('todaysGoalsBrief').doc(dateKey).set(data);
+
+  CollectionReference<Map<String, dynamic>> _pendingRemindersCol(String uid) =>
+      _users.doc(uid).collection('pendingReminders');
+
+  Future<void> writePendingReminder(String uid, String occId, Map<String, dynamic> data) =>
+      _pendingRemindersCol(uid).doc(occId).set(data);
+
+  Future<void> deletePendingReminder(String uid, String occId) =>
+      _pendingRemindersCol(uid).doc(occId).delete();
+
+  Future<Set<String>> getPendingReminderIds(String uid) async {
+    final qs = await _pendingRemindersCol(uid).get();
+    return qs.docs.map((d) => d.id).toSet();
+  }
 }
