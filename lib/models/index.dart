@@ -6,3 +6,4 @@ export 'food_item.dart';
 export 'meal_prep_item.dart';
 export 'meal_prep.dart';
 export 'weight_entry.dart';
+export 'user_profile.dart';

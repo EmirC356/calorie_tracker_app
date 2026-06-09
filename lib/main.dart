@@ -4,6 +4,7 @@ import 'providers/meal_provider.dart';
 import 'providers/exercise_provider.dart';
 import 'providers/meal_prep_provider.dart';
 import 'providers/weight_provider.dart';
+import 'providers/profile_provider.dart';
 import 'screens/home_screen.dart';
 import 'services/ai_service.dart';
 import 'theme/app_theme.dart';
@@ -35,6 +36,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ExerciseProvider()),
         ChangeNotifierProvider(create: (_) => MealPrepProvider()),
         ChangeNotifierProvider(create: (_) => WeightProvider()),
+        ChangeNotifierProvider(create: (_) => ProfileProvider()),
       ],
       child: MaterialApp(
         title: 'Calorie Tracker',

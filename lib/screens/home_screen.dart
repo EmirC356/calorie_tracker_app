@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/meal_provider.dart';
 import '../providers/exercise_provider.dart';
+import '../providers/profile_provider.dart';
+import '../providers/weight_provider.dart';
 import '../models/index.dart';
 import '../theme/app_theme.dart';
 import '../widgets/edit_entry_sheets.dart';
@@ -13,6 +15,7 @@ import 'exercise_logging_screen.dart';
 import 'meal_logs_screen.dart';
 import 'exercise_logs_screen.dart';
 import 'meal_advice_screen.dart';
+import 'profile_screen.dart';
 import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -28,9 +31,17 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    // Capture providers synchronously, then load after the first frame so we
+    // don't notifyListeners() mid-build.
+    final meals = context.read<MealProvider>();
+    final exercises = context.read<ExerciseProvider>();
+    final profile = context.read<ProfileProvider>();
+    final weight = context.read<WeightProvider>();
     Future.microtask(() {
-      context.read<MealProvider>().loadTodaysMeals();
-      context.read<ExerciseProvider>().loadTodaysExercises();
+      meals.loadTodaysMeals();
+      exercises.loadTodaysExercises();
+      profile.load();
+      weight.loadEntries();
     });
   }
 
@@ -76,6 +87,8 @@ class _DashboardScreen extends StatelessWidget {
         actions: [
           IconButton(icon: const Icon(Icons.chat), tooltip: 'Meal Advisor',
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MealAdviceScreen()))),
+          IconButton(icon: const Icon(Icons.person), tooltip: 'Profile & Goals',
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen()))),
           IconButton(icon: const Icon(Icons.settings),
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()))),
         ],
@@ -85,20 +98,33 @@ class _DashboardScreen extends StatelessWidget {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text("TODAY'S SUMMARY", style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 14),
-          Consumer2<MealProvider, ExerciseProvider>(
-            builder: (_, meals, exercises, __) {
+          Consumer4<MealProvider, ExerciseProvider, ProfileProvider, WeightProvider>(
+            builder: (_, meals, exercises, profileP, weightP, __) {
               final cal = meals.todaysTotalCalories;
               final pro = meals.todaysTotalProtein;
               final burned = exercises.todaysTotalCaloriesBurned;
               final net = cal - burned;
+              final profile = profileP.profile;
+              final weight = weightP.latest?.weight ?? profile?.fallbackWeightKg;
+              final hasTargets = profileP.hasProfile && weight != null && weight > 0;
+              final calTarget = hasTargets ? profile!.calorieTarget(weight) : null;
+              final proTarget = hasTargets ? profile!.proteinTargetGrams(weight) : null;
               return Column(children: [
-                _SummaryTile('Total Calories', '${cal.toStringAsFixed(0)} kcal', kCyan),
+                _ProgressCard(label: 'Calories', consumed: cal, target: calTarget, unit: 'kcal', color: kCyan),
                 const SizedBox(height: 8),
-                _SummaryTile('Protein', '${pro.toStringAsFixed(1)} g', kNeonGreen),
+                _ProgressCard(label: 'Protein', consumed: pro, target: proTarget, unit: 'g', color: kNeonGreen),
                 const SizedBox(height: 8),
                 _SummaryTile('Calories Burned', '${burned.toStringAsFixed(0)} kcal', kOrange),
                 const SizedBox(height: 8),
                 _SummaryTile('Net Calories', '${net.toStringAsFixed(0)} kcal', net > 0 ? kNeonRed : kNeonGreen),
+                if (!hasTargets) ...[
+                  const SizedBox(height: 8),
+                  GestureDetector(
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen())),
+                    child: Text('Set your profile to see calorie & protein targets →',
+                      style: TextStyle(color: kCyan.withValues(alpha: 0.8), fontSize: 12)),
+                  ),
+                ],
               ]);
             },
           ),
@@ -377,6 +403,63 @@ class _ExerciseCard extends StatelessWidget {
 }
 
 // ── Shared widgets ─────────────────────────────────────────────────────────────
+class _ProgressCard extends StatelessWidget {
+  final String label;
+  final double consumed;
+  final double? target;
+  final String unit;
+  final Color color;
+  const _ProgressCard({
+    required this.label,
+    required this.consumed,
+    required this.target,
+    required this.unit,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasTarget = target != null && target! > 0;
+    final ratio = hasTarget ? (consumed / target!).clamp(0.0, 1.0) : 0.0;
+    final over = hasTarget && consumed > target!;
+    final barColor = over ? kNeonRed : color;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: neonBox(color),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Text(label, style: const TextStyle(color: kText, fontSize: 14)),
+          Text(
+            hasTarget
+                ? '${consumed.toStringAsFixed(0)} / ${target!.toStringAsFixed(0)} $unit'
+                : '${consumed.toStringAsFixed(label == 'Protein' ? 1 : 0)} $unit',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: barColor, shadows: textGlow(barColor)),
+          ),
+        ]),
+        if (hasTarget) ...[
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: ratio,
+              minHeight: 7,
+              backgroundColor: kBg,
+              valueColor: AlwaysStoppedAnimation<Color>(barColor),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            over
+                ? '${(consumed - target!).toStringAsFixed(0)} $unit over target'
+                : '${(target! - consumed).toStringAsFixed(0)} $unit left',
+            style: const TextStyle(color: kTextDim, fontSize: 11),
+          ),
+        ],
+      ]),
+    );
+  }
+}
+
 class _Badge extends StatelessWidget {
   final String text;
   final Color color;
