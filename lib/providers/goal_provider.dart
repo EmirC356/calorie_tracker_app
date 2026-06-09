@@ -66,6 +66,21 @@ class GoalProvider extends ChangeNotifier {
     return r.status == OccurrenceStatus.open ? null : r;
   }
 
+  /// Materialized occurrence history in [from]..[to] (inclusive), joined to
+  /// each occurrence's goal (including archived goals), newest first.
+  Future<List<GoalHistoryEntry>> historyInRange(
+      DateTime from, DateTime to) async {
+    final occs = await _service.getOccurrencesInRange(from, to);
+    final goals = {for (final g in await _service.listGoals()) g.id: g};
+    final entries = <GoalHistoryEntry>[];
+    for (final o in occs) {
+      final g = goals[o.goalId];
+      if (g != null) entries.add(GoalHistoryEntry(g, o));
+    }
+    entries.sort((a, b) => b.date.compareTo(a.date));
+    return entries;
+  }
+
   /// The raw meals / exercises / weight entries logged on [date], for the Day
   /// view's Activity section (each row links to its existing edit screen).
   Future<({List<Meal> meals, List<Exercise> exercises, List<WeightEntry> weights})>

@@ -8,6 +8,7 @@ import 'calendar_month_view.dart';
 import 'calendar_week_view.dart';
 import 'calendar_day_view.dart';
 import 'goal_create_screen.dart';
+import 'goal_history_screen.dart';
 
 enum CalendarViewMode { day, week, month }
 
@@ -118,6 +119,20 @@ class _CalendarScreenState extends State<CalendarScreen> {
               setState(() => _focused = dateOnly(DateTime.now()));
               _loadActivity();
             },
+          ),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, color: kAmber),
+            color: kCard,
+            onSelected: (v) async {
+              if (v == 'history') {
+                await Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const GoalHistoryScreen()));
+                if (mounted) await _loadActivity();
+              }
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'history', child: Text('History', style: TextStyle(color: kText))),
+            ],
           ),
         ],
       ),

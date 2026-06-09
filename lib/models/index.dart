@@ -22,4 +22,5 @@ export 'recurrence_engine.dart';
 export 'goal.dart';
 export 'goal_occurrence.dart';
 export 'goal_suggestion.dart';
+export 'goal_history.dart';
 export 'goal_evaluation_result.dart';
