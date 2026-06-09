@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/app_user.dart';
 import '../models/squad.dart';
 import '../models/squad_member.dart';
+import '../models/squad_goal.dart';
 import 'invite_code.dart';
 
 /// A user-facing failure during a squad operation (shown in a SnackBar).
@@ -62,6 +63,8 @@ class SquadService {
   Future<Squad> createSquad({
     required String name,
     required String ownerUid,
+    String displayName = 'Athlete',
+    String? photoURL,
     Random? random,
   }) async {
     final cleanName = name.trim().isEmpty ? 'My Squad' : name.trim();
@@ -84,7 +87,7 @@ class SquadService {
     final batch = _db.batch();
     batch.set(ref.collection('members').doc(ownerUid), {
       'joinedAt': FieldValue.serverTimestamp(),
-      ...const SquadMember(uid: '').toMap(),
+      ...SquadMember(uid: '', displayName: displayName, photoURL: photoURL).toMap(),
     });
     batch.set(_squadCodes.doc(code), {
       'squadId': ref.id,
@@ -99,7 +102,12 @@ class SquadService {
   /// Resolves [code] via `squadCodes`, then adds [uid] to the squad. Avoids
   /// reading the (member-only) squad doc by using arrayUnion; security rules
   /// enforce the ≤10 cap, code expiry, and self-only addition.
-  Future<Squad> joinSquadByCode({required String code, required String uid}) async {
+  Future<Squad> joinSquadByCode({
+    required String code,
+    required String uid,
+    String displayName = 'Athlete',
+    String? photoURL,
+  }) async {
     final trimmed = code.trim();
     if (!InviteCode.isValidFormat(trimmed)) {
       throw const SquadException('Enter a valid 6-digit code.');
@@ -119,7 +127,7 @@ class SquadService {
       batch.update(squadRef, {'memberUids': FieldValue.arrayUnion([uid])});
       batch.set(squadRef.collection('members').doc(uid), {
         'joinedAt': FieldValue.serverTimestamp(),
-        ...const SquadMember(uid: '').toMap(),
+        ...SquadMember(uid: '', displayName: displayName, photoURL: photoURL).toMap(),
       });
       await batch.commit();
     } on FirebaseException catch (e) {
@@ -178,5 +186,69 @@ class SquadService {
   Future<Squad?> getSquad(String squadId) async {
     final snap = await _squads.doc(squadId).get();
     return snap.exists ? Squad.fromMap(snap.id, snap.data()!) : null;
+  }
+
+  // ── members: goal + sharing (self) ──────────────────────────────────────────
+
+  DocumentReference<Map<String, dynamic>> _memberRef(String squadId, String uid) =>
+      _squads.doc(squadId).collection('members').doc(uid);
+
+  Stream<SquadMember?> watchMember(String squadId, String uid) => _memberRef(squadId, uid)
+      .snapshots()
+      .map((d) => d.exists ? SquadMember.fromMap(d.id, d.data()!) : null);
+
+  Stream<List<SquadMember>> watchMembers(String squadId) =>
+      _squads.doc(squadId).collection('members').snapshots().map(
+          (qs) => qs.docs.map((d) => SquadMember.fromMap(d.id, d.data())).toList());
+
+  Future<void> updateGoal(String squadId, String uid, SquadGoal goal) =>
+      _memberRef(squadId, uid).set({'goal': goal.toMap()}, SetOptions(merge: true));
+
+  Future<void> updateSharingLevel(String squadId, String uid, SharingLevel level) =>
+      _memberRef(squadId, uid).set({'sharingLevel': level.name}, SetOptions(merge: true));
+
+  // ── owner controls ──────────────────────────────────────────────────────────
+
+  Future<void> renameSquad(String squadId, String name) =>
+      _squads.doc(squadId).update({'name': name.trim()});
+
+  Future<void> transferOwnership(String squadId, String newOwnerUid) =>
+      _squads.doc(squadId).update({'ownerUid': newOwnerUid});
+
+  /// Owner removes another member: drop them from memberUids and delete their
+  /// member doc.
+  Future<void> kickMember(String squadId, String memberUid) async {
+    final batch = _db.batch();
+    batch.update(_squads.doc(squadId), {'memberUids': FieldValue.arrayRemove([memberUid])});
+    batch.delete(_memberRef(squadId, memberUid));
+    await batch.commit();
+  }
+
+  /// Self-leave: remove yourself from memberUids and delete your member doc.
+  /// Owners can't leave — they transfer ownership or delete the squad.
+  Future<void> leaveSquad(String squadId, String uid) async {
+    final batch = _db.batch();
+    batch.update(_squads.doc(squadId), {'memberUids': FieldValue.arrayRemove([uid])});
+    batch.delete(_memberRef(squadId, uid));
+    await batch.commit();
+  }
+
+  /// Owner deletes the whole squad: member docs + invite-code lookup + the
+  /// squad doc. Day/reaction subcollections (if any) are left to the 30-day
+  /// prune; they become unreadable once the squad doc is gone.
+  Future<void> deleteSquad(String squadId) async {
+    final ref = _squads.doc(squadId);
+    final snap = await ref.get();
+    if (!snap.exists) return;
+    final code = snap.data()?['inviteCode'] as String?;
+    final members = await ref.collection('members').get();
+
+    final batch = _db.batch();
+    for (final m in members.docs) {
+      batch.delete(m.reference);
+    }
+    if (code != null && code.isNotEmpty) batch.delete(_squadCodes.doc(code));
+    batch.delete(ref);
+    await batch.commit();
   }
 }

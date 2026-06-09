@@ -13,6 +13,8 @@ class SquadProvider extends ChangeNotifier {
   List<Squad> _squads = [];
   bool _loading = false;
   String? _error;
+  String _displayName = 'Athlete';
+  String? _photoURL;
 
   SquadProvider({SquadService? service}) : _service = service ?? SquadService();
 
@@ -21,7 +23,9 @@ class SquadProvider extends ChangeNotifier {
   String? get error => _error;
   SquadService get service => _service;
 
-  void bind(String? uid) {
+  void bind(String? uid, {String displayName = 'Athlete', String? photoURL}) {
+    _displayName = displayName;
+    _photoURL = photoURL;
     if (uid == _uid) return;
     _uid = uid;
     _sub?.cancel();
@@ -50,12 +54,14 @@ class SquadProvider extends ChangeNotifier {
 
   Future<Squad> createSquad(String name) {
     if (_uid == null) throw const SquadException('Not signed in.');
-    return _service.createSquad(name: name, ownerUid: _uid!);
+    return _service.createSquad(
+        name: name, ownerUid: _uid!, displayName: _displayName, photoURL: _photoURL);
   }
 
   Future<Squad> joinSquad(String code) {
     if (_uid == null) throw const SquadException('Not signed in.');
-    return _service.joinSquadByCode(code: code, uid: _uid!);
+    return _service.joinSquadByCode(
+        code: code, uid: _uid!, displayName: _displayName, photoURL: _photoURL);
   }
 
   @override

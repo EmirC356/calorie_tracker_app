@@ -68,6 +68,7 @@ service cloud.firestore {
         && (
           resource.data.ownerUid == uid()
           || (
+            // JOIN: a non-member adds only themselves, code not expired.
             !(uid() in resource.data.memberUids)
             && uid() in request.resource.data.memberUids
             && request.resource.data.memberUids.size() == resource.data.memberUids.size() + 1
@@ -77,6 +78,17 @@ service cloud.firestore {
             && request.resource.data.inviteCode == resource.data.inviteCode
             && request.resource.data.inviteCodeExpiresAt == resource.data.inviteCodeExpiresAt
             && request.time < resource.data.inviteCodeExpiresAt
+          )
+          || (
+            // LEAVE: a non-owner member removes only themselves.
+            resource.data.ownerUid != uid()
+            && uid() in resource.data.memberUids
+            && !(uid() in request.resource.data.memberUids)
+            && request.resource.data.memberUids.size() == resource.data.memberUids.size() - 1
+            && resource.data.memberUids.hasAll(request.resource.data.memberUids)
+            && request.resource.data.name == resource.data.name
+            && request.resource.data.ownerUid == resource.data.ownerUid
+            && request.resource.data.inviteCode == resource.data.inviteCode
           )
         );
 

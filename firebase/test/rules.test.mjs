@@ -10,7 +10,7 @@ import {
   assertSucceeds,
 } from '@firebase/rules-unit-testing';
 import {
-  doc, getDoc, setDoc, updateDoc, arrayUnion, setLogLevel,
+  doc, getDoc, setDoc, updateDoc, arrayUnion, arrayRemove, setLogLevel,
   collection, query, where, getDocs,
 } from 'firebase/firestore';
 
@@ -61,7 +61,12 @@ await check("member CANNOT write another's entry", assertFails(setDoc(doc(member
 // Member doc: sharingLevel enum enforced.
 await check('valid sharingLevel accepted', assertSucceeds(setDoc(doc(member, 'squads/s1/members/m1'), { sharingLevel: 'totals', goal: {} })));
 await check('invalid sharingLevel rejected', assertFails(setDoc(doc(member, 'squads/s1/members/m1'), { sharingLevel: 'everything', goal: {} })));
+await check('member can update OWN goal (merge)', assertSucceeds(setDoc(doc(member, 'squads/s1/members/m1'), { goal: { calorieMode: 'cap', calorieTarget: 2000 } }, { merge: true })));
+await check("member CANNOT edit another's member doc", assertFails(setDoc(doc(member, 'squads/s1/members/owner'), { sharingLevel: 'full', goal: {} })));
+
+// Leave: a non-owner removes only themselves ('out' joined earlier).
+await check('non-owner can LEAVE (remove self)', assertSucceeds(updateDoc(doc(outsider, 'squads/s1'), { memberUids: arrayRemove('out') })));
 
 await testEnv.cleanup();
 console.log(`\nALL ${n} RULES TESTS PASSED`);
-assert(n === 11);
+assert(n === 14);

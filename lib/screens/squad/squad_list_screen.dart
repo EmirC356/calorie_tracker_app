@@ -20,10 +20,17 @@ class _SquadListScreenState extends State<SquadListScreen> {
   @override
   void initState() {
     super.initState();
-    // Bind the squads stream to the current user.
-    final uid = context.read<AuthProvider>().firebaseUser?.uid;
+    // Bind the squads stream to the current user (with name/photo for the
+    // denormalized member docs).
+    final auth = context.read<AuthProvider>();
+    final uid = auth.firebaseUser?.uid;
+    final user = auth.appUser;
     final squads = context.read<SquadProvider>();
-    WidgetsBinding.instance.addPostFrameCallback((_) => squads.bind(uid));
+    WidgetsBinding.instance.addPostFrameCallback((_) => squads.bind(
+          uid,
+          displayName: user?.displayName ?? 'Athlete',
+          photoURL: user?.photoURL,
+        ));
   }
 
   @override
