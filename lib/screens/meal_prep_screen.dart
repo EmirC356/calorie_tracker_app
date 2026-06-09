@@ -104,8 +104,7 @@ class _MealPrepScreenState extends State<MealPrepScreen> {
     }
   }
 
-  bool get _isEmpty =>
-      _proteins.isEmpty && _carbs.isEmpty && _veggies.isEmpty;
+  bool get _isEmpty => _proteins.isEmpty && _carbs.isEmpty && _veggies.isEmpty;
 
   void _savePrep() {
     if (_nameCtrl.text.trim().isEmpty) {
@@ -123,15 +122,13 @@ class _MealPrepScreenState extends State<MealPrepScreen> {
 
     final total = _totalNutrients;
     final perMeal = _perMeal(total);
-    final items = [
-      ..._proteins,
-      ..._carbs,
-      ..._veggies,
-    ].map((r) => MealPrepItem(
-          foodName: r.food.name,
-          category: r.category,
-          grams: r.grams,
-        )).toList();
+    final items = [..._proteins, ..._carbs, ..._veggies]
+        .map((r) => MealPrepItem(
+              foodName: r.food.name,
+              category: r.category,
+              grams: r.grams,
+            ))
+        .toList();
 
     final prep = MealPrep(
       name: _nameCtrl.text.trim(),
@@ -148,7 +145,6 @@ class _MealPrepScreenState extends State<MealPrepScreen> {
 
     context.read<MealPrepProvider>().addPrep(prep);
 
-    // Reset form
     setState(() {
       _nameCtrl.clear();
       _proteins.clear();
@@ -171,86 +167,65 @@ class _MealPrepScreenState extends State<MealPrepScreen> {
     final perMeal = _perMeal(total);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Meal Prep'),
-        backgroundColor: Colors.teal,
-      ),
+      appBar: AppBar(title: const Text('MEAL PREP')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Prep name
             TextField(
               controller: _nameCtrl,
-              decoration: InputDecoration(
-                labelText: 'Prep Name (e.g. Chicken Rice Bowl)',
-                border:
-                    OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              style: const TextStyle(color: kText),
+              decoration: const InputDecoration(
+                labelText: 'Prep name (e.g. Chicken Rice Bowl)',
               ),
             ),
             const SizedBox(height: 16),
-
-            // Protein
             _SectionBlock(
-              label: 'Protein',
+              label: 'PROTEIN',
               icon: Icons.egg_alt,
-              color: Colors.red.shade700,
+              color: kNeonRed,
               rows: _proteins,
               foods: FoodDatabase.proteins,
               onAdd: () => _addFoodRow('protein'),
               onChanged: () => setState(() {}),
             ),
             const SizedBox(height: 12),
-
-            // Carbs
             _SectionBlock(
-              label: 'Carbs',
+              label: 'CARBS',
               icon: Icons.grain,
-              color: Colors.amber.shade700,
+              color: kNeonYellow,
               rows: _carbs,
               foods: FoodDatabase.carbs,
               onAdd: () => _addFoodRow('carb'),
               onChanged: () => setState(() {}),
             ),
             const SizedBox(height: 12),
-
-            // Veggies
             _SectionBlock(
-              label: 'Veggies',
+              label: 'VEGGIES',
               icon: Icons.eco,
-              color: Colors.green.shade700,
+              color: kNeonGreen,
               rows: _veggies,
               foods: FoodDatabase.veggies,
               onAdd: () => _addFoodRow('veggie'),
               onChanged: () => setState(() {}),
             ),
             const SizedBox(height: 12),
-
             _buildOilSection(),
             const SizedBox(height: 12),
             _buildAlcoholSection(),
             const SizedBox(height: 16),
-
-            // Totals preview
             if (!_isEmpty) ...[
               Container(
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.teal.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.teal.shade200),
-                ),
+                decoration: neonBox(kRed),
                 child: Column(children: [
-                  Text('Per meal (÷$_mealCount)',
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.teal.shade800)),
+                  Text('PER MEAL (÷$_mealCount)', style: neonLabel(kRed, size: 13)),
                   const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _Chip('Cal', '${perMeal.calories.toStringAsFixed(0)}kcal'),
+                      _Chip('CAL', '${perMeal.calories.toStringAsFixed(0)}kcal'),
                       _Chip('P', '${perMeal.protein.toStringAsFixed(1)}g'),
                       _Chip('C', '${perMeal.carbohydrates.toStringAsFixed(1)}g'),
                       _Chip('F', '${perMeal.fat.toStringAsFixed(1)}g'),
@@ -260,83 +235,72 @@ class _MealPrepScreenState extends State<MealPrepScreen> {
               ),
               const SizedBox(height: 12),
             ],
-
-            // Meal count stepper
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.grey.shade100,
+                color: kCard,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade300),
+                border: Border.all(color: kBorderDim),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Meal Count',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const Text('Meal count',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: kText)),
                   Row(children: [
                     IconButton(
                       onPressed: _mealCount > 1
                           ? () => setState(() => _mealCount--)
                           : null,
-                      icon: const Icon(Icons.remove_circle_outline),
+                      icon: const Icon(Icons.remove_circle_outline, color: kRed),
                     ),
                     Text('$_mealCount',
                         style: const TextStyle(
-                            fontSize: 22, fontWeight: FontWeight.bold)),
+                            fontSize: 22, fontWeight: FontWeight.bold, color: kText)),
                     IconButton(
                       onPressed: () => setState(() => _mealCount++),
-                      icon: const Icon(Icons.add_circle_outline),
+                      icon: const Icon(Icons.add_circle_outline, color: kRed),
                     ),
                   ]),
                 ],
               ),
             ),
             const SizedBox(height: 16),
-
             ElevatedButton(
               onPressed: _savePrep,
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                backgroundColor: Colors.teal,
               ),
-              child: const Text('Save Meal Prep',
-                  style: TextStyle(fontSize: 16, color: Colors.white)),
+              child: const Text('SAVE MEAL PREP',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
             ),
-
             const SizedBox(height: 28),
             const Divider(),
             const SizedBox(height: 12),
-
-            // Saved preps
-            const Text('Saved Meal Preps',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text('SAVED MEAL PREPS', style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 12),
-
             Consumer<MealPrepProvider>(
               builder: (_, provider, __) {
                 if (provider.preps.isEmpty) {
-                  return const Center(
+                  return Center(
                     child: Padding(
-                      padding: EdgeInsets.all(24),
+                      padding: const EdgeInsets.all(24),
                       child: Text('No meal preps yet',
-                          style: TextStyle(color: Colors.grey)),
+                          style: Theme.of(context).textTheme.bodySmall),
                     ),
                   );
                 }
                 return GridView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
                     childAspectRatio: 1.1,
                   ),
                   itemCount: provider.preps.length,
-                  itemBuilder: (_, i) =>
-                      _PrepCard(prep: provider.preps[i]),
+                  itemBuilder: (_, i) => _PrepCard(prep: provider.preps[i]),
                 );
               },
             ),
@@ -349,18 +313,12 @@ class _MealPrepScreenState extends State<MealPrepScreen> {
   Widget _buildOilSection() {
     return Container(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.orange.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.orange.shade200),
-      ),
+      decoration: neonBox(kOrange),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Icon(Icons.opacity, color: Colors.orange.shade700, size: 20),
+          const Icon(Icons.opacity, color: kOrange, size: 20),
           const SizedBox(width: 8),
-          Text('Olive Oil Spray',
-              style: TextStyle(
-                  fontWeight: FontWeight.bold, color: Colors.orange.shade700)),
+          Text('OLIVE OIL SPRAY', style: neonLabel(kOrange)),
         ]),
         const SizedBox(height: 12),
         Row(
@@ -370,17 +328,15 @@ class _MealPrepScreenState extends State<MealPrepScreen> {
             return GestureDetector(
               onTap: () => setState(() => _oilSprays = sel ? null : s),
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: sel ? Colors.orange.shade600 : Colors.orange.shade100,
+                  color: sel ? kOrange : kSurface,
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.orange.shade400),
+                  border: Border.all(color: kOrange),
                 ),
                 child: Text('$s sprays',
                     style: TextStyle(
-                        color: sel ? Colors.white : Colors.orange.shade800,
-                        fontWeight: FontWeight.w600)),
+                        color: sel ? kBg : kOrange, fontWeight: FontWeight.w600)),
               ),
             );
           }).toList(),
@@ -392,31 +348,25 @@ class _MealPrepScreenState extends State<MealPrepScreen> {
   Widget _buildAlcoholSection() {
     return Container(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.purple.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.purple.shade200),
-      ),
+      decoration: neonBox(kPurple),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Icon(Icons.local_bar, color: Colors.purple.shade700, size: 20),
+          const Icon(Icons.local_bar, color: kPurple, size: 20),
           const SizedBox(width: 8),
-          Text('Alcohol',
-              style: TextStyle(
-                  fontWeight: FontWeight.bold, color: Colors.purple.shade700)),
+          Text('ALCOHOL', style: neonLabel(kPurple)),
         ]),
         const SizedBox(height: 12),
         Row(children: [
           Expanded(
             child: DropdownButtonFormField<String>(
-              value: _alcoholType,
+              initialValue: _alcoholType,
               isExpanded: true,
-              hint: const Text('Select drink'),
-              decoration: InputDecoration(
-                border:
-                    OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              dropdownColor: kCard,
+              style: const TextStyle(color: kText, fontSize: 13),
+              hint: const Text('Select drink', style: TextStyle(color: kTextDim, fontSize: 13)),
+              decoration: const InputDecoration(
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
               items: FoodDatabase.alcoholOptions
                   .map((a) => DropdownMenuItem(
@@ -436,7 +386,7 @@ class _MealPrepScreenState extends State<MealPrepScreen> {
             IconButton(
               onPressed:
                   _alcoholQty > 0 ? () => setState(() => _alcoholQty--) : null,
-              icon: const Icon(Icons.remove_circle_outline, size: 22),
+              icon: const Icon(Icons.remove_circle_outline, size: 22, color: kPurple),
               constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
               padding: EdgeInsets.zero,
             ),
@@ -444,11 +394,11 @@ class _MealPrepScreenState extends State<MealPrepScreen> {
               width: 28,
               child: Text('$_alcoholQty',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kText)),
             ),
             IconButton(
               onPressed: () => setState(() => _alcoholQty++),
-              icon: const Icon(Icons.add_circle_outline, size: 22),
+              icon: const Icon(Icons.add_circle_outline, size: 22, color: kPurple),
               constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
               padding: EdgeInsets.zero,
             ),
@@ -468,20 +418,15 @@ class _PrepCard extends StatelessWidget {
     final remaining = prep.remainingCount;
     final total = prep.totalMealCount;
     final isEmpty = remaining == 0;
+    final accent = isEmpty ? kTextDim : kRed;
 
     return Dismissible(
       key: ValueKey(prep.id),
       direction: DismissDirection.vertical,
-      onDismissed: (_) =>
-          context.read<MealPrepProvider>().deletePrep(prep.id!),
+      onDismissed: (_) => context.read<MealPrepProvider>().deletePrep(prep.id!),
       child: Container(
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isEmpty ? Colors.grey.shade200 : Colors.teal.shade50,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-              color: isEmpty ? Colors.grey.shade400 : Colors.teal.shade300),
-        ),
+        decoration: neonBox(accent),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -491,9 +436,8 @@ class _PrepCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: isEmpty ? Colors.grey : Colors.teal.shade800)),
+                    color: isEmpty ? kTextDim : kText)),
             const SizedBox(height: 8),
-            // Portion dots
             Wrap(
               alignment: WrapAlignment.center,
               spacing: 4,
@@ -505,22 +449,17 @@ class _PrepCard extends StatelessWidget {
                   height: 16,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: filled ? Colors.teal : Colors.grey.shade300,
-                    border: Border.all(
-                        color: filled
-                            ? Colors.teal.shade700
-                            : Colors.grey.shade400),
+                    color: filled ? kRed : kSurface,
+                    border: Border.all(color: filled ? kRed : kBorderDim),
                   ),
                 );
               }),
             ),
             const SizedBox(height: 6),
             Text('$remaining/$total left',
-                style: TextStyle(
-                    fontSize: 12,
-                    color: isEmpty ? Colors.grey : Colors.teal.shade700)),
+                style: TextStyle(fontSize: 12, color: accent)),
             Text('${prep.perMealNutrients.calories.toStringAsFixed(0)} kcal',
-                style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                style: const TextStyle(fontSize: 11, color: kTextDim)),
           ],
         ),
       ),
@@ -528,7 +467,6 @@ class _PrepCard extends StatelessWidget {
   }
 }
 
-// Shared section block widget (same as in log_meal_screen)
 class _SectionBlock extends StatelessWidget {
   final String label;
   final IconData icon;
@@ -552,19 +490,12 @@ class _SectionBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color:
-            Color.fromRGBO(color.red, color.green, color.blue, 0.05),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-            color: Color.fromRGBO(color.red, color.green, color.blue, 0.3)),
-      ),
+      decoration: neonBox(color),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Icon(icon, color: color, size: 20),
           const SizedBox(width: 8),
-          Text(label,
-              style: TextStyle(fontWeight: FontWeight.bold, color: color)),
+          Text(label, style: neonLabel(color)),
         ]),
         const SizedBox(height: 8),
         ...rows.asMap().entries.map((e) {
@@ -573,6 +504,7 @@ class _SectionBlock extends StatelessWidget {
           return _FoodRowWidget(
             row: row,
             foods: foods,
+            accent: color,
             onRemove: () {
               rows.removeAt(idx);
               onChanged();
@@ -582,8 +514,8 @@ class _SectionBlock extends StatelessWidget {
         }),
         TextButton.icon(
           onPressed: onAdd,
-          icon: const Icon(Icons.add, size: 18),
-          label: Text('Add $label'),
+          icon: Icon(Icons.add, size: 18, color: color),
+          label: Text('Add $label', style: TextStyle(color: color)),
         ),
       ]),
     );
@@ -593,12 +525,14 @@ class _SectionBlock extends StatelessWidget {
 class _FoodRowWidget extends StatefulWidget {
   final _FoodRow row;
   final List<FoodItem> foods;
+  final Color accent;
   final VoidCallback onRemove;
   final VoidCallback onChanged;
 
   const _FoodRowWidget({
     required this.row,
     required this.foods,
+    required this.accent,
     required this.onRemove,
     required this.onChanged,
   });
@@ -631,13 +565,13 @@ class _FoodRowWidgetState extends State<_FoodRowWidget> {
         Expanded(
           flex: 3,
           child: DropdownButtonFormField<FoodItem>(
-            value: widget.row.food,
+            initialValue: widget.row.food,
             isExpanded: true,
-            decoration: InputDecoration(
-              border:
-                  OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            dropdownColor: kCard,
+            style: const TextStyle(color: kText, fontSize: 13),
+            decoration: const InputDecoration(
+              isDense: true,
+              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             ),
             items: widget.foods
                 .map((f) => DropdownMenuItem(
@@ -660,12 +594,11 @@ class _FoodRowWidgetState extends State<_FoodRowWidget> {
           child: TextField(
             controller: _gramCtrl,
             keyboardType: TextInputType.number,
-            decoration: InputDecoration(
+            style: const TextStyle(color: kText, fontSize: 13),
+            decoration: const InputDecoration(
               suffixText: 'g',
-              border:
-                  OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              isDense: true,
+              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             ),
             onChanged: (v) {
               widget.row.grams = double.tryParse(v) ?? widget.row.grams;
@@ -675,7 +608,7 @@ class _FoodRowWidgetState extends State<_FoodRowWidget> {
         ),
         IconButton(
           onPressed: widget.onRemove,
-          icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+          icon: const Icon(Icons.delete_outline, color: kNeonRed, size: 20),
           padding: EdgeInsets.zero,
         ),
       ]),
@@ -691,10 +624,10 @@ class _Chip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(children: [
-      Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+      Text(label, style: const TextStyle(fontSize: 11, color: kTextDim)),
       Text(value,
           style: const TextStyle(
-              fontWeight: FontWeight.bold, fontSize: 13, color: Colors.teal)),
+              fontWeight: FontWeight.bold, fontSize: 13, color: kRed)),
     ]);
   }
 }

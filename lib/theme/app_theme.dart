@@ -1,67 +1,81 @@
 import 'package:flutter/material.dart';
 
-// ── Cyberpunk palette ──────────────────��─────────────────────────────────────
-const kBg = Color(0xFF0A0A14);
-const kSurface = Color(0xFF141428);
-const kCard = Color(0xFF1E1E38);
-const kCyan = Color(0xFF00E5FF);
-const kPink = Color(0xFFFF1B8D);
-const kNeonGreen = Color(0xFF00FF88);
-const kNeonYellow = Color(0xFFFFE000);
-const kPurple = Color(0xFFBF40FF);
-const kOrange = Color(0xFFFF6500);
-const kNeonRed = Color(0xFFFF2355);
-const kText = Color(0xFFE0E8FF);
-const kTextDim = Color(0xFF5A6080);
-const kBorderDim = Color(0xFF2A2A4A);
+// ── "Furnace" palette ────────────────────────────────────────────────────────
+// Really-dark neutral gray base, a single confident scarlet red as the primary
+// accent (matches the flame logo), and white + grays for hierarchy.
+const kBg = Color(0xFF0C0C0D); // app background — near-black neutral gray
+const kSurface = Color(0xFF161617); // app bars, inputs
+const kCard = Color(0xFF1C1C1E); // cards, sheets
+const kBorderDim = Color(0xFF2A2A2D);
 
-// ── Decoration helpers ─────────────────────────────────���─────────────────────
+const kText = Color(0xFFF4F4F5); // near-white body text
+const kTextDim = Color(0xFF8A8A90); // muted labels
+const kWhite = Color(0xFFFFFFFF); // sparing high-emphasis accent
+
+// Primary accent + a deeper shade for shadows/secondary emphasis.
+const kRed = Color(0xFFE5342E);
+const kRedDeep = Color(0xFFB3271F);
+
+// ── Legacy aliases ───────────────────────────────────────────────────────────
+// The screens were built against the old cyberpunk constant names. They are
+// remapped here onto the red / white / gray system so the whole app restyles
+// from this one file. New code should prefer kRed / kWhite / the grays.
+const kCyan = kRed; // former primary (dashboard, meals, primary buttons)
+const kNeonRed = Color(0xFFFF453A); // delete / error / protein — brighter red
+const kPink = Color(0xFFFF6B66); // fitness / exercise — light red
+const kNeonGreen = Color(0xFFEDEDEF); // success / weight / positive — white
+const kNeonYellow = Color(0xFFE6E6EA); // carbs — near-white
+const kOrange = Color(0xFF8E8E94); // fat / oil / burned — mid gray
+const kPurple = Color(0xFF6E6E76); // alcohol / advisor — gray
+
+// ── Decoration helpers ───────────────────────────────────────────────────────
 BoxDecoration neonBox(Color accent, {double radius = 12, Color bg = kCard}) =>
     BoxDecoration(
       color: bg,
       borderRadius: BorderRadius.circular(radius),
-      border: Border.all(color: accent.withValues(alpha: 0.7), width: 1),
+      border: Border.all(color: accent.withValues(alpha: 0.45), width: 1),
       boxShadow: [
-        BoxShadow(color: accent.withValues(alpha: 0.18), blurRadius: 10, spreadRadius: 0),
+        BoxShadow(color: accent.withValues(alpha: 0.10), blurRadius: 9, spreadRadius: 0),
       ],
     );
 
 List<Shadow> textGlow(Color c) => [
-      Shadow(color: c.withValues(alpha: 0.9), blurRadius: 8),
-      Shadow(color: c.withValues(alpha: 0.4), blurRadius: 16),
+      Shadow(color: c.withValues(alpha: 0.45), blurRadius: 6),
+      Shadow(color: c.withValues(alpha: 0.18), blurRadius: 12),
     ];
 
-TextStyle neonLabel(Color c, {double size = 13, FontWeight w = FontWeight.w600}) =>
-    TextStyle(color: c, fontSize: size, fontWeight: w, shadows: textGlow(c));
+TextStyle neonLabel(Color c, {double size = 13, FontWeight w = FontWeight.w700}) =>
+    TextStyle(color: c, fontSize: size, fontWeight: w, letterSpacing: 0.6, shadows: textGlow(c));
 
-// ── Theme ───────────────��───────────────────────────────────────────────────���
-ThemeData buildCyberpunkTheme() {
+// ── Theme ────────────────────────────────────────────────────────────────────
+ThemeData buildAppTheme() {
   return ThemeData(
     brightness: Brightness.dark,
     scaffoldBackgroundColor: kBg,
-    colorScheme: ColorScheme.dark(
-      primary: kCyan,
-      secondary: kPink,
+    colorScheme: const ColorScheme.dark(
+      primary: kRed,
+      onPrimary: kBg,
+      secondary: kWhite,
       surface: kSurface,
       error: kNeonRed,
     ),
-    appBarTheme: AppBarTheme(
+    appBarTheme: const AppBarTheme(
       backgroundColor: kSurface,
-      foregroundColor: kCyan,
+      foregroundColor: kRed,
       elevation: 0,
       centerTitle: false,
-      titleTextStyle: const TextStyle(
-        color: kCyan,
+      titleTextStyle: TextStyle(
+        color: kRed,
         fontSize: 18,
         fontWeight: FontWeight.bold,
-        letterSpacing: 1.2,
-        shadows: [Shadow(color: kCyan, blurRadius: 8)],
+        letterSpacing: 1.4,
+        shadows: [Shadow(color: kRed, blurRadius: 6)],
       ),
-      iconTheme: const IconThemeData(color: kCyan),
+      iconTheme: IconThemeData(color: kRed),
     ),
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
       backgroundColor: kSurface,
-      selectedItemColor: kCyan,
+      selectedItemColor: kRed,
       unselectedItemColor: kTextDim,
       type: BottomNavigationBarType.fixed,
       elevation: 0,
@@ -76,8 +90,8 @@ ThemeData buildCyberpunkTheme() {
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        backgroundColor: kCyan,
-        foregroundColor: kBg,
+        backgroundColor: kRed,
+        foregroundColor: kWhite,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
         textStyle:
             const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.8),
@@ -85,13 +99,13 @@ ThemeData buildCyberpunkTheme() {
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        foregroundColor: kCyan,
-        side: const BorderSide(color: kCyan),
+        foregroundColor: kRed,
+        side: const BorderSide(color: kRed),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
       ),
     ),
     textButtonTheme: TextButtonThemeData(
-      style: TextButton.styleFrom(foregroundColor: kCyan),
+      style: TextButton.styleFrom(foregroundColor: kRed),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
@@ -104,7 +118,7 @@ ThemeData buildCyberpunkTheme() {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: kCyan, width: 1.5),
+        borderSide: const BorderSide(color: kRed, width: 1.5),
       ),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
     ),
@@ -114,27 +128,27 @@ ThemeData buildCyberpunkTheme() {
       bodySmall: TextStyle(color: kTextDim),
       titleMedium: TextStyle(color: kText, fontWeight: FontWeight.bold),
       titleLarge: TextStyle(color: kText, fontWeight: FontWeight.bold),
-      headlineSmall: TextStyle(color: kCyan, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+      headlineSmall: TextStyle(color: kRed, fontWeight: FontWeight.bold, letterSpacing: 0.5),
     ),
     dividerTheme: const DividerThemeData(color: kBorderDim),
     checkboxTheme: CheckboxThemeData(
       fillColor: WidgetStateProperty.resolveWith(
-          (s) => s.contains(WidgetState.selected) ? kCyan : kSurface),
-      checkColor: WidgetStateProperty.all(kBg),
-      side: const BorderSide(color: kCyan),
+          (s) => s.contains(WidgetState.selected) ? kRed : kSurface),
+      checkColor: WidgetStateProperty.all(kWhite),
+      side: const BorderSide(color: kRed),
     ),
     snackBarTheme: SnackBarThemeData(
       backgroundColor: kCard,
       contentTextStyle: const TextStyle(color: kText),
       shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
-          side: const BorderSide(color: kCyan, width: 1)),
+          side: const BorderSide(color: kRed, width: 1)),
     ),
     dialogTheme: DialogThemeData(
       backgroundColor: kSurface,
       shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: const BorderSide(color: kCyan, width: 1)),
+          side: const BorderSide(color: kRed, width: 1)),
     ),
   );
 }

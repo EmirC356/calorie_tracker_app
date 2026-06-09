@@ -40,7 +40,7 @@ class MyApp extends StatelessWidget {
       ],
       child: MaterialApp(
         title: 'Calorie Tracker',
-        theme: buildCyberpunkTheme(),
+        theme: buildAppTheme(),
         home: const HomeScreen(),
         debugShowCheckedModeBanner: false,
       ),
