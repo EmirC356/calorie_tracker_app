@@ -30,8 +30,21 @@ await testEnv.withSecurityRulesDisabled(async (ctx) => {
     inviteCode: '123456', inviteCodeExpiresAt: new Date(Date.now() + week), createdAt: new Date(),
   });
   await setDoc(doc(db, 'squadCodes/123456'), { squadId: 's1', expiresAt: new Date(Date.now() + week) });
+
+  // Phase 6: a squad-visible goal occurrence for m1 (readerUids = s1 members),
+  // and a pending suggestion from owner -> m1.
+  await setDoc(doc(db, 'users/m1/goalsVisible/g1_2026-06-09'), {
+    ownerUid: 'm1', goalTitle: 'Read 30 min', category: 'Personal', colorArgb: 123,
+    priority: 'high', date: '2026-06-09', status: 'open', period: null,
+    metricSummary: null, squadIds: ['s1'], readerUids: ['owner', 'm1'],
+  });
+  await setDoc(doc(db, 'squads/s1/suggestions/sug1'), {
+    fromUid: 'owner', fromName: 'O', toUid: 'm1', payloadJson: '{}',
+    createdAt: new Date(), expiresAt: new Date(Date.now() + week), status: 'pending',
+  });
 });
 
+const owner = testEnv.authenticatedContext('owner').firestore();
 const member = testEnv.authenticatedContext('m1').firestore();
 const outsider = testEnv.authenticatedContext('out').firestore();
 const outsider2 = testEnv.authenticatedContext('out2').firestore();
@@ -74,6 +87,28 @@ await check('member CANNOT nudge themselves',
 // Leave: a non-owner removes only themselves ('out' joined earlier).
 await check('non-owner can LEAVE (remove self)', assertSucceeds(updateDoc(doc(outsider, 'squads/s1'), { memberUids: arrayRemove('out') })));
 
+// ── Phase 6: goalsVisible ─────────────────────────────────────────────────────
+const gv = 'users/m1/goalsVisible/g1_2026-06-09';
+await check('squadmate CAN read my visible goal (in readerUids)', assertSucceeds(getDoc(doc(owner, gv))));
+await check('owner of the doc CAN read it', assertSucceeds(getDoc(doc(member, gv))));
+await check('non-squadmate CANNOT read my visible goal', assertFails(getDoc(doc(outsider, gv))));
+await check('a squadmate CANNOT write my goalsVisible doc', assertFails(setDoc(doc(owner, gv), { ownerUid: 'm1', readerUids: ['owner'] })));
+
+// ── Phase 6: suggestions ──────────────────────────────────────────────────────
+const sugCol = 'squads/s1/suggestions';
+await check('member CANNOT create a suggestion with someone else as fromUid',
+  assertFails(setDoc(doc(member, `${sugCol}/forge`), { fromUid: 'owner', toUid: 'owner', payloadJson: '{}', status: 'pending' })));
+await check('member CAN suggest a goal to another member',
+  assertSucceeds(setDoc(doc(member, `${sugCol}/sug_m1`), { fromUid: 'm1', toUid: 'owner', payloadJson: '{}', status: 'pending' })));
+await check('CANNOT create a suggestion to a non-member',
+  assertFails(setDoc(doc(member, `${sugCol}/sug_x`), { fromUid: 'm1', toUid: 'stranger', payloadJson: '{}', status: 'pending' })));
+await check('sender CAN read a suggestion', assertSucceeds(getDoc(doc(owner, `${sugCol}/sug1`))));
+await check('recipient CAN read a suggestion', assertSucceeds(getDoc(doc(member, `${sugCol}/sug1`))));
+await check('outsider CANNOT read a suggestion', assertFails(getDoc(doc(outsider, `${sugCol}/sug1`))));
+await check('non-recipient CANNOT update a suggestion', assertFails(updateDoc(doc(owner, `${sugCol}/sug1`), { status: 'accepted' })));
+await check('recipient CAN accept a suggestion (pending -> accepted)',
+  assertSucceeds(updateDoc(doc(member, `${sugCol}/sug1`), { status: 'accepted' })));
+
 await testEnv.cleanup();
 console.log(`\nALL ${n} RULES TESTS PASSED`);
-assert(n === 16);
+assert(n === 28);

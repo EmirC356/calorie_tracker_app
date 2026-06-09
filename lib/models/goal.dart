@@ -25,6 +25,24 @@ enum TrackedMetric {
 /// Cap-style (`lessThanOrEqual`) vs floor-style (`greaterThanOrEqual`) targets.
 enum Comparator { lessThanOrEqual, greaterThanOrEqual }
 
+/// Short unit suffix for a tracked metric, e.g. "kcal", "g", "min".
+String trackedMetricUnit(TrackedMetric m) {
+  switch (m) {
+    case TrackedMetric.kcalTotal:
+      return 'kcal';
+    case TrackedMetric.proteinG:
+      return 'g';
+    case TrackedMetric.exerciseMinutes:
+      return 'min';
+    case TrackedMetric.exerciseSessionCount:
+      return 'sessions';
+    case TrackedMetric.weightDeltaKg:
+      return 'kg';
+    case TrackedMetric.waterMl:
+      return 'ml';
+  }
+}
+
 /// The window a tracked metric is summed/evaluated over.
 enum GoalPeriod { day, week }
 

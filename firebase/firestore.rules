@@ -18,6 +18,9 @@ service cloud.firestore {
     function isOwnerOf(squadId) {
       return isSignedIn() && uid() == squadData(squadId).ownerUid;
     }
+    function isMember(squadId, u) {
+      return u in squadData(squadId).memberUids;
+    }
 
     // ── users/{uid} ───────────────────────────────────────────────────────────
     // A signed-in user reads/writes ONLY their own profile. No deletes.
@@ -25,6 +28,21 @@ service cloud.firestore {
       allow read: if isSignedIn() && uid() == userId;
       allow create, update: if isSignedIn() && uid() == userId;
       allow delete: if false;
+
+      // ── users/{uid}/goalsVisible/{occId}: squad-visible goal occurrences ─────
+      // Owner writes; squadmates read. Read access is gated by the denormalized
+      // `readerUids` (the union of memberUids across the owner's squads) rather
+      // than a per-squad membership get() — that keeps the rule O(1) AND lets a
+      // squadmate run `where readerUids array-contains me` (request.auth.uid is
+      // inlined so the query analyzer matches the filter). Trade-off: readerUids
+      // is recomputed on every snapshot push; a removed squadmate keeps read
+      // access only until the next push refreshes the doc.
+      match /goalsVisible/{occId} {
+        allow read: if request.auth != null
+          && (request.auth.uid == userId
+              || request.auth.uid in resource.data.readerUids);
+        allow write: if isSignedIn() && uid() == userId;
+      }
     }
 
     // ── squadCodes/{code} ─────────────────────────────────────────────────────
@@ -122,6 +140,32 @@ service cloud.firestore {
           && request.resource.data.toUid != uid(); // no nudging yourself
         allow update: if false; // reactions are immutable
         allow delete: if isSignedIn() && resource.data.fromUid == uid();
+      }
+
+      // ── suggestions/{id}: squadmate -> me goal proposals ────────────────────
+      match /suggestions/{suggestionId} {
+        // A member proposes a goal to ANOTHER member of this squad.
+        allow create: if isMemberOf(squadId)
+          && request.resource.data.fromUid == uid()
+          && request.resource.data.toUid != uid()
+          && isMember(squadId, request.resource.data.toUid)
+          && request.resource.data.status == 'pending';
+        // Sender or recipient read. Inlined request.auth.uid so the
+        // collection-group inbox query (where toUid == me) is allowed.
+        allow read: if request.auth != null
+          && (request.auth.uid == resource.data.fromUid
+              || request.auth.uid == resource.data.toUid);
+        // Recipient-only: pending -> accepted|rejected|expired; everything else
+        // immutable.
+        allow update: if isSignedIn()
+          && uid() == resource.data.toUid
+          && resource.data.status == 'pending'
+          && request.resource.data.status in ['accepted', 'rejected', 'expired']
+          && request.resource.data.fromUid == resource.data.fromUid
+          && request.resource.data.toUid == resource.data.toUid
+          && request.resource.data.payloadJson == resource.data.payloadJson;
+        allow delete: if isSignedIn()
+          && (uid() == resource.data.fromUid || uid() == resource.data.toUid);
       }
     }
   }

@@ -7,6 +7,8 @@ import '../models/squad_member.dart';
 import '../models/squad_goal.dart';
 import '../models/squad_day_entry.dart';
 import '../models/squad_reaction.dart';
+import '../models/goal_visible.dart';
+import '../models/squad_goal_suggestion.dart';
 import 'invite_code.dart';
 
 /// A user-facing failure during a squad operation (shown in a SnackBar).
@@ -325,4 +327,87 @@ class SquadService {
     batch.delete(ref);
     await batch.commit();
   }
+
+  // ── goalsVisible: squad-visible goal occurrences (Phase 6) ───────────────────
+
+  CollectionReference<Map<String, dynamic>> _goalsVisibleCol(String uid) =>
+      _users.doc(uid).collection('goalsVisible');
+
+  Future<void> writeGoalVisible(String uid, GoalVisible g) =>
+      _goalsVisibleCol(uid).doc(g.id).set(g.toMap());
+
+  Future<void> deleteGoalVisible(String uid, String occId) =>
+      _goalsVisibleCol(uid).doc(occId).delete();
+
+  /// Doc ids currently present, so the snapshot pipeline can prune stale ones.
+  Future<Set<String>> getGoalVisibleIds(String uid) async {
+    final qs = await _goalsVisibleCol(uid).get();
+    return qs.docs.map((d) => d.id).toSet();
+  }
+
+  /// A squadmate's visible goals that [viewerUid] is allowed to read. The
+  /// `readerUids array-contains` filter matches the security rule.
+  Stream<List<GoalVisible>> streamSquadmateGoalsVisible(
+          String ownerUid, String viewerUid) =>
+      _goalsVisibleCol(ownerUid)
+          .where('readerUids', arrayContains: viewerUid)
+          .snapshots()
+          .map((qs) =>
+              qs.docs.map((d) => GoalVisible.fromMap(d.id, d.data())).toList());
+
+  // ── goal suggestions (Phase 6) ───────────────────────────────────────────────
+
+  CollectionReference<Map<String, dynamic>> _suggestionsCol(String squadId) =>
+      _squads.doc(squadId).collection('suggestions');
+
+  /// Proposes a goal to [toUid] in [squadId]. Expires after [ttl] (7 days).
+  /// Returns the new suggestion doc id.
+  Future<String> suggestGoal({
+    required String squadId,
+    required String fromUid,
+    required String fromName,
+    required String toUid,
+    required String payloadJson,
+    Duration ttl = const Duration(days: 7),
+    DateTime? now,
+  }) async {
+    final created = now ?? DateTime.now();
+    final ref = await _suggestionsCol(squadId).add({
+      'fromUid': fromUid,
+      'fromName': fromName,
+      'toUid': toUid,
+      'payloadJson': payloadJson,
+      'createdAt': FieldValue.serverTimestamp(),
+      'expiresAt': Timestamp.fromDate(created.add(ttl)),
+      'status': 'pending',
+    });
+    return ref.id;
+  }
+
+  /// Live pending suggestions addressed to [uid] across all squads (a
+  /// collection-group query; needs the composite index in firestore.indexes).
+  Stream<List<SquadGoalSuggestion>> streamPendingSuggestionsForMe(String uid,
+      {DateTime? now}) {
+    final cutoff = Timestamp.fromDate(now ?? DateTime.now());
+    return _db
+        .collectionGroup('suggestions')
+        .where('toUid', isEqualTo: uid)
+        .where('status', isEqualTo: 'pending')
+        .where('expiresAt', isGreaterThan: cutoff)
+        .snapshots()
+        .map((qs) => qs.docs.map((d) {
+              final squadId = d.reference.parent.parent?.id ?? '';
+              return SquadGoalSuggestion.fromDoc(d.id, squadId, d.data());
+            }).toList());
+  }
+
+  Future<void> setSuggestionStatus(
+          String squadId, String suggestionId, String status) =>
+      _suggestionsCol(squadId).doc(suggestionId).update({'status': status});
+
+  Future<void> acceptSuggestion(String squadId, String suggestionId) =>
+      setSuggestionStatus(squadId, suggestionId, 'accepted');
+
+  Future<void> rejectSuggestion(String squadId, String suggestionId) =>
+      setSuggestionStatus(squadId, suggestionId, 'rejected');
 }

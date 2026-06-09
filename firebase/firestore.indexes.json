@@ -1,5 +1,15 @@
 {
-  "//": "No composite indexes required. 'My squads' uses a single-field memberUids array-contains query and sorts by createdAt client-side, so the default single-field indexes suffice.",
-  "indexes": [],
+  "//": "'My squads' uses a single-field memberUids array-contains query and sorts by createdAt client-side. The suggestions inbox is a COLLECTION_GROUP query filtering toUid == me, status == pending, expiresAt > now, which needs the composite index below. goalsVisible's readerUids array-contains is covered by default single-field indexes.",
+  "indexes": [
+    {
+      "collectionGroup": "suggestions",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "toUid", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "expiresAt", "order": "ASCENDING" }
+      ]
+    }
+  ],
   "fieldOverrides": []
 }

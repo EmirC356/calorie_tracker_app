@@ -1,6 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/index.dart';
+import '../models/goal_evaluator.dart';
 import 'database_service.dart';
+import 'goal_service.dart';
+import 'repos/goal_repos.dart';
 import 'squad_service.dart';
 
 /// Aggregated local data for one day (from SQLite — never uploaded raw).
@@ -23,12 +26,18 @@ class DayStats {
 /// Aggregates the user's local day data and uploads a per-squad, sharing-level
 /// redacted snapshot. Only daily aggregates leave the device.
 class SnapshotService {
-  final DatabaseService _db;
-  final SquadService _squadService;
+  late final DatabaseService _db;
+  late final SquadService _squadService;
+  late final GoalService _goalService;
+  static const _engine = RecurrenceEngine();
+  static const _evaluator = GoalEvaluator();
 
-  SnapshotService({DatabaseService? db, SquadService? squadService})
-      : _db = db ?? DatabaseService(),
-        _squadService = squadService ?? SquadService();
+  SnapshotService({DatabaseService? db, SquadService? squadService, GoalService? goalService}) {
+    _db = db ?? DatabaseService();
+    _squadService = squadService ?? SquadService();
+    // Reuse the same database instance so goal reads hit the same store.
+    _goalService = goalService ?? GoalService(db: _db);
+  }
 
   /// Local-timezone date key (a meal logged at 1am Tuesday counts as Tuesday).
   static String dateKey(DateTime d) =>
@@ -101,6 +110,100 @@ class SnapshotService {
       );
       final entry = buildEntry(status: status, stats: stats, level: member.sharingLevel);
       await _squadService.writeDayEntry(squadId: squad.id, dateKey: key, uid: uid, data: entry);
+    }
+
+    // Goal visibility rides the same triggers; only run it for the "today"
+    // push and never let a failure block the squad entry writes above.
+    if (dateKey(day) == dateKey(theNow)) {
+      try {
+        await pushGoalVisibility(uid: uid, now: theNow);
+      } catch (_) {/* best-effort cloud mirror */}
+    }
+  }
+
+  /// Mirrors the user's **squad-visible** goal occurrences in
+  /// [today−7d, today+30d] to `users/{uid}/goalsVisible/*`, and prunes docs
+  /// that no longer correspond to a current occurrence (goal un-shared,
+  /// archived, deleted, or out of window). Each doc carries `readerUids` (the
+  /// union of memberUids across the user's squads) so squadmates can read it
+  /// via an array-contains query. Writes nothing — and clears any leftovers —
+  /// when the user is in no squads.
+  Future<void> pushGoalVisibility({required String uid, DateTime? now}) async {
+    final theNow = now ?? DateTime.now();
+    final today = dateOnly(theNow);
+    final from = today.subtract(const Duration(days: 7));
+    final to = today.add(const Duration(days: 30));
+
+    final squads = await _squadService.getMySquadsOnce(uid);
+    final existing = await _squadService.getGoalVisibleIds(uid);
+
+    if (squads.isEmpty) {
+      for (final id in existing) {
+        await _squadService.deleteGoalVisible(uid, id);
+      }
+      return;
+    }
+
+    final squadIds = squads.map((s) => s.id).toList();
+    final readerUids = <String>{for (final s in squads) ...s.memberUids}.toList();
+
+    final goals = (await _goalService.listGoals(onlyActive: true))
+        .where((g) => g.squadVisible && g.id != null)
+        .toList();
+
+    final mealRepo = DbMealRepo(_db);
+    final exerciseRepo = DbExerciseRepo(_db);
+    final weightRepo = DbWeightRepo(_db);
+
+    final desired = <String, GoalVisible>{};
+    for (final g in goals) {
+      for (final date in _engine.occurrencesInRange(g, from, to)) {
+        final occId = '${g.id}_${dateKey(date)}';
+        final row = await _goalService.getOccurrence(g.id!, date);
+        String statusName;
+        String? metricSummary;
+        if (g.isTracked) {
+          final r = await _evaluator.evaluate(
+            goal: g,
+            occurrenceDate: date,
+            meals: mealRepo,
+            exercises: exerciseRepo,
+            weights: weightRepo,
+            now: theNow,
+          );
+          // A user override (materialized row) wins over the live evaluation.
+          statusName = (row?.status ?? r.status).name;
+          if (r.metricValue != null && r.targetValue != null) {
+            metricSummary =
+                '${r.metricValue!.toStringAsFixed(0)}/${r.targetValue!.toStringAsFixed(0)} ${trackedMetricUnit(g.metric!)}';
+          }
+        } else {
+          statusName = (row?.status ?? OccurrenceStatus.open).name;
+        }
+        desired[occId] = GoalVisible(
+          id: occId,
+          ownerUid: uid,
+          goalTitle: g.title,
+          category: g.categoryLabel,
+          colorArgb: g.color.toARGB32(),
+          priority: g.priority.name,
+          date: dateKey(date),
+          status: statusName,
+          period: g.period?.name,
+          metricSummary: metricSummary,
+          squadIds: squadIds,
+          readerUids: readerUids,
+        );
+      }
+    }
+
+    for (final gv in desired.values) {
+      await _squadService.writeGoalVisible(uid, gv);
+    }
+    for (final id in existing) {
+      if (!desired.containsKey(id)) {
+        await _squadService.deleteGoalVisible(uid, id);
+      }
     }
   }
 }
