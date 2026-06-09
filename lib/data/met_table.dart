@@ -29,11 +29,24 @@ class MetTable {
     MetActivity('Tennis', 7.3),
   ];
 
-  /// kcal = MET × body weight (kg) × duration (hours).
+  /// kcal = MET × body weight (kg) × duration (hours), scaled by intensity.
   static double caloriesBurned({
     required double met,
     required double weightKg,
     required int minutes,
+    String intensity = 'medium',
   }) =>
-      met * weightKg * (minutes / 60.0);
+      met * weightKg * (minutes / 60.0) * intensityFactor(intensity);
+
+  /// Multiplier applied to the base MET estimate for the chosen intensity.
+  static double intensityFactor(String intensity) {
+    switch (intensity) {
+      case 'low':
+        return 0.85;
+      case 'high':
+        return 1.2;
+      default:
+        return 1.0; // medium
+    }
+  }
 }

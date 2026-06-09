@@ -6,6 +6,7 @@ import '../models/index.dart';
 import '../providers/exercise_provider.dart';
 import '../providers/profile_provider.dart';
 import '../providers/weight_provider.dart';
+import '../services/ai_service.dart';
 import '../theme/app_theme.dart';
 
 class ExerciseLoggingScreen extends StatefulWidget {
@@ -26,6 +27,7 @@ class _ExerciseLoggingScreenState extends State<ExerciseLoggingScreen> {
 
   MetActivity? _selectedActivity;
   bool _autoFilled = false;
+  bool _aiLoading = false;
 
   @override
   void initState() {
@@ -58,15 +60,52 @@ class _ExerciseLoggingScreenState extends State<ExerciseLoggingScreen> {
     return (70, 'default 70 kg — set your weight');
   }
 
+  /// MET-based recalc for a picked activity, scaled by intensity.
   void _recalcCalories() {
     final activity = _selectedActivity;
     final minutes = int.tryParse(_durationController.text);
     if (activity == null || minutes == null || minutes <= 0) return;
     final (weightKg, _) = _weightInfo;
     final kcal = MetTable.caloriesBurned(
-        met: activity.met, weightKg: weightKg, minutes: minutes);
+        met: activity.met, weightKg: weightKg, minutes: minutes, intensity: _intensity);
     _caloriesController.text = kcal.toStringAsFixed(0);
     setState(() => _autoFilled = true);
+  }
+
+  /// AI estimate for any free-text activity, factoring in intensity + weight.
+  Future<void> _estimateWithAi() async {
+    final name = _nameController.text.trim();
+    final minutes = int.tryParse(_durationController.text);
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter an exercise name to estimate')));
+      return;
+    }
+    if (minutes == null || minutes <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a duration in minutes')));
+      return;
+    }
+    if (!aiService.isInitialized) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Set your Gemini key in Settings first')));
+      return;
+    }
+    setState(() => _aiLoading = true);
+    try {
+      final (weightKg, _) = _weightInfo;
+      final kcal = await aiService.estimateCaloriesBurned(
+          activity: name, minutes: minutes, intensity: _intensity, weightKg: weightKg);
+      if (!mounted) return;
+      _caloriesController.text = kcal.toStringAsFixed(0);
+      setState(() => _autoFilled = true);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('AI error: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _aiLoading = false);
+    }
   }
 
   void _saveExercise() {
@@ -136,14 +175,6 @@ class _ExerciseLoggingScreenState extends State<ExerciseLoggingScreen> {
           _field(_durationController, 'Duration (minutes)', kPink,
               number: true, onChanged: (_) => _recalcCalories()),
           const SizedBox(height: 14),
-          _field(_caloriesController, 'Calories burned', kOrange,
-              number: true, onChanged: (_) => setState(() => _autoFilled = false),
-              suffix: _autoFilled
-                  ? const Padding(
-                      padding: EdgeInsets.only(right: 8),
-                      child: Text('AUTO', style: TextStyle(color: kPink, fontSize: 11, fontWeight: FontWeight.bold)))
-                  : null),
-          const SizedBox(height: 14),
           Text('INTENSITY', style: neonLabel(kPink, size: 12)),
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
@@ -155,8 +186,34 @@ class _ExerciseLoggingScreenState extends State<ExerciseLoggingScreen> {
             items: _intensities
                 .map((i) => DropdownMenuItem(value: i, child: Text(i.toUpperCase())))
                 .toList(),
-            onChanged: (v) => setState(() => _intensity = v ?? _intensity),
+            onChanged: (v) {
+              setState(() => _intensity = v ?? _intensity);
+              _recalcCalories(); // intensity scales the MET estimate
+            },
           ),
+          const SizedBox(height: 14),
+          _field(_caloriesController, 'Calories burned', kOrange,
+              number: true, onChanged: (_) => setState(() => _autoFilled = false),
+              suffix: _autoFilled
+                  ? const Padding(
+                      padding: EdgeInsets.only(right: 8),
+                      child: Text('AUTO', style: TextStyle(color: kPink, fontSize: 11, fontWeight: FontWeight.bold)))
+                  : null),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: _aiLoading ? null : _estimateWithAi,
+            style: OutlinedButton.styleFrom(
+                foregroundColor: kPink, side: const BorderSide(color: kPink),
+                padding: const EdgeInsets.symmetric(vertical: 12)),
+            icon: _aiLoading
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: kPink))
+                : const Icon(Icons.auto_awesome, size: 18),
+            label: Text(_aiLoading ? 'ESTIMATING...' : 'ESTIMATE WITH AI',
+                style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+          ),
+          const SizedBox(height: 6),
+          const Text('Works for any activity — uses the name, duration, intensity & your weight.',
+              style: TextStyle(color: kTextDim, fontSize: 11)),
           const SizedBox(height: 14),
           _field(_notesController, 'Notes (optional)', kPink, maxLines: 3),
           const SizedBox(height: 24),

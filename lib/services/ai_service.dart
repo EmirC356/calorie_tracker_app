@@ -84,6 +84,35 @@ class AIService {
     return NutrientInfo.fromJson(data);
   }
 
+  /// Estimates calories burned for any activity (free text), factoring in
+  /// duration, intensity, and body weight. Used when the activity isn't in the
+  /// built-in MET table.
+  Future<double> estimateCaloriesBurned({
+    required String activity,
+    required int minutes,
+    required String intensity,
+    required double weightKg,
+  }) async {
+    _requireInit();
+    final raw = await _generate(
+      systemPrompt:
+          'You are an exercise physiologist. Estimate calories burned using MET-based reasoning, adjusting for the stated intensity (low/medium/high). Return ONLY valid JSON — no markdown, no explanation.',
+      userPrompt:
+          'Calories burned for: activity "$activity", duration $minutes minutes, intensity "$intensity", body weight ${weightKg.toStringAsFixed(1)} kg.\nReturn exactly: {"calories":0}',
+      maxTokens: 200,
+      temperature: 0.1,
+      jsonMode: true,
+    );
+
+    final start = raw.indexOf('{');
+    final end = raw.lastIndexOf('}');
+    if (start == -1 || end == -1) {
+      throw Exception('Could not parse calories JSON. Got: "${raw.trim()}"');
+    }
+    final data = jsonDecode(raw.substring(start, end + 1)) as Map<String, dynamic>;
+    return (data['calories'] as num?)?.toDouble() ?? 0;
+  }
+
   Future<String> _generate({
     required String systemPrompt,
     required String userPrompt,
