@@ -42,6 +42,32 @@ A comprehensive Flutter application for tracking daily meals, nutrition intake, 
 - Quick action buttons for logging meals/exercises
 - Links to view historical logs
 
+### 6. **Goals & Calendar**
+
+Plan goals on a calendar and track your streaks. The bottom nav is three tabs —
+**Squads · Health · Calendar** — and the Calendar tab is the Goals surface.
+
+- **Goals**: manual (check off by hand) or **tracked** (auto-evaluated against
+  your meals/exercises/weight — e.g. "≤ 2200 kcal/day", "gym 3×/week", "120 g
+  protein/day"). Pick a category, color, priority, schedule (start date, time),
+  recurrence (none / daily / weekly by weekday or N-times / monthly), an
+  optional series end, a reminder, and whether to include it in the morning
+  brief.
+- **Views**: Month / Week / Day, with each day's logged activity (meals,
+  exercises, weight) shown alongside the day's goals. Mark occurrences done /
+  failed / skipped; recurring goals can be edited or deleted for "only this /
+  this and future / all".
+- **History**: a filterable list of past occurrences plus a per-category
+  success-rate card, with retroactive override of any past day.
+- **Squad goals** (optional, cloud): flip a goal **squad-visible** and squadmates
+  see it on your card — today's goals + a weekly hit-rate / streak card. **Suggest
+  a goal** to a squadmate; they get it in their **Goal inbox** to accept (and
+  tweak), reject, or dismiss. Cloud Functions send the suggestion/accept pushes,
+  an 8:00 morning brief, and goal reminders (toggle in Health → Settings).
+
+> _Screenshots: TODO — add Calendar month/day, the goal form, the goal inbox,
+> and a squadmate's goal stats card._
+
 ## Setup Instructions
 
 ### Prerequisites

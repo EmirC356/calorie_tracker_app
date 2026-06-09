@@ -337,4 +337,141 @@ and a **navy** accent reserved for the Squad section. Helpers (`neonBox`,
   enter their own.
 - Name changes after joining a squad don't yet propagate to existing member
   docs (denormalized at join time).
-```
+
+---
+
+## 12. Goals & Calendar
+
+A calendar-based goal planner with streaks, layered on the same local-first
+architecture. The bottom nav is **3 tabs — Squads · Health · Calendar**. The
+**Health** tab is a shell with a sub-TabBar (Dashboard · Meals · Fitness ·
+Weight · Advisor) that contains every old local-only screen; the **Calendar**
+tab is the Goals surface, accented **amber** (`#F5A524`) to distinguish it from
+the red primary and the navy Squad accent.
+
+### 12.1 Goal types
+- **Manual** — checked off by hand (done / failed / skipped).
+- **Tracked** — auto-evaluated against existing app data. Metrics: `kcalTotal`,
+  `proteinG`, `exerciseMinutes`, `exerciseSessionCount` (sessions ≥ a min
+  duration, default 20), `weightDeltaKg` (latest − first in period), `waterMl`
+  (future; never auto-fails until water logging ships). Each has a comparator
+  (≤ cap / ≥ floor), a target, and a period (day or week).
+
+### 12.2 Local data model (SQLite, schema v5)
+Additive migration only: `_dbVersion` 4 → 5, an `if (oldVersion < 5)` block adds
+three tables, no existing rows touched. `PRAGMA foreign_keys = ON`
+(`onConfigure`) so the occurrences → goals `ON DELETE CASCADE` fires.
+- `goals` — the reusable definition ("ticket"): title/description, category
+  (+ custom label), color (ARGB int), priority, type, the tracked fields,
+  schedule (start_date as `YYYY-MM-DD`, time_of_day `HH:mm`, recurrence_json,
+  end_date_days_from_start), squad_visible, reminder_minutes_before,
+  morning_brief_included, created_at (UTC), archived.
+- `goal_occurrences` — materialized instances: (goal_id, occurrence_date)
+  unique, status, done_at, override_flag, period_value_cached, notes.
+- `goal_suggestions` — inbound squad suggestions (local mirror).
+
+Dates that are calendar dates (start, occurrence) are stored as `YYYY-MM-DD` so
+they never drift across timezones and match the cloud occurrenceId scheme;
+true timestamps (createdAt, doneAt) are stored UTC.
+
+**Two naming decisions:** the occurrence-status enum is **`OccurrenceStatus`**
+(`open/done/failed/skipped`) to avoid colliding with the Squad feature's existing
+`GoalStatus` (`hit/inProgress/missed`); and the TDEE diet enum `Goal`
+(`cut/maintain/bulk`) was renamed **`DietGoal`** (value names unchanged → JSON
+identical) so the new feature's central class can be `Goal`.
+
+### 12.3 Recurrence engine + lazy materialization + sweep
+- `RecurrenceEngine.occurrencesInRange(goal, from, to)` is the **source of
+  truth** for which dates a goal lands on (none / daily / weekly-by-weekday /
+  weekly-N-times / monthly day 1–28). **Week starts Monday.** A count-based
+  weekly goal emits **one Monday anchor per ISO week** (the tracked evaluator
+  counts the whole Mon–Sun week); a goal that starts mid-week first anchors the
+  following Monday. Never emits a date before the start or after the series end.
+  Capping monthly at day 28 guarantees every month (incl. February) has the day.
+- **Materialization is lazy**: viewing the calendar calls the engine and writes
+  nothing. Rows appear only on user interaction or the **end-of-period sweep**
+  (`GoalSweepService.sweepFinalizePastOccurrences`), which finalizes occurrences
+  whose period fully ended — manual → `failed`, tracked → the evaluator —
+  skipping any that already have a row (so a user `done` is never overwritten).
+  It's **idempotent** and backfill-bounded (default 90 days). The sweep runs from
+  `GoalProvider` (Calendar open / pull-to-refresh), bounded by a prefs-persisted
+  last-sweep date — kept off the Firebase-gated snapshot pipeline so a cloud
+  problem can't block goal finalization.
+
+### 12.4 Evaluator
+`GoalEvaluator.evaluate(...)` reads through narrow read-only ports
+(`MealRepo`/`ExerciseRepo`/`WeightRepo`/`WaterRepo` in `services/repos/`), so
+it's unit-tested with in-memory fakes. Pass rules: met → `done`; otherwise
+`open` during the period, `failed` once it ends. Progress ring: floor =
+`min(metric/target,1)·100`, cap = `clamp((target−metric)/target·100, 0, 100)`.
+
+### 12.5 Calendar UI
+Month / Week / Day views over a hand-rolled grid (no `table_calendar`). Each day
+shows its goal chips (category color, priority dot, status icon) and activity
+summary chips (`4 meals · 1820 kcal`, `1 ex · 30 min`, weight). Full goal CRUD
+via a 13-field form; the detail sheet shows live tracked progress and the
+mark-done/failed/skip/edit/delete actions. Recurring edits/deletes prompt
+"only this / this and future / all in the series" (this-and-future truncates the
+old series and starts a fresh one). **History** is a filterable occurrence list +
+a per-category success-rate card with retroactive override (flips
+`override_flag`, shown as an "edited" tag).
+
+### 12.6 Cloud model & squad visibility
+Only aggregate, non-private fields leave the device, gated by security rules:
+- `users/{uid}/goalsVisible/{goalId}_{YYYY-MM-DD}` — written by the snapshot
+  pipeline for squad-visible occurrences in `[today−7d, today+30d]` (a user
+  override wins over the live evaluation), pruned when a goal is un-shared,
+  archived, deleted, or falls out of the window.
+  **Denormalization decision:** instead of a `sharedToSquadIds` array checked
+  with a per-squad `get()` (a loop Firestore rules can't express), each doc
+  carries **`readerUids`** — the union of memberUids across the owner's squads.
+  The rule is then O(1) (`request.auth.uid in resource.data.readerUids`) and a
+  squadmate reads with `where readerUids array-contains me` (uid inlined so the
+  query analyzer matches, like the squads "my squads" rule). Trade-off:
+  readerUids is recomputed each push, so a removed squadmate keeps read access
+  only until the next push.
+- `squads/{squadId}/suggestions/{id}` — a member proposes a goal to another
+  member (status pending → accepted|rejected|expired, 7-day expiry). The inbox
+  is a **collection-group** query (`toUid == me`, needs the composite index in
+  `firestore.indexes.json`). Create requires `fromUid == self` and the recipient
+  be a member; only the recipient can transition the status.
+
+### 12.7 Cloud Functions (notification queues)
+`functions/src/calendar.ts` (shared helpers in `shared.ts`):
+- `onGoalSuggestionCreated` / `onGoalSuggestionAccepted` — suggestion-lifecycle
+  pushes (honor per-squad mute).
+- `scheduledMorningBrief` (every 15 min) — at each user's local 08:00, sends a
+  brief from the device-written `users/{uid}/todaysGoalsBrief/{date}` doc; prunes
+  briefs older than 7 days.
+- `scheduledGoalReminders` (every 5 min) — fires any `pendingReminders/{occId}`
+  doc whose `fireAt` has passed, then deletes it.
+
+**Why a queue:** the heavy logic stays on the device (local SQLite is the truth);
+the device writes `todaysGoalsBrief` + `pendingReminders` during the daily sweep
+and Firestore acts as a queue, so the functions are simple readers + senders and
+we never mirror every goal to the cloud. The brief + reminders are personal,
+gated by a single user flag `goalNotificationsEnabled` (missing == on; toggle in
+Health → Settings); both queue collections are owner-only (functions use the
+admin SDK, which bypasses rules).
+
+### 12.8 Testing
+- **+~85 Dart tests**: models (Goal/recurrence/occurrence/suggestion round-trips,
+  history aggregation, squadmate stats, examples), the recurrence engine, the
+  sweep, the evaluator (every metric × cap/floor), DB CRUD + cascade + the v4→v5
+  migration (via `sqflite_common_ffi`), the cloud suggestion + goalsVisible +
+  notification-queue paths (via `fake_cloud_firestore`), and widgets (goal chip,
+  day-summary chip, recurrence picker, history list, squadmate goals, goal
+  inbox).
+- **+16 Firestore rules checks** (now 32) for goalsVisible read gating,
+  suggestion create/read/update authorization, and the owner-only queue
+  collections.
+- Functions `npm run build` (tsc) compiles clean.
+
+### 12.9 Known limitations
+- The rules tests require the Firestore emulator (firebase-tools needs **JDK
+  21+**); run `cd firebase && npm run test:rules` on a JDK-21 machine.
+- Cloud Functions for the Goals feature are written + build-checked but **not
+  deployed** — deploy with `firebase deploy --only functions` (after a dryrun)
+  once confirmed.
+- A removed squadmate retains `goalsVisible` read access until the owner's next
+  snapshot push refreshes `readerUids`.
