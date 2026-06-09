@@ -132,6 +132,7 @@ class Goal {
     bool? morningBriefIncluded,
     DateTime? createdAt,
     bool? archived,
+    bool clearId = false,
     bool clearDescription = false,
     bool clearCustomCategoryLabel = false,
     bool clearTracked = false,
@@ -140,7 +141,7 @@ class Goal {
     bool clearReminder = false,
   }) =>
       Goal(
-        id: id ?? this.id,
+        id: clearId ? null : (id ?? this.id),
         title: title ?? this.title,
         description:
             clearDescription ? null : (description ?? this.description),

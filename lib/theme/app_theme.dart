@@ -33,6 +33,35 @@ const kCatHome = Color(0xFF4CC38A); // green
 const kCatPersonal = Color(0xFFB57EDC); // lavender
 const kCatCustom = Color(0xFF9AA0A6); // neutral gray
 
+/// Curated 8-color goal palette offered in the color picker. Each is chosen to
+/// stand out against the near-black furnace base (kBg).
+const kGoalPalette = <Color>[
+  kAmber, // amber
+  Color(0xFF4A90E2), // blue
+  Color(0xFF4CC38A), // green
+  Color(0xFFB57EDC), // lavender
+  Color(0xFFFF6B66), // coral red
+  Color(0xFF4ECDC4), // teal
+  Color(0xFFE6C84F), // gold
+  Color(0xFF9AA0A6), // gray
+];
+
+/// Default chip color for a goal category name (health/study/home/personal).
+Color goalCategoryColor(String categoryName) {
+  switch (categoryName) {
+    case 'health':
+      return kCatHealth;
+    case 'study':
+      return kCatStudy;
+    case 'home':
+      return kCatHome;
+    case 'personal':
+      return kCatPersonal;
+    default:
+      return kCatCustom;
+  }
+}
+
 // ── Legacy aliases ───────────────────────────────────────────────────────────
 // The screens were built against the old cyberpunk constant names. They are
 // remapped here onto the red / white / gray system so the whole app restyles

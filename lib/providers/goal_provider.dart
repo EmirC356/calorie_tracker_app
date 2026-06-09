@@ -19,6 +19,11 @@ class GoalProvider extends ChangeNotifier {
   late final GoalService _service;
   final RecurrenceEngine _engine;
   late final GoalSweepService _sweep;
+  late final DatabaseService _dbService;
+  late final DbMealRepo _mealRepo;
+  late final DbExerciseRepo _exerciseRepo;
+  late final DbWeightRepo _weightRepo;
+  static const _evaluator = GoalEvaluator();
 
   /// Finalizes a tracked goal occurrence during the sweep. Defaults to the
   /// GoalEvaluator over the local database; tests can inject a fake.
@@ -30,32 +35,91 @@ class GoalProvider extends ChangeNotifier {
     RecurrenceEngine engine = const RecurrenceEngine(),
     TrackedEvaluator? evaluateTracked,
   }) : _engine = engine {
-    final dbService = db ?? DatabaseService();
+    _dbService = db ?? DatabaseService();
     // Share the single service/db instance so reads hit the same database.
-    _service = service ?? GoalService(db: dbService);
+    _service = service ?? GoalService(db: _dbService);
     _sweep = GoalSweepService(_service, engine: _engine);
-    this.evaluateTracked =
-        evaluateTracked ?? _defaultTrackedEvaluator(dbService);
+    _mealRepo = DbMealRepo(_dbService);
+    _exerciseRepo = DbExerciseRepo(_dbService);
+    _weightRepo = DbWeightRepo(_dbService);
+    this.evaluateTracked = evaluateTracked ?? _defaultTrackedEvaluator;
   }
 
-  /// Wires the GoalEvaluator over the local DB. Returns null (leave
-  /// unmaterialized) when the metric can't be decided (e.g. no weight data, or
-  /// water tracking not enabled) so the sweep never records an `open` row.
-  TrackedEvaluator _defaultTrackedEvaluator(DatabaseService dbService) {
-    const evaluator = GoalEvaluator();
-    final meals = DbMealRepo(dbService);
-    final exercises = DbExerciseRepo(dbService);
-    final weights = DbWeightRepo(dbService);
-    return (goal, date) async {
-      final r = await evaluator.evaluate(
+  /// Live tracked-goal evaluation for the detail sheet / day view (returns the
+  /// full result, including the `open` in-progress state).
+  Future<GoalEvaluationResult> evaluate(Goal goal, DateTime date) =>
+      _evaluator.evaluate(
         goal: goal,
         occurrenceDate: date,
-        meals: meals,
-        exercises: exercises,
-        weights: weights,
+        meals: _mealRepo,
+        exercises: _exerciseRepo,
+        weights: _weightRepo,
         water: null,
       );
-      return r.status == OccurrenceStatus.open ? null : r;
+
+  /// Wraps [evaluate] for the sweep: returns null (leave unmaterialized) when
+  /// the metric can't be decided (no weight data, or water tracking off) so the
+  /// sweep never records an `open` row.
+  Future<GoalEvaluationResult?> _defaultTrackedEvaluator(
+      Goal goal, DateTime date) async {
+    final r = await evaluate(goal, date);
+    return r.status == OccurrenceStatus.open ? null : r;
+  }
+
+  /// The raw meals / exercises / weight entries logged on [date], for the Day
+  /// view's Activity section (each row links to its existing edit screen).
+  Future<({List<Meal> meals, List<Exercise> exercises, List<WeightEntry> weights})>
+      dayDetail(DateTime date) async {
+    final start = dateOnly(date);
+    final end = start.add(const Duration(days: 1));
+    return (
+      meals: await _mealRepo.mealsInRange(start, end),
+      exercises: await _exerciseRepo.exercisesInRange(start, end),
+      weights: await _weightRepo.weightEntriesInRange(start, end),
+    );
+  }
+
+  /// Per-day activity rollups for [from]..[to] (inclusive), keyed by
+  /// `YYYY-MM-DD`, for the calendar's summary chips and Day view.
+  Future<Map<String, DayActivity>> activityInRange(
+      DateTime from, DateTime to) async {
+    final start = dateOnly(from);
+    final endExclusive = dateOnly(to).add(const Duration(days: 1));
+    final meals = await _mealRepo.mealsInRange(start, endExclusive);
+    final exercises = await _exerciseRepo.exercisesInRange(start, endExclusive);
+    final weights = await _weightRepo.weightEntriesInRange(start, endExclusive);
+
+    final mealCount = <String, int>{};
+    final kcal = <String, double>{};
+    final exCount = <String, int>{};
+    final exMin = <String, int>{};
+    final lastWeight = <String, double>{};
+
+    for (final m in meals) {
+      final k = ymd(m.timestamp);
+      mealCount[k] = (mealCount[k] ?? 0) + 1;
+      kcal[k] = (kcal[k] ?? 0) + m.nutrients.calories;
+    }
+    for (final e in exercises) {
+      final k = ymd(e.timestamp);
+      exCount[k] = (exCount[k] ?? 0) + 1;
+      exMin[k] = (exMin[k] ?? 0) + e.durationMinutes;
+    }
+    for (final w in weights) {
+      lastWeight[ymd(w.timestamp)] = w.weight; // entries are oldest-first
+    }
+
+    final keys = {...mealCount.keys, ...exCount.keys, ...lastWeight.keys};
+    return {
+      for (final k in keys)
+        k: DayActivity(
+          mealCount: mealCount[k] ?? 0,
+          calories: kcal[k] ?? 0,
+          exerciseCount: exCount[k] ?? 0,
+          exerciseMinutes: exMin[k] ?? 0,
+          hasWeight: lastWeight.containsKey(k),
+          weightKg: lastWeight[k],
+        ),
     };
   }
 
@@ -160,6 +224,16 @@ class GoalProvider extends ChangeNotifier {
 
   Future<void> archiveGoal(int id) async {
     await _service.archiveGoal(id);
+    await refresh();
+  }
+
+  /// Ends a recurring series the day before [date] (used by the "this and
+  /// future" edit/delete scope). Clamped so it never goes negative.
+  Future<void> truncateSeriesBefore(Goal goal, DateTime date) async {
+    final days =
+        dateOnly(date).difference(dateOnly(goal.startDate)).inDays - 1;
+    await _service.updateGoal(
+        goal.copyWith(endDateDaysFromStart: days < 0 ? 0 : days));
     await refresh();
   }
 
