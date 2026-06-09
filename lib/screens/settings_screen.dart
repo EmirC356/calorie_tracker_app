@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/ai_service.dart';
+import '../services/prefs.dart';
+import '../providers/auth_provider.dart';
+import '../providers/squad_provider.dart';
 import '../theme/app_theme.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -12,11 +17,30 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final _ctrl = TextEditingController();
   bool _isSet = false;
+  bool _goalNotifs = true;
 
   @override
   void initState() {
     super.initState();
     _isSet = aiService.isInitialized;
+    SharedPreferences.getInstance().then((p) {
+      if (mounted) setState(() => _goalNotifs = p.getBool(kGoalNotificationsEnabledPref) ?? true);
+    });
+  }
+
+  Future<void> _setGoalNotifs(bool v) async {
+    setState(() => _goalNotifs = v);
+    // Capture provider references before any await (no context across the gap).
+    final uid = context.read<AuthProvider>().firebaseUser?.uid;
+    final service = context.read<SquadProvider>().service;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(kGoalNotificationsEnabledPref, v);
+    // Mirror to Firestore (best-effort) so the Cloud Functions honor it.
+    if (uid != null) {
+      try {
+        await service.setGoalNotificationsEnabled(uid, v);
+      } catch (_) {/* offline / signed out — local flag still saved */}
+    }
   }
 
   @override
@@ -93,6 +117,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onPressed: _save,
               style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
               child: const Text('SAVE KEY', style: TextStyle(letterSpacing: 1.5)),
+            ),
+          ),
+          const SizedBox(height: 32),
+          Text('NOTIFICATIONS', style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 8),
+          Container(
+            decoration: neonBox(kAmber),
+            child: SwitchListTile(
+              activeThumbColor: kAmber,
+              title: const Text('Goal notifications', style: TextStyle(color: kText, fontSize: 15)),
+              subtitle: const Text('Morning brief at 8:00 and goal reminders',
+                  style: TextStyle(color: kTextDim, fontSize: 12)),
+              value: _goalNotifs,
+              onChanged: _setGoalNotifs,
             ),
           ),
           const SizedBox(height: 32),

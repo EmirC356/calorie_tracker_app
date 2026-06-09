@@ -6,6 +6,7 @@ import '../providers/profile_provider.dart';
 import '../providers/weight_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/snapshot_provider.dart';
+import '../providers/goal_provider.dart';
 import 'squad/squad_tab.dart';
 import 'health/health_shell_screen.dart';
 import 'calendar/calendar_screen.dart';
@@ -40,6 +41,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final exercises = context.read<ExerciseProvider>();
     final profile = context.read<ProfileProvider>();
     final weight = context.read<WeightProvider>();
+    final goals = context.read<GoalProvider>();
     Future.microtask(() {
       meals.loadTodaysMeals();
       meals.loadMeals(); // full history for the 14-day calories chart
@@ -47,12 +49,14 @@ class _HomeScreenState extends State<HomeScreen> {
       profile.load();
       weight.loadEntries();
     });
-    // Wire the cloud snapshot aggregator to local data + auth. Guarded so a
-    // Firebase-less environment can't break the local-only app.
+    // Wire the cloud snapshot aggregator to local data + auth. Goals are a
+    // source too, so toggling a goal squad-visible (or archiving it) syncs the
+    // cloud goalsVisible docs promptly. Guarded so a Firebase-less environment
+    // can't break the local-only app.
     try {
       context.read<SnapshotProvider>().attach(
             auth: context.read<AuthProvider>(),
-            localSources: [meals, exercises, weight],
+            localSources: [meals, exercises, weight, goals],
           );
     } catch (e) {
       debugPrint('Snapshot aggregator not attached: $e');

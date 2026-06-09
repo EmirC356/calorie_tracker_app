@@ -33,8 +33,9 @@ const kCatHome = Color(0xFF4CC38A); // green
 const kCatPersonal = Color(0xFFB57EDC); // lavender
 const kCatCustom = Color(0xFF9AA0A6); // neutral gray
 
-/// Curated 8-color goal palette offered in the color picker. Each is chosen to
-/// stand out against the near-black furnace base (kBg).
+/// Curated 8-color goal palette offered in the color picker. Each is a light/
+/// saturated hue with high relative luminance, so it clears the WCAG AA 4.5:1
+/// contrast ratio against the near-black furnace base (kBg ≈ #0C0C0D).
 const kGoalPalette = <Color>[
   kAmber, // amber
   Color(0xFF4A90E2), // blue

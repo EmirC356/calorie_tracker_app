@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/index.dart';
+import '../../services/prefs.dart';
 import '../../theme/app_theme.dart';
 
 const int kTitleMaxLen = 80;
@@ -220,6 +222,26 @@ class _GoalFormScreenState extends State<GoalFormScreen> {
     return null;
   }
 
+  /// One-time explainer the first time a user makes any goal squad-visible.
+  Future<void> _maybeShowPrivacyDialog() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(kSquadVisiblePrivacyShownPref) == true) return;
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Squad-visible goals'),
+        content: const Text(
+            "Goals you mark visible show up on your squadmates' Today view with "
+            "their title, category and status — never your private notes."),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Got it')),
+        ],
+      ),
+    );
+    await prefs.setBool(kSquadVisiblePrivacyShownPref, true);
+  }
+
   Future<void> _save() async {
     final err = _validate();
     if (err != null) {
@@ -333,7 +355,10 @@ class _GoalFormScreenState extends State<GoalFormScreen> {
               ),
             ]),
             value: _squadVisible,
-            onChanged: (v) => setState(() => _squadVisible = v),
+            onChanged: (v) async {
+              setState(() => _squadVisible = v);
+              if (v) await _maybeShowPrivacyDialog();
+            },
           ),
         const SizedBox(height: 20),
         ElevatedButton(

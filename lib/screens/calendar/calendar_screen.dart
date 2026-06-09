@@ -9,6 +9,7 @@ import 'calendar_week_view.dart';
 import 'calendar_day_view.dart';
 import 'goal_create_screen.dart';
 import 'goal_history_screen.dart';
+import 'goal_examples.dart';
 
 enum CalendarViewMode { day, week, month }
 
@@ -226,16 +227,71 @@ class _CalendarScreenState extends State<CalendarScreen> {
   Widget _emptyHint() {
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 4, 12, 4),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: neonBox(kAmber),
-      child: Row(children: [
-        Icon(Icons.flag_outlined, color: kAmber.withValues(alpha: 0.9)),
-        const SizedBox(width: 10),
-        const Expanded(
-          child: Text('No goals yet. Tap + to create your first goal.',
-              style: TextStyle(color: kText, fontSize: 13)),
-        ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(Icons.flag_outlined, color: kAmber.withValues(alpha: 0.9)),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text('No goals yet — plan your first one to start tracking streaks.',
+                style: TextStyle(color: kText, fontSize: 13)),
+          ),
+        ]),
+        const SizedBox(height: 10),
+        Row(children: [
+          Expanded(
+            child: ElevatedButton(
+              onPressed: _createGoal,
+              style: ElevatedButton.styleFrom(backgroundColor: kAmber, foregroundColor: kBg),
+              child: const Text('Create your first goal'),
+            ),
+          ),
+          const SizedBox(width: 10),
+          OutlinedButton(
+            onPressed: _showExamples,
+            style: OutlinedButton.styleFrom(foregroundColor: kAmber, side: const BorderSide(color: kAmber)),
+            child: const Text('See examples'),
+          ),
+        ]),
       ]),
+    );
+  }
+
+  Future<void> _showExamples() async {
+    final examples = goalExamples(DateTime.now());
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: kSurface,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        side: BorderSide(color: kAmber, width: 1),
+      ),
+      builder: (sheetCtx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('EXAMPLE GOALS', style: neonLabel(kAmber, size: 13)),
+            const SizedBox(height: 4),
+            const Text('Tap one to pre-fill the create form.', style: TextStyle(color: kTextDim, fontSize: 12)),
+            const SizedBox(height: 12),
+            ...examples.map((g) => ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Container(width: 14, height: 14, decoration: BoxDecoration(color: g.color, borderRadius: BorderRadius.circular(4))),
+                  title: Text(g.title, style: const TextStyle(color: kText, fontSize: 14)),
+                  subtitle: Text(g.categoryLabel, style: const TextStyle(color: kTextDim, fontSize: 11)),
+                  trailing: const Icon(Icons.add, color: kAmber, size: 18),
+                  onTap: () async {
+                    Navigator.pop(sheetCtx);
+                    await Navigator.push(context,
+                        MaterialPageRoute(builder: (_) => GoalCreateScreen(template: g)));
+                    if (mounted) await _loadActivity();
+                  },
+                )),
+          ]),
+        ),
+      ),
     );
   }
 }
