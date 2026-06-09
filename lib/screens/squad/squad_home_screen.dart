@@ -5,6 +5,7 @@ import '../../providers/squad_provider.dart';
 import '../../theme/app_theme.dart';
 import 'squad_settings_screen.dart';
 import 'squad_today_tab.dart';
+import 'squad_board_tab.dart';
 
 /// A single squad with three tabs. Today (Phase 4) and Leaderboard (Phase 6)
 /// are placeholders for now; Settings (Phase 3) is live.
@@ -34,21 +35,10 @@ class SquadHomeScreen extends StatelessWidget {
         ),
         body: TabBarView(children: [
           SquadTodayTab(squadId: squadId),
-          _placeholder(Icons.leaderboard, 'Leaderboard', 'Weekly days-hit, current streak, and longest streak coming soon.'),
+          SquadBoardTab(squadId: squadId),
           SquadSettingsScreen(squadId: squadId),
         ]),
       ),
     );
   }
-
-  Widget _placeholder(IconData icon, String title, String body) => Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(icon, color: kNavy, size: 52),
-          const SizedBox(height: 12),
-          Text(title, style: const TextStyle(color: kText, fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          Text(body, textAlign: TextAlign.center, style: const TextStyle(color: kTextDim, fontSize: 13, height: 1.5)),
-        ]),
-      );
 }

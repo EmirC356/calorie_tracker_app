@@ -265,6 +265,11 @@ class SquadService {
       _entriesCol(squadId, dateKey).snapshots().map(
           (qs) => qs.docs.map((d) => SquadDayEntry.fromMap(d.id, d.data())).toList());
 
+  Future<List<SquadDayEntry>> getDayEntries(String squadId, String dateKey) async {
+    final qs = await _entriesCol(squadId, dateKey).get();
+    return qs.docs.map((d) => SquadDayEntry.fromMap(d.id, d.data())).toList();
+  }
+
   // ── reactions ───────────────────────────────────────────────────────────────
 
   CollectionReference<Map<String, dynamic>> _reactionsCol(String squadId, String dateKey) =>
