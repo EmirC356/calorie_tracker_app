@@ -5,6 +5,7 @@ import '../models/app_user.dart';
 import '../models/squad.dart';
 import '../models/squad_member.dart';
 import '../models/squad_goal.dart';
+import '../models/squad_day_entry.dart';
 import 'invite_code.dart';
 
 /// A user-facing failure during a squad operation (shown in a SnackBar).
@@ -201,6 +202,16 @@ class SquadService {
       _squads.doc(squadId).collection('members').snapshots().map(
           (qs) => qs.docs.map((d) => SquadMember.fromMap(d.id, d.data())).toList());
 
+  Future<SquadMember?> getMember(String squadId, String uid) async {
+    final snap = await _memberRef(squadId, uid).get();
+    return snap.exists ? SquadMember.fromMap(snap.id, snap.data()!) : null;
+  }
+
+  Future<List<Squad>> getMySquadsOnce(String uid) async {
+    final qs = await _squads.where('memberUids', arrayContains: uid).get();
+    return qs.docs.map((d) => Squad.fromMap(d.id, d.data())).toList();
+  }
+
   Future<void> updateGoal(String squadId, String uid, SquadGoal goal) =>
       _memberRef(squadId, uid).set({'goal': goal.toMap()}, SetOptions(merge: true));
 
@@ -236,6 +247,23 @@ class SquadService {
   /// Owner deletes the whole squad: member docs + invite-code lookup + the
   /// squad doc. Day/reaction subcollections (if any) are left to the 30-day
   /// prune; they become unreadable once the squad doc is gone.
+  // ── day entries (snapshots) ─────────────────────────────────────────────────
+
+  CollectionReference<Map<String, dynamic>> _entriesCol(String squadId, String dateKey) =>
+      _squads.doc(squadId).collection('days').doc(dateKey).collection('entries');
+
+  Future<void> writeDayEntry({
+    required String squadId,
+    required String dateKey,
+    required String uid,
+    required Map<String, dynamic> data,
+  }) =>
+      _entriesCol(squadId, dateKey).doc(uid).set(data, SetOptions(merge: true));
+
+  Stream<List<SquadDayEntry>> watchDayEntries(String squadId, String dateKey) =>
+      _entriesCol(squadId, dateKey).snapshots().map(
+          (qs) => qs.docs.map((d) => SquadDayEntry.fromMap(d.id, d.data())).toList());
+
   Future<void> deleteSquad(String squadId) async {
     final ref = _squads.doc(squadId);
     final snap = await ref.get();

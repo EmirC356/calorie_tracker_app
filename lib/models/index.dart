@@ -11,3 +11,4 @@ export 'app_user.dart';
 export 'squad.dart';
 export 'squad_member.dart';
 export 'squad_goal.dart';
+export 'squad_day_entry.dart';

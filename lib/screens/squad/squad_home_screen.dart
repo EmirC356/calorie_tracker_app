@@ -4,6 +4,7 @@ import '../../models/squad.dart';
 import '../../providers/squad_provider.dart';
 import '../../theme/app_theme.dart';
 import 'squad_settings_screen.dart';
+import 'squad_today_tab.dart';
 
 /// A single squad with three tabs. Today (Phase 4) and Leaderboard (Phase 6)
 /// are placeholders for now; Settings (Phase 3) is live.
@@ -32,7 +33,7 @@ class SquadHomeScreen extends StatelessWidget {
           ),
         ),
         body: TabBarView(children: [
-          _placeholder(Icons.today, "Today's progress", 'Member cards with goals, progress rings, and statuses arrive in the next update.'),
+          SquadTodayTab(squadId: squadId),
           _placeholder(Icons.leaderboard, 'Leaderboard', 'Weekly days-hit, current streak, and longest streak coming soon.'),
           SquadSettingsScreen(squadId: squadId),
         ]),

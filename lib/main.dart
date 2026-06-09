@@ -8,6 +8,7 @@ import 'providers/weight_provider.dart';
 import 'providers/profile_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/squad_provider.dart';
+import 'providers/snapshot_provider.dart';
 import 'screens/home_screen.dart';
 import 'services/ai_service.dart';
 import 'theme/app_theme.dart';
@@ -53,6 +54,7 @@ class MyApp extends StatelessWidget {
         // Firebase problem never affects the local-only tabs.
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => SquadProvider()),
+        ChangeNotifierProvider(create: (_) => SnapshotProvider()),
       ],
       child: MaterialApp(
         title: 'Calorie Tracker',

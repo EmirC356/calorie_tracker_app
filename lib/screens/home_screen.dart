@@ -5,6 +5,8 @@ import '../providers/meal_provider.dart';
 import '../providers/exercise_provider.dart';
 import '../providers/profile_provider.dart';
 import '../providers/weight_provider.dart';
+import '../providers/auth_provider.dart';
+import '../providers/snapshot_provider.dart';
 import '../models/index.dart';
 import '../theme/app_theme.dart';
 import '../widgets/edit_entry_sheets.dart';
@@ -46,6 +48,16 @@ class _HomeScreenState extends State<HomeScreen> {
       profile.load();
       weight.loadEntries();
     });
+    // Wire the cloud snapshot aggregator to local data + auth. Guarded so a
+    // Firebase-less environment can't break the local-only app.
+    try {
+      context.read<SnapshotProvider>().attach(
+            auth: context.read<AuthProvider>(),
+            localSources: [meals, exercises, weight],
+          );
+    } catch (e) {
+      debugPrint('Snapshot aggregator not attached: $e');
+    }
   }
 
   @override
