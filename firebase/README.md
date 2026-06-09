@@ -49,6 +49,31 @@ needed. Last run: **9/9 passing**.
 `firebase deploy --only firestore:indexes`, or click the link Firestore prints
 in logcat the first time the query runs.
 
+## Cloud Functions (notifications) — Phase 7
+
+TypeScript functions in [`functions/`](./functions) (2nd gen, requires Blaze):
+- `onEntryStatusHit` — pushes "{name} hit their goal" to other members when a
+  day status transitions to `hit`.
+- `onReactionCreated` — pushes the emoji to the nudged member.
+- `scheduledSummary` — hourly; at each user's local 22:00 sends a per-squad
+  "X of Y squadmates hit their goals today". (Local time via the user doc's
+  `tzOffsetMinutes`, written by the app.)
+
+Recipients with `members/{uid}.muted == true` are skipped.
+
+**Deploy (one-time setup, then redeploy on changes):**
+```bash
+npm i -g firebase-tools            # if not installed
+cd firebase
+firebase login                     # interactive (browser)
+firebase use riwex-d01aa
+firebase deploy --only functions   # builds via predeploy, then deploys
+```
+First functions deploy enables required Google APIs (Cloud Build, Artifact
+Registry) — accept the prompts. Test on a **physical device** (emulator FCM
+delivery is unreliable). `cd functions && npm run build` type-checks locally
+without deploying.
+
 ## Phase status
 - **Phase 1 (done):** `users/{uid}` rules — each user reads/writes only their own
   profile. Publish these so Google sign-in can persist the profile.

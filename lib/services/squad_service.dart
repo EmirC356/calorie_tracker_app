@@ -58,6 +58,14 @@ class SquadService {
         'fcmTokens': FieldValue.arrayUnion([token]),
       });
 
+  Future<void> removeFcmToken(String uid, String token) => _users.doc(uid).update({
+        'fcmTokens': FieldValue.arrayRemove([token]),
+      });
+
+  /// Used by the scheduled end-of-day summary to fire at the user's local 22:00.
+  Future<void> setTimezoneOffset(String uid, int minutes) =>
+      _users.doc(uid).set({'tzOffsetMinutes': minutes}, SetOptions(merge: true));
+
   // ── squads ──────────────────────────────────────────────────────────────────
 
   /// Creates a squad with [ownerUid] as owner + sole member, a fresh invite
@@ -218,6 +226,10 @@ class SquadService {
 
   Future<void> updateSharingLevel(String squadId, String uid, SharingLevel level) =>
       _memberRef(squadId, uid).set({'sharingLevel': level.name}, SetOptions(merge: true));
+
+  /// Per-squad notification mute (checked by the Cloud Functions before push).
+  Future<void> updateMuted(String squadId, String uid, bool muted) =>
+      _memberRef(squadId, uid).set({'muted': muted}, SetOptions(merge: true));
 
   // ── owner controls ──────────────────────────────────────────────────────────
 

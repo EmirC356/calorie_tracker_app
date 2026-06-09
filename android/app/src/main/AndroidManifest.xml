@@ -1,4 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Squad push notifications (FCM). Android 13+ requires this at runtime. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
         android:label="calorie_tracker_app"
         android:name="${applicationName}"

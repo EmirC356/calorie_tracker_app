@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../models/app_user.dart';
 import '../services/auth_service.dart';
 import '../services/squad_service.dart';
+import '../services/notification_service.dart';
 
 /// Exposes auth state + the cloud [AppUser] to the widget tree. Created lazily
 /// (only when the Squad tab is first opened).
@@ -48,6 +49,7 @@ class AuthProvider extends ChangeNotifier {
   Future<void> _syncUserDoc(User user) async {
     try {
       _appUser = await _squadService.ensureUserDocument(user);
+      notificationService.registerForUser(user.uid); // FCM token + timezone
     } catch (e) {
       _error = e.toString();
     }
@@ -77,6 +79,8 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> signOut() async {
+    final uid = _firebaseUser?.uid;
+    if (uid != null) await notificationService.unregisterForUser(uid);
     await _authService.signOut();
     _needsProfileSetup = false;
   }

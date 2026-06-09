@@ -144,6 +144,21 @@ class SquadSettingsScreen extends StatelessWidget {
               _sharingToggle(context, service, squad.id, myUid, me.sharingLevel),
             ]),
           ),
+          const SizedBox(height: 16),
+          // Notifications mute
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+            decoration: neonBox(kBorderDim),
+            child: SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              activeThumbColor: kNavy,
+              title: const Text('Mute notifications', style: TextStyle(color: kText, fontSize: 14)),
+              subtitle: const Text('No pushes from this squad (goal hits, nudges, summary)',
+                  style: TextStyle(color: kTextDim, fontSize: 11)),
+              value: me.muted,
+              onChanged: (v) => service.updateMuted(squad.id, myUid, v),
+            ),
+          ),
         ]);
       },
     );

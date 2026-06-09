@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'services/notification_service.dart';
 import 'providers/meal_provider.dart';
 import 'providers/exercise_provider.dart';
 import 'providers/meal_prep_provider.dart';
@@ -27,6 +29,8 @@ void main() async {
   // the Squad providers are created lazily and surface errors only there.
   try {
     await Firebase.initializeApp();
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+    await notificationService.init();
   } catch (e) {
     debugPrint('Firebase init failed (Squad features disabled): $e');
   }
@@ -59,6 +63,7 @@ class MyApp extends StatelessWidget {
       child: MaterialApp(
         title: 'Calorie Tracker',
         theme: buildAppTheme(),
+        scaffoldMessengerKey: rootMessengerKey, // foreground push -> in-app banner
         home: const HomeScreen(),
         debugShowCheckedModeBanner: false,
       ),

@@ -20,6 +20,7 @@ class SquadMember {
   final SharingLevel sharingLevel;
   final String displayName;
   final String? photoURL;
+  final bool muted;
 
   const SquadMember({
     required this.uid,
@@ -28,6 +29,7 @@ class SquadMember {
     this.sharingLevel = SharingLevel.status,
     this.displayName = 'Athlete',
     this.photoURL,
+    this.muted = false,
   });
 
   factory SquadMember.fromMap(String uid, Map<String, dynamic> map) => SquadMember(
@@ -39,6 +41,7 @@ class SquadMember {
             ? map['displayName'] as String
             : 'Athlete',
         photoURL: map['photoURL'] as String?,
+        muted: (map['muted'] as bool?) ?? false,
       );
 
   /// Field map for writes. joinedAt is written separately (server timestamp).
