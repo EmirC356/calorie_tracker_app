@@ -15,6 +15,7 @@ export 'squad_day_entry.dart';
 export 'squad_reaction.dart';
 export 'squad_stats.dart';
 export 'goal_visible.dart';
+export 'goal_visible_stats.dart';
 export 'squad_goal_suggestion.dart';
 // Goals & Calendar (schema v5)
 export 'day_activity.dart';

@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/squad.dart';
+import '../../models/squad_goal_suggestion.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/squad_provider.dart';
 import '../../theme/app_theme.dart';
 import 'create_squad_screen.dart';
 import 'join_squad_screen.dart';
 import 'squad_home_screen.dart';
+import 'goal_inbox_screen.dart';
 
 /// The Squad tab when signed in: the user's squads (live) + create/join.
 class SquadListScreen extends StatefulWidget {
@@ -47,6 +49,8 @@ class _SquadListScreenState extends State<SquadListScreen> {
             shadows: [Shadow(color: kNavy, blurRadius: 6)]),
         iconTheme: const IconThemeData(color: kNavy),
         actions: [
+          if (auth.firebaseUser?.uid != null)
+            _InboxBadge(uid: auth.firebaseUser!.uid),
           IconButton(
             tooltip: 'Sign out',
             icon: const Icon(Icons.logout),
@@ -161,4 +165,42 @@ class _SquadListScreenState extends State<SquadListScreen> {
           label: const Text('JOIN WITH CODE', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
         ),
       ]);
+}
+
+/// AppBar action: opens the goal inbox, with a live pending-count badge.
+class _InboxBadge extends StatelessWidget {
+  final String uid;
+  const _InboxBadge({required this.uid});
+
+  @override
+  Widget build(BuildContext context) {
+    final service = context.read<SquadProvider>().service;
+    return StreamBuilder<List<SquadGoalSuggestion>>(
+      stream: service.streamPendingSuggestionsForMe(uid),
+      builder: (_, snap) {
+        final count = snap.data?.length ?? 0;
+        return Stack(alignment: Alignment.center, children: [
+          IconButton(
+            tooltip: 'Goal inbox',
+            icon: const Icon(Icons.inbox),
+            onPressed: () => Navigator.push(
+                context, MaterialPageRoute(builder: (_) => const GoalInboxScreen())),
+          ),
+          if (count > 0)
+            Positioned(
+              right: 6,
+              top: 8,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(color: kNeonRed, shape: BoxShape.circle),
+                constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                child: Text('$count',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: kWhite, fontSize: 9, fontWeight: FontWeight.bold)),
+              ),
+            ),
+        ]);
+      },
+    );
+  }
 }

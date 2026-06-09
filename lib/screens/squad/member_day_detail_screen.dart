@@ -4,12 +4,15 @@ import 'package:provider/provider.dart';
 import '../../models/squad_member.dart';
 import '../../models/squad_day_entry.dart';
 import '../../models/squad_reaction.dart';
+import '../../models/goal_visible.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/squad_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/squad/goal_summary.dart';
 import '../../widgets/squad/squad_status.dart';
 import '../../widgets/squad/reaction_bar.dart';
+import '../../widgets/squad/squadmate_goals.dart';
+import 'goal_suggest_screen.dart';
 
 /// Shows a member's day at whatever detail their sharing level allows, plus a
 /// reaction bar (🔥 💪 👏).
@@ -77,9 +80,69 @@ class MemberDayDetailScreen extends StatelessWidget {
         ] else
           const Text('This member shares only their status with the squad.',
               style: TextStyle(color: kTextDim)),
+        const SizedBox(height: 24),
+        _goalsSection(context),
         const SizedBox(height: 20),
         _reactions(context),
+        _suggestButton(context),
       ]),
+    );
+  }
+
+  /// Today's squad-visible goals + the weekly goal-stats card, streamed live.
+  Widget _goalsSection(BuildContext context) {
+    final service = context.read<SquadProvider>().service;
+    final myUid = context.read<AuthProvider>().firebaseUser?.uid;
+    if (myUid == null) return const SizedBox.shrink();
+    return StreamBuilder<List<GoalVisible>>(
+      stream: service.streamSquadmateGoalsVisible(member.uid, myUid),
+      builder: (_, snap) {
+        final goals = snap.data ?? const <GoalVisible>[];
+        if (goals.isEmpty && snap.connectionState == ConnectionState.waiting) {
+          return const SizedBox.shrink();
+        }
+        return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          SquadmateGoalsToday(goals: goals),
+          const SizedBox(height: 16),
+          SquadmateGoalStats(goals: goals),
+        ]);
+      },
+    );
+  }
+
+  /// "Suggest a goal" entry point (squadmates only — not yourself).
+  Widget _suggestButton(BuildContext context) {
+    final auth = context.read<AuthProvider>();
+    final myUid = auth.firebaseUser?.uid;
+    final myName = auth.appUser?.displayName ?? 'Athlete';
+    if (myUid == null || member.uid == myUid) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: OutlinedButton.icon(
+        onPressed: () async {
+          final sent = await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(
+              builder: (_) => GoalSuggestScreen(
+                squadId: squadId,
+                fromUid: myUid,
+                fromName: myName,
+                toUid: member.uid,
+                toName: member.displayName,
+              ),
+            ),
+          );
+          if (sent == true && context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Goal suggested to ${member.displayName}')));
+          }
+        },
+        icon: const Icon(Icons.lightbulb_outline, size: 18),
+        label: Text('Suggest a goal to ${member.displayName}'),
+        style: OutlinedButton.styleFrom(
+            foregroundColor: kAmber, side: const BorderSide(color: kAmber),
+            minimumSize: const Size.fromHeight(46)),
+      ),
     );
   }
 
