@@ -51,9 +51,19 @@ dependencies:
   fl_chart: ^0.67.0
   http: ^1.2.0
 
+  # Firebase / cloud (Squad Accountability feature — cloud-synced aggregates only)
+  firebase_core: ^3.6.0
+  firebase_auth: ^5.3.1
+  cloud_firestore: ^5.4.4
+  google_sign_in: ^6.2.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
+
+  # Firebase test doubles (no live Firebase in tests)
+  fake_cloud_firestore: ^3.1.0
+  firebase_auth_mocks: ^0.14.1
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

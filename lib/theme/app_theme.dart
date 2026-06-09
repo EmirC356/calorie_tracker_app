@@ -16,6 +16,10 @@ const kWhite = Color(0xFFFFFFFF); // sparing high-emphasis accent
 const kRed = Color(0xFFE5342E);
 const kRedDeep = Color(0xFFB3271F);
 
+// Squad (cloud/social) section accent — navy blue, distinct from the red
+// primary, readable on the near-black base.
+const kNavy = Color(0xFF4A6CF7);
+
 // ── Legacy aliases ───────────────────────────────────────────────────────────
 // The screens were built against the old cyberpunk constant names. They are
 // remapped here onto the red / white / gray system so the whole app restyles

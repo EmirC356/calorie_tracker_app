@@ -9,6 +9,7 @@ import '../models/index.dart';
 import '../theme/app_theme.dart';
 import '../widgets/edit_entry_sheets.dart';
 import '../widgets/dashboard_charts.dart';
+import 'squad/squad_tab.dart';
 import 'log_meal_screen.dart';
 import 'meal_prep_screen.dart';
 import 'weight_tracker_screen.dart';
@@ -58,6 +59,7 @@ class _HomeScreenState extends State<HomeScreen> {
           BottomNavigationBarItem(icon: Icon(Icons.inventory_2), label: 'Prep'),
           BottomNavigationBarItem(icon: Icon(Icons.monitor_weight), label: 'Weight'),
           BottomNavigationBarItem(icon: Icon(Icons.fitness_center), label: 'Fitness'),
+          BottomNavigationBarItem(icon: Icon(Icons.groups), label: 'Squad'),
         ],
         currentIndex: _selectedIndex,
         onTap: (i) => setState(() => _selectedIndex = i),
@@ -72,6 +74,7 @@ class _HomeScreenState extends State<HomeScreen> {
       case 2: return const MealPrepScreen();
       case 3: return const WeightTrackerScreen();
       case 4: return const _FitnessTrackerScreen();
+      case 5: return const SquadTab();
       default: return const _DashboardScreen();
     }
   }

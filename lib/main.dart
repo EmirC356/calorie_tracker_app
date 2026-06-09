@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'providers/meal_provider.dart';
 import 'providers/exercise_provider.dart';
 import 'providers/meal_prep_provider.dart';
 import 'providers/weight_provider.dart';
 import 'providers/profile_provider.dart';
+import 'providers/auth_provider.dart';
 import 'screens/home_screen.dart';
 import 'services/ai_service.dart';
 import 'theme/app_theme.dart';
@@ -17,6 +19,15 @@ const _seedKey = String.fromEnvironment('GEMINI_KEY');
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Firebase powers the cloud-synced Squad feature only. initializeApp() reads
+  // local config (no network), so it never blocks the offline-first app. Guard
+  // it so a config problem can't take down the local meal/exercise/weight UI;
+  // the Squad providers are created lazily and surface errors only there.
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    debugPrint('Firebase init failed (Squad features disabled): $e');
+  }
   if (_seedKey.isNotEmpty) {
     await aiService.initialize(_seedKey); // seed + persist
   } else {
@@ -37,6 +48,9 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => MealPrepProvider()),
         ChangeNotifierProvider(create: (_) => WeightProvider()),
         ChangeNotifierProvider(create: (_) => ProfileProvider()),
+        // Lazy: only constructed when the Squad tab is first opened, so a
+        // Firebase problem never affects the local-only tabs.
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
       ],
       child: MaterialApp(
         title: 'Calorie Tracker',

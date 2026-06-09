@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "106767040455",
+    "project_id": "riwex-d01aa",
+    "storage_bucket": "riwex-d01aa.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:106767040455:android:116522097e7b2610ab63e2",
+        "android_client_info": {
+          "package_name": "com.emirceylan.calorietracker"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "106767040455-7lgbqu599kuae3q05ai95a104o3mj21r.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAHwNQOkhghDDef8UB18UWLu3Tc0cSErG8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "106767040455-7lgbqu599kuae3q05ai95a104o3mj21r.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
