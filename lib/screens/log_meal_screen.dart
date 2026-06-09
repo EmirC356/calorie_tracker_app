@@ -298,7 +298,7 @@ class _LogMealScreenState extends State<LogMealScreen> {
           decoration: BoxDecoration(
             color: selected ? accent : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
-            boxShadow: selected ? [BoxShadow(color: accent.withOpacity(0.4), blurRadius: 8)] : null,
+            boxShadow: selected ? [BoxShadow(color: accent.withValues(alpha: 0.4), blurRadius: 8)] : null,
           ),
           child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
             Icon(icon, size: 16, color: selected ? kBg : accent),
@@ -340,7 +340,7 @@ class _LogMealScreenState extends State<LogMealScreen> {
             hintStyle: const TextStyle(color: kTextDim, fontSize: 13),
             filled: true,
             fillColor: kSurface,
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kCyan.withOpacity(0.4))),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kCyan.withValues(alpha: 0.4))),
             focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: kCyan)),
           ),
         ),
@@ -367,7 +367,7 @@ class _LogMealScreenState extends State<LogMealScreen> {
             decoration: BoxDecoration(
               color: kSurface,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: kCyan.withOpacity(0.5)),
+              border: Border.all(color: kCyan.withValues(alpha: 0.5)),
             ),
             child: Row(children: [
               const Icon(Icons.check_circle, color: kNeonGreen, size: 16),
@@ -446,7 +446,7 @@ class _LogMealScreenState extends State<LogMealScreen> {
                   color: sel ? kOrange : kSurface,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: kOrange),
-                  boxShadow: sel ? [BoxShadow(color: kOrange.withOpacity(0.4), blurRadius: 8)] : null,
+                  boxShadow: sel ? [BoxShadow(color: kOrange.withValues(alpha: 0.4), blurRadius: 8)] : null,
                 ),
                 child: Text('$s×', style: TextStyle(color: sel ? kBg : kOrange, fontWeight: FontWeight.bold)),
               ),
@@ -568,7 +568,7 @@ class _FoodRowWidgetState extends State<_FoodRowWidget> {
             decoration: InputDecoration(
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: widget.accent.withOpacity(0.4))),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: widget.accent.withValues(alpha: 0.4))),
               focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: widget.accent)),
               filled: true, fillColor: kSurface,
             ),

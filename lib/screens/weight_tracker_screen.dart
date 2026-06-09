@@ -252,7 +252,7 @@ class _WeightTile extends StatelessWidget {
         if (entry.isEmptyStomach)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(color: kNeonYellow.withOpacity(0.15), borderRadius: BorderRadius.circular(4), border: Border.all(color: kNeonYellow.withOpacity(0.5))),
+            decoration: BoxDecoration(color: kNeonYellow.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4), border: Border.all(color: kNeonYellow.withValues(alpha: 0.5))),
             child: const Text('empty', style: TextStyle(color: kNeonYellow, fontSize: 10)),
           ),
         IconButton(icon: const Icon(Icons.delete_outline, color: kNeonRed, size: 18), onPressed: onDelete, constraints: const BoxConstraints(minWidth: 32, minHeight: 32), padding: EdgeInsets.zero),

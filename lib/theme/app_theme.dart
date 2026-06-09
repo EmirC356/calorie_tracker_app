@@ -20,15 +20,15 @@ BoxDecoration neonBox(Color accent, {double radius = 12, Color bg = kCard}) =>
     BoxDecoration(
       color: bg,
       borderRadius: BorderRadius.circular(radius),
-      border: Border.all(color: accent.withOpacity(0.7), width: 1),
+      border: Border.all(color: accent.withValues(alpha: 0.7), width: 1),
       boxShadow: [
-        BoxShadow(color: accent.withOpacity(0.18), blurRadius: 10, spreadRadius: 0),
+        BoxShadow(color: accent.withValues(alpha: 0.18), blurRadius: 10, spreadRadius: 0),
       ],
     );
 
 List<Shadow> textGlow(Color c) => [
-      Shadow(color: c.withOpacity(0.9), blurRadius: 8),
-      Shadow(color: c.withOpacity(0.4), blurRadius: 16),
+      Shadow(color: c.withValues(alpha: 0.9), blurRadius: 8),
+      Shadow(color: c.withValues(alpha: 0.4), blurRadius: 16),
     ];
 
 TextStyle neonLabel(Color c, {double size = 13, FontWeight w = FontWeight.w600}) =>
