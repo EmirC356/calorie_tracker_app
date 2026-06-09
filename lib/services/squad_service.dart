@@ -157,11 +157,18 @@ class SquadService {
     return code;
   }
 
+  /// Streams the user's squads. Sorted newest-first client-side so the query
+  /// stays single-field (no composite index needed) and the read rule can match
+  /// the array-contains filter.
   Stream<List<Squad>> watchMySquads(String uid) => _squads
       .where('memberUids', arrayContains: uid)
-      .orderBy('createdAt', descending: true)
       .snapshots()
-      .map((qs) => qs.docs.map((d) => Squad.fromMap(d.id, d.data())).toList());
+      .map((qs) {
+        final list = qs.docs.map((d) => Squad.fromMap(d.id, d.data())).toList();
+        list.sort((a, b) =>
+            (b.createdAt ?? DateTime(0)).compareTo(a.createdAt ?? DateTime(0)));
+        return list;
+      });
 
   Stream<Squad?> watchSquad(String squadId) => _squads
       .doc(squadId)

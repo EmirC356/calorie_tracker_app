@@ -11,6 +11,7 @@ import {
 } from '@firebase/rules-unit-testing';
 import {
   doc, getDoc, setDoc, updateDoc, arrayUnion, setLogLevel,
+  collection, query, where, getDocs,
 } from 'firebase/firestore';
 
 setLogLevel('error');
@@ -41,6 +42,12 @@ const check = async (label, p) => { await p; n++; console.log(`  ✓ ${label}`);
 // The headline requirement: a non-member cannot read squad docs.
 await check('non-member CANNOT read squad', assertFails(getDoc(doc(outsider, 'squads/s1'))));
 await check('member CAN read squad', assertSucceeds(getDoc(doc(member, 'squads/s1'))));
+
+// "My squads" list query: allowed only with the array-contains self filter.
+await check('member CAN list own squads (array-contains self)',
+  assertSucceeds(getDocs(query(collection(member, 'squads'), where('memberUids', 'array-contains', 'm1')))));
+await check('CANNOT list all squads unfiltered',
+  assertFails(getDocs(collection(outsider, 'squads'))));
 await check('anyone signed-in can resolve a code lookup', assertSucceeds(getDoc(doc(outsider, 'squadCodes/123456'))));
 
 // Self-join: an outsider may add ONLY themselves.
@@ -57,4 +64,4 @@ await check('invalid sharingLevel rejected', assertFails(setDoc(doc(member, 'squ
 
 await testEnv.cleanup();
 console.log(`\nALL ${n} RULES TESTS PASSED`);
-assert(n === 9);
+assert(n === 11);

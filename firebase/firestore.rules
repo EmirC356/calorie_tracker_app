@@ -45,8 +45,11 @@ service cloud.firestore {
 
     // ── squads/{squadId} ──────────────────────────────────────────────────────
     match /squads/{squadId} {
-      // Read: members only.
-      allow read: if isSignedIn() && uid() in resource.data.memberUids;
+      // Read: members only. NOTE: request.auth.uid is inlined (not the uid()
+      // helper) so the query-rules analyzer can match it against the
+      // `memberUids array-contains <uid>` filter used by "my squads"; behind a
+      // helper, list queries get denied.
+      allow read: if request.auth != null && request.auth.uid in resource.data.memberUids;
 
       // Create: the creator is the owner and the sole member.
       allow create: if isSignedIn()
