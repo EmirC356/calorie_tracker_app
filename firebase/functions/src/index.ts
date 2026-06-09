@@ -60,6 +60,15 @@ function localDateKey(utc: Date, tzMinutes: number): string {
   return `${y}-${m}-${d}`;
 }
 
+/** UTC date key for [days] days ago. */
+function dateKeyDaysAgo(days: number): string {
+  const d = new Date(Date.now() - days * 86400000);
+  const y = d.getUTCFullYear();
+  const mo = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const da = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}-${mo}-${da}`;
+}
+
 export const onEntryStatusHit = onDocumentWritten(
   "squads/{squadId}/days/{date}/entries/{uid}",
   async (event) => {
@@ -87,6 +96,35 @@ export const onReactionCreated = onDocumentCreated(
     await pushToUsers([toUid], squadId, "New nudge", `${fromName} sent you ${glyph(data.emoji as string)}`);
   },
 );
+
+/**
+ * Deletes day buckets (squads/{id}/days/{YYYY-MM-DD} + their entries/reactions
+ * subcollections) older than 30 days, across all squads. Runs once daily.
+ *
+ * Trade-offs / why server-side: a client-side prune was the documented
+ * alternative, but the security rules only let a user delete THEIR OWN
+ * entries/reactions — so no client can clear another member's docs in a day
+ * bucket. The admin SDK here bypasses rules and prunes globally in one pass
+ * (no per-client redundancy or battery cost). `listDocuments()` is used because
+ * day docs are path-only parents (the {date} doc itself is never written), and
+ * `recursiveDelete` removes the entries/reactions beneath each. Date keys are
+ * YYYY-MM-DD so a lexicographic `<` compare equals a chronological one.
+ */
+export const pruneOldDays = onSchedule("every 24 hours", async () => {
+  const cutoff = dateKeyDaysAgo(30);
+  const squads = await db.collection("squads").get();
+  let pruned = 0;
+  for (const sq of squads.docs) {
+    const dayRefs = await db.collection(`squads/${sq.id}/days`).listDocuments();
+    for (const dayRef of dayRefs) {
+      if (dayRef.id < cutoff) {
+        await db.recursiveDelete(dayRef);
+        pruned++;
+      }
+    }
+  }
+  console.log(`pruneOldDays: removed ${pruned} day bucket(s) older than ${cutoff}`);
+});
 
 export const scheduledSummary = onSchedule("every 60 minutes", async () => {
   const targetLocalHour = 22; // 10pm local
