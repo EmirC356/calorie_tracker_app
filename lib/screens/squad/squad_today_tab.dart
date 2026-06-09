@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/squad_member.dart';
 import '../../models/squad_day_entry.dart';
+import '../../models/squad_reaction.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/snapshot_provider.dart';
 import '../../providers/squad_provider.dart';
@@ -48,22 +49,29 @@ class _SquadTodayTabState extends State<SquadTodayTab> {
           stream: service.watchDayEntries(widget.squadId, _dateKey),
           builder: (context, eSnap) {
             final entries = {for (final e in (eSnap.data ?? const <SquadDayEntry>[])) e.uid: e};
-            return GridView.builder(
-              padding: const EdgeInsets.all(16),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.82,
-              ),
-              itemCount: members.length,
-              itemBuilder: (_, i) {
-                final m = members[i];
-                final entry = entries[m.uid];
-                return MemberCard(
-                  member: m,
-                  entry: entry,
-                  isMe: m.uid == myUid,
-                  onTap: () => Navigator.push(context, MaterialPageRoute(
-                      builder: (_) => MemberDayDetailScreen(
-                          member: m, entry: entry, squadId: widget.squadId, dateKey: _dateKey))),
+            return StreamBuilder<List<SquadReaction>>(
+              stream: service.watchReactions(widget.squadId, _dateKey),
+              builder: (context, rSnap) {
+                final emojiByUid = latestEmojiByRecipient(rSnap.data ?? const <SquadReaction>[]);
+                return GridView.builder(
+                  padding: const EdgeInsets.all(16),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.82,
+                  ),
+                  itemCount: members.length,
+                  itemBuilder: (_, i) {
+                    final m = members[i];
+                    final entry = entries[m.uid];
+                    return MemberCard(
+                      member: m,
+                      entry: entry,
+                      isMe: m.uid == myUid,
+                      receivedEmoji: emojiByUid[m.uid],
+                      onTap: () => Navigator.push(context, MaterialPageRoute(
+                          builder: (_) => MemberDayDetailScreen(
+                              member: m, entry: entry, squadId: widget.squadId, dateKey: _dateKey))),
+                    );
+                  },
                 );
               },
             );

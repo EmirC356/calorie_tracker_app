@@ -11,7 +11,7 @@ import {
 } from '@firebase/rules-unit-testing';
 import {
   doc, getDoc, setDoc, updateDoc, arrayUnion, arrayRemove, setLogLevel,
-  collection, query, where, getDocs,
+  collection, query, where, getDocs, addDoc,
 } from 'firebase/firestore';
 
 setLogLevel('error');
@@ -64,9 +64,16 @@ await check('invalid sharingLevel rejected', assertFails(setDoc(doc(member, 'squ
 await check('member can update OWN goal (merge)', assertSucceeds(setDoc(doc(member, 'squads/s1/members/m1'), { goal: { calorieMode: 'cap', calorieTarget: 2000 } }, { merge: true })));
 await check("member CANNOT edit another's member doc", assertFails(setDoc(doc(member, 'squads/s1/members/owner'), { sharingLevel: 'full', goal: {} })));
 
+// Reactions: nudge another member yes, yourself no.
+const reactions = 'squads/s1/days/2026-06-09/reactions';
+await check('member can nudge another member',
+  assertSucceeds(addDoc(collection(member, reactions), { fromUid: 'm1', toUid: 'owner', emoji: 'fire', fromName: 'M' })));
+await check('member CANNOT nudge themselves',
+  assertFails(addDoc(collection(member, reactions), { fromUid: 'm1', toUid: 'm1', emoji: 'fire', fromName: 'M' })));
+
 // Leave: a non-owner removes only themselves ('out' joined earlier).
 await check('non-owner can LEAVE (remove self)', assertSucceeds(updateDoc(doc(outsider, 'squads/s1'), { memberUids: arrayRemove('out') })));
 
 await testEnv.cleanup();
 console.log(`\nALL ${n} RULES TESTS PASSED`);
-assert(n === 14);
+assert(n === 16);

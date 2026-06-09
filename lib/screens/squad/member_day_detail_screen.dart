@@ -89,23 +89,34 @@ class MemberDayDetailScreen extends StatelessWidget {
     final myUid = auth.firebaseUser?.uid;
     final myName = auth.appUser?.displayName ?? 'Athlete';
     if (myUid == null) return const SizedBox.shrink();
+
+    // Can't nudge yourself.
+    if (member.uid == myUid) {
+      return Container(
+        padding: const EdgeInsets.all(14),
+        decoration: neonBox(kBorderDim),
+        child: const Text("This is you — open a squadmate's card to send a nudge.",
+            style: TextStyle(color: kTextDim, fontSize: 12)),
+      );
+    }
+
     return StreamBuilder<List<SquadReaction>>(
       stream: service.watchReactions(squadId, dateKey),
       builder: (context, snap) {
-        final forMember =
-            (snap.data ?? const <SquadReaction>[]).where((r) => r.toUid == member.uid).toList();
+        final reactions = snap.data ?? const <SquadReaction>[];
         return ReactionBar(
-          reactions: forMember,
-          myUid: myUid,
-          onTap: (emoji) {
-            final mine = forMember.where((r) => r.fromUid == myUid && r.emoji == emoji).toList();
-            if (mine.isNotEmpty) {
-              service.removeReaction(squadId: squadId, dateKey: dateKey, reactionId: mine.first.id);
-            } else {
-              service.addReaction(
-                  squadId: squadId, dateKey: dateKey, fromUid: myUid, fromName: myName,
-                  toUid: member.uid, emoji: emoji);
+          onSend: (emoji) {
+            final remaining = reactionCooldownRemaining(reactions, myUid, member.uid, DateTime.now());
+            if (remaining > Duration.zero) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text('You can nudge ${member.displayName} again in ${remaining.inSeconds}s')));
+              return;
             }
+            service.addReaction(
+                squadId: squadId, dateKey: dateKey, fromUid: myUid, fromName: myName,
+                toUid: member.uid, emoji: emoji);
+            ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('${emoji.glyph} sent to ${member.displayName}')));
           },
         );
       },

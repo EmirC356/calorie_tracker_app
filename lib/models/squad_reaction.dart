@@ -2,6 +2,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 enum ReactionEmoji { fire, flex, clap }
 
+/// Minimum gap between nudges to the *same* member from the same sender.
+/// TODO: set to `Duration(minutes: 5)` for production — 5s while testing.
+const Duration kReactionCooldown = Duration(seconds: 5);
+
 extension ReactionEmojiGlyph on ReactionEmoji {
   String get glyph {
     switch (this) {
@@ -53,4 +57,37 @@ class SquadReaction {
         'emoji': emoji.name,
         'createdAt': FieldValue.serverTimestamp(),
       };
+}
+
+/// The latest emoji each member *received* (by createdAt), keyed by recipient
+/// uid. Used to show an emoji next to a member's name. Pure — unit-tested.
+Map<String, ReactionEmoji> latestEmojiByRecipient(List<SquadReaction> reactions) {
+  final latest = <String, SquadReaction>{};
+  for (final r in reactions) {
+    final cur = latest[r.toUid];
+    final rt = r.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+    final ct = cur?.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+    if (cur == null || rt.isAfter(ct)) latest[r.toUid] = r;
+  }
+  return latest.map((k, v) => MapEntry(k, v.emoji));
+}
+
+/// Remaining cooldown before [fromUid] may nudge [toUid] again, given prior
+/// [reactions]. Zero when allowed. Pure — unit-tested.
+Duration reactionCooldownRemaining(
+  List<SquadReaction> reactions,
+  String fromUid,
+  String toUid,
+  DateTime now, [
+  Duration cooldown = kReactionCooldown,
+]) {
+  DateTime? last;
+  for (final r in reactions) {
+    if (r.fromUid == fromUid && r.toUid == toUid && r.createdAt != null) {
+      if (last == null || r.createdAt!.isAfter(last)) last = r.createdAt;
+    }
+  }
+  if (last == null) return Duration.zero;
+  final remaining = cooldown - now.difference(last);
+  return remaining.isNegative ? Duration.zero : remaining;
 }

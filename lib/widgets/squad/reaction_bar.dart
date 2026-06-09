@@ -2,14 +2,12 @@ import 'package:flutter/material.dart';
 import '../../models/squad_reaction.dart';
 import '../../theme/app_theme.dart';
 
-/// Row of 🔥 💪 👏 with counts. Tapping toggles your own reaction (adds if you
-/// haven't reacted with it, removes if you have). Shows who reacted.
+/// "Send a nudge" bar: tap an emoji to send it to a squadmate. No counts —
+/// it's a poke. Sends are rate-limited by the caller; the recipient sees the
+/// emoji next to their name on the squad page (and, once Phase 7 lands, a push).
 class ReactionBar extends StatelessWidget {
-  final List<SquadReaction> reactions; // already filtered to one member's day
-  final String myUid;
-  final void Function(ReactionEmoji emoji) onTap;
-
-  const ReactionBar({super.key, required this.reactions, required this.myUid, required this.onTap});
+  final void Function(ReactionEmoji emoji) onSend;
+  const ReactionBar({super.key, required this.onSend});
 
   @override
   Widget build(BuildContext context) {
@@ -17,47 +15,30 @@ class ReactionBar extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: neonBox(kNavy),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('CHEER THEM ON', style: neonLabel(kNavy, size: 12)),
+        Text('SEND A NUDGE', style: neonLabel(kNavy, size: 12)),
         const SizedBox(height: 10),
-        Row(children: ReactionEmoji.values.map((e) {
-          final forEmoji = reactions.where((r) => r.emoji == e).toList();
-          final mine = forEmoji.any((r) => r.fromUid == myUid);
-          return Padding(
-            padding: const EdgeInsets.only(right: 10),
-            child: GestureDetector(
-              onTap: () => onTap(e),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: mine ? kNavy.withValues(alpha: 0.22) : kSurface,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: mine ? kNavy : kBorderDim),
-                ),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Text(e.glyph, style: const TextStyle(fontSize: 18)),
-                  if (forEmoji.isNotEmpty) ...[
-                    const SizedBox(width: 6),
-                    Text('${forEmoji.length}',
-                        style: TextStyle(color: mine ? kNavy : kText, fontWeight: FontWeight.bold)),
-                  ],
-                ]),
-              ),
-            ),
-          );
-        }).toList()),
-        if (reactions.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          ...ReactionEmoji.values.map((e) {
-            final names = reactions.where((r) => r.emoji == e).map((r) => r.fromName).toList();
-            if (names.isEmpty) return const SizedBox.shrink();
+        Row(
+          children: ReactionEmoji.values.map((e) {
             return Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Text('${e.glyph}  ${names.join(', ')}',
-                  style: const TextStyle(color: kTextDim, fontSize: 12)),
+              padding: const EdgeInsets.only(right: 12),
+              child: GestureDetector(
+                onTap: () => onSend(e),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: kSurface,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: kNavy),
+                  ),
+                  child: Text(e.glyph, style: const TextStyle(fontSize: 22)),
+                ),
+              ),
             );
-          }),
-        ] else
-          const Text('Be the first to react', style: TextStyle(color: kTextDim, fontSize: 12)),
+          }).toList(),
+        ),
+        const SizedBox(height: 8),
+        const Text('Sends an emoji to their squad page. You can nudge each member once every few minutes.',
+            style: TextStyle(color: kTextDim, fontSize: 11)),
       ]),
     );
   }

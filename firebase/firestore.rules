@@ -118,7 +118,8 @@ service cloud.firestore {
         allow read: if isMemberOf(squadId);
         allow create: if isSignedIn()
           && isMemberOf(squadId)
-          && request.resource.data.fromUid == uid();
+          && request.resource.data.fromUid == uid()
+          && request.resource.data.toUid != uid(); // no nudging yourself
         allow update: if false; // reactions are immutable
         allow delete: if isSignedIn() && resource.data.fromUid == uid();
       }

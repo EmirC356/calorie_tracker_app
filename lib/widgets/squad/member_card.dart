@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/squad_member.dart';
 import '../../models/squad_day_entry.dart';
 import '../../models/squad_goal.dart';
+import '../../models/squad_reaction.dart';
 import '../../theme/app_theme.dart';
 import 'goal_summary.dart';
 import 'progress_ring.dart';
@@ -12,8 +13,16 @@ class MemberCard extends StatelessWidget {
   final SquadMember member;
   final SquadDayEntry? entry;
   final bool isMe;
+  final ReactionEmoji? receivedEmoji;
   final VoidCallback onTap;
-  const MemberCard({super.key, required this.member, required this.entry, required this.isMe, required this.onTap});
+  const MemberCard({
+    super.key,
+    required this.member,
+    required this.entry,
+    required this.isMe,
+    required this.onTap,
+    this.receivedEmoji,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -37,6 +46,8 @@ class MemberCard extends StatelessWidget {
                   maxLines: 1, overflow: TextOverflow.ellipsis,
                   style: const TextStyle(color: kText, fontWeight: FontWeight.bold, fontSize: 13)),
             ),
+            if (receivedEmoji != null)
+              Text(receivedEmoji!.glyph, style: const TextStyle(fontSize: 16)),
           ]),
           const SizedBox(height: 8),
           ProgressRing(
