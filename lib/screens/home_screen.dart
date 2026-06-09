@@ -8,6 +8,7 @@ import '../providers/weight_provider.dart';
 import '../models/index.dart';
 import '../theme/app_theme.dart';
 import '../widgets/edit_entry_sheets.dart';
+import '../widgets/dashboard_charts.dart';
 import 'log_meal_screen.dart';
 import 'meal_prep_screen.dart';
 import 'weight_tracker_screen.dart';
@@ -39,6 +40,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final weight = context.read<WeightProvider>();
     Future.microtask(() {
       meals.loadTodaysMeals();
+      meals.loadMeals(); // full history for the 14-day calories chart
       exercises.loadTodaysExercises();
       profile.load();
       weight.loadEntries();
@@ -129,6 +131,40 @@ class _DashboardScreen extends StatelessWidget {
             },
           ),
           const SizedBox(height: 24),
+          Text('TRENDS', style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 12),
+          Consumer3<MealProvider, ProfileProvider, WeightProvider>(
+            builder: (_, meals, profileP, weightP, __) {
+              final profile = profileP.profile;
+              final weight = weightP.latest?.weight ?? profile?.fallbackWeightKg;
+              final goal = (profileP.hasProfile && weight != null && weight > 0)
+                  ? profile!.calorieTarget(weight)
+                  : null;
+              return Column(children: [
+                CollapsibleChartSection(
+                  title: 'CALORIES — LAST 14 DAYS',
+                  accent: kCyan,
+                  initiallyExpanded: true,
+                  child: CaloriesBarChart(totals: meals.dailyCalories(14), goal: goal),
+                ),
+                CollapsibleChartSection(
+                  title: 'WEIGHT — LAST 90 DAYS',
+                  accent: kNeonGreen,
+                  child: WeightLineChart(entries: weightP.entries),
+                ),
+                CollapsibleChartSection(
+                  title: "TODAY'S MACROS",
+                  accent: kOrange,
+                  child: MacrosDonut(
+                    protein: meals.todaysTotalProtein,
+                    carbs: meals.todaysTotalCarbs,
+                    fat: meals.todaysTotalFat,
+                  ),
+                ),
+              ]);
+            },
+          ),
+          const SizedBox(height: 12),
           Text('QUICK ACTIONS', style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 12),
           Row(children: [

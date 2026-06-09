@@ -2,6 +2,13 @@ import 'package:flutter/material.dart';
 import '../models/index.dart';
 import '../services/database_service.dart';
 
+/// A single calendar day's aggregated value (used by the calories chart).
+class DayTotal {
+  final DateTime day;
+  final double value;
+  const DayTotal(this.day, this.value);
+}
+
 class MealProvider extends ChangeNotifier {
   final DatabaseService _dbService = DatabaseService();
 
@@ -54,5 +61,33 @@ class MealProvider extends ChangeNotifier {
 
   Future<List<Meal>> getMealsByDate(DateTime date) async {
     return await _dbService.getMealsByDate(date);
+  }
+
+  /// Daily calorie totals for the last [days] days (oldest first), bucketed by
+  /// calendar day from the loaded full meal list. Requires loadMeals() first.
+  List<DayTotal> dailyCalories(int days, {DateTime? now}) =>
+      bucketDailyCalories(_meals, days, now: now);
+
+  /// Pure helper: buckets [meals] into per-day calorie totals for the last
+  /// [days] days ending at [now] (defaults to today). Oldest day first, with
+  /// zero-filled days for any with no meals. Extracted for unit testing.
+  static List<DayTotal> bucketDailyCalories(List<Meal> meals, int days,
+      {DateTime? now}) {
+    final ref = now ?? DateTime.now();
+    final startDay =
+        DateTime(ref.year, ref.month, ref.day).subtract(Duration(days: days - 1));
+    final buckets = <DateTime, double>{};
+    for (var i = 0; i < days; i++) {
+      buckets[startDay.add(Duration(days: i))] = 0;
+    }
+    for (final m in meals) {
+      final d = DateTime(m.timestamp.year, m.timestamp.month, m.timestamp.day);
+      if (buckets.containsKey(d)) {
+        buckets[d] = buckets[d]! + m.nutrients.calories;
+      }
+    }
+    final entries = buckets.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    return entries.map((e) => DayTotal(e.key, e.value)).toList();
   }
 }
