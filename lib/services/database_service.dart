@@ -309,6 +309,19 @@ class DatabaseService {
     return maps.map(_mealFromMap).toList();
   }
 
+  /// Meals with `timestamp` in [start, endExclusive). Timestamps are stored as
+  /// local naive ISO strings, so lexicographic comparison is chronological.
+  Future<List<Meal>> getMealsInRange(
+      DateTime start, DateTime endExclusive) async {
+    final database = await db;
+    final maps = await database.query(
+      tablesMeals,
+      where: 'timestamp >= ? AND timestamp < ?',
+      whereArgs: [start.toIso8601String(), endExclusive.toIso8601String()],
+    );
+    return maps.map(_mealFromMap).toList();
+  }
+
   Meal _mealFromMap(Map<String, dynamic> m) => Meal(
         id: m['id'] as int?,
         name: m['name'] as String,
@@ -368,6 +381,18 @@ class DatabaseService {
       tablesExercises,
       where: 'timestamp >= ? AND timestamp < ?',
       whereArgs: [start.toIso8601String(), startOfNextDay.toIso8601String()],
+    );
+    return maps.map(_exerciseFromMap).toList();
+  }
+
+  /// Exercises with `timestamp` in [start, endExclusive).
+  Future<List<Exercise>> getExercisesInRange(
+      DateTime start, DateTime endExclusive) async {
+    final database = await db;
+    final maps = await database.query(
+      tablesExercises,
+      where: 'timestamp >= ? AND timestamp < ?',
+      whereArgs: [start.toIso8601String(), endExclusive.toIso8601String()],
     );
     return maps.map(_exerciseFromMap).toList();
   }
@@ -457,6 +482,19 @@ class DatabaseService {
     final database = await db;
     return await database
         .delete(tablesWeightEntries, where: 'id = ?', whereArgs: [id]);
+  }
+
+  /// Weight entries with `timestamp` in [start, endExclusive), oldest first.
+  Future<List<WeightEntry>> getWeightEntriesInRange(
+      DateTime start, DateTime endExclusive) async {
+    final database = await db;
+    final maps = await database.query(
+      tablesWeightEntries,
+      where: 'timestamp >= ? AND timestamp < ?',
+      whereArgs: [start.toIso8601String(), endExclusive.toIso8601String()],
+      orderBy: 'timestamp ASC',
+    );
+    return maps.map(WeightEntry.fromJson).toList();
   }
 
   Future<void> close() async {

@@ -1,8 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/index.dart';
+import '../models/goal_evaluator.dart';
+import '../services/database_service.dart';
 import '../services/goal_service.dart';
 import '../services/goal_sweep_service.dart';
+import '../services/repos/goal_repos.dart';
 import '../services/prefs.dart';
 
 /// Bridges [GoalService] to the Calendar UI. Loads lazily on first access (like
@@ -13,22 +16,47 @@ import '../services/prefs.dart';
 /// swept) instances. UI surfaces should overlay the two via
 /// [statusFor]/[occurrencesOn].
 class GoalProvider extends ChangeNotifier {
-  final GoalService _service;
+  late final GoalService _service;
   final RecurrenceEngine _engine;
   late final GoalSweepService _sweep;
 
-  /// Injected in Phase 3 so the sweep can finalize tracked goals; null here
-  /// leaves tracked occurrences unmaterialized.
+  /// Finalizes a tracked goal occurrence during the sweep. Defaults to the
+  /// GoalEvaluator over the local database; tests can inject a fake.
   TrackedEvaluator? evaluateTracked;
 
   GoalProvider({
+    DatabaseService? db,
     GoalService? service,
     RecurrenceEngine engine = const RecurrenceEngine(),
-    this.evaluateTracked,
-  })  : _service = service ?? GoalService(),
-        _engine = engine {
-    // Share the single service instance so both read the same database.
+    TrackedEvaluator? evaluateTracked,
+  }) : _engine = engine {
+    final dbService = db ?? DatabaseService();
+    // Share the single service/db instance so reads hit the same database.
+    _service = service ?? GoalService(db: dbService);
     _sweep = GoalSweepService(_service, engine: _engine);
+    this.evaluateTracked =
+        evaluateTracked ?? _defaultTrackedEvaluator(dbService);
+  }
+
+  /// Wires the GoalEvaluator over the local DB. Returns null (leave
+  /// unmaterialized) when the metric can't be decided (e.g. no weight data, or
+  /// water tracking not enabled) so the sweep never records an `open` row.
+  TrackedEvaluator _defaultTrackedEvaluator(DatabaseService dbService) {
+    const evaluator = GoalEvaluator();
+    final meals = DbMealRepo(dbService);
+    final exercises = DbExerciseRepo(dbService);
+    final weights = DbWeightRepo(dbService);
+    return (goal, date) async {
+      final r = await evaluator.evaluate(
+        goal: goal,
+        occurrenceDate: date,
+        meals: meals,
+        exercises: exercises,
+        weights: weights,
+        water: null,
+      );
+      return r.status == OccurrenceStatus.open ? null : r;
+    };
   }
 
   bool _loaded = false;
