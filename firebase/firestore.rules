@@ -1,22 +1,112 @@
 rules_version = '2';
 
 // Firestore security rules for the Squad Accountability feature.
-// Grows by phase. Phase 1 covers only the users collection; squad/day/reaction
-// rules are added in Phase 2 alongside the squad model.
+// Only daily aggregated snapshots live in the cloud — raw meals/exercises/
+// weight stay on-device. Grows by phase; this covers Phases 1–5.
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function isSignedIn() { return request.auth != null; }
+    function uid() { return request.auth.uid; }
+    // Current squad doc data (used by subcollection rules).
+    function squadData(squadId) {
+      return get(/databases/$(database)/documents/squads/$(squadId)).data;
+    }
+    function isMemberOf(squadId) {
+      return isSignedIn() && uid() in squadData(squadId).memberUids;
+    }
+    function isOwnerOf(squadId) {
+      return isSignedIn() && uid() == squadData(squadId).ownerUid;
+    }
+
     // ── users/{uid} ───────────────────────────────────────────────────────────
-    // A signed-in user may read and write ONLY their own profile document
-    // (displayName, photoURL, fcmTokens). Deletes are disallowed.
-    match /users/{uid} {
-      allow read: if request.auth != null && request.auth.uid == uid;
-      allow create, update: if request.auth != null && request.auth.uid == uid;
+    // A signed-in user reads/writes ONLY their own profile. No deletes.
+    match /users/{userId} {
+      allow read: if isSignedIn() && uid() == userId;
+      allow create, update: if isSignedIn() && uid() == userId;
       allow delete: if false;
     }
 
-    // ── squads/** ─────────────────────────────────────────────────────────────
-    // Added in Phase 2 (membership-gated reads, owner-only squad writes,
-    // self-only member/entry writes, reaction ownership, memberUids <= 10).
+    // ── squadCodes/{code} ─────────────────────────────────────────────────────
+    // code -> { squadId, expiresAt }. Lets a non-member resolve an invite code
+    // to a squad (squad docs are member-only). get-only (never listable, so
+    // codes can't be enumerated). Written only by the target squad's owner —
+    // prevents an attacker from minting a code that points at someone else's
+    // squad. (Owner check uses get(), so on squad creation the squad doc must
+    // be written BEFORE its code doc; the service does exactly that.)
+    match /squadCodes/{code} {
+      allow get: if isSignedIn();
+      allow list: if false;
+      allow create, update: if isSignedIn()
+        && squadData(request.resource.data.squadId).ownerUid == uid();
+      allow delete: if isSignedIn()
+        && squadData(resource.data.squadId).ownerUid == uid();
+    }
+
+    // ── squads/{squadId} ──────────────────────────────────────────────────────
+    match /squads/{squadId} {
+      // Read: members only.
+      allow read: if isSignedIn() && uid() in resource.data.memberUids;
+
+      // Create: the creator is the owner and the sole member.
+      allow create: if isSignedIn()
+        && request.resource.data.ownerUid == uid()
+        && request.resource.data.memberUids == [uid()]
+        && request.resource.data.memberUids.size() <= 10
+        && request.resource.data.name is string
+        && request.resource.data.inviteCode is string;
+
+      // Update: the OWNER may change anything (rename, kick via memberUids,
+      // transfer ownership) — OR a non-member may JOIN by adding only
+      // themselves to memberUids, with a non-expired code and every other
+      // field unchanged. Cap enforced at <= 10 either way.
+      allow update: if isSignedIn()
+        && request.resource.data.memberUids.size() <= 10
+        && (
+          resource.data.ownerUid == uid()
+          || (
+            !(uid() in resource.data.memberUids)
+            && uid() in request.resource.data.memberUids
+            && request.resource.data.memberUids.size() == resource.data.memberUids.size() + 1
+            && request.resource.data.memberUids.hasAll(resource.data.memberUids)
+            && request.resource.data.name == resource.data.name
+            && request.resource.data.ownerUid == resource.data.ownerUid
+            && request.resource.data.inviteCode == resource.data.inviteCode
+            && request.resource.data.inviteCodeExpiresAt == resource.data.inviteCodeExpiresAt
+            && request.time < resource.data.inviteCodeExpiresAt
+          )
+        );
+
+      // Delete: owner only.
+      allow delete: if isSignedIn() && resource.data.ownerUid == uid();
+
+      // ── members/{uid}: per-squad goal + sharing level ───────────────────────
+      match /members/{memberUid} {
+        allow read: if isMemberOf(squadId);
+        // Write only your OWN member doc; sharingLevel must be in the enum.
+        allow create, update: if isSignedIn()
+          && uid() == memberUid
+          && request.resource.data.sharingLevel in ['status', 'totals', 'full'];
+        // Leave (self) or owner-kick.
+        allow delete: if isSignedIn() && (uid() == memberUid || isOwnerOf(squadId));
+      }
+
+      // ── days/{date}/entries/{uid}: daily snapshots ──────────────────────────
+      match /days/{date}/entries/{entryUid} {
+        allow read: if isMemberOf(squadId);
+        // Write only your OWN entry.
+        allow write: if isSignedIn() && uid() == entryUid && isMemberOf(squadId);
+      }
+
+      // ── days/{date}/reactions/{id} ──────────────────────────────────────────
+      match /days/{date}/reactions/{reactionId} {
+        allow read: if isMemberOf(squadId);
+        allow create: if isSignedIn()
+          && isMemberOf(squadId)
+          && request.resource.data.fromUid == uid();
+        allow update: if false; // reactions are immutable
+        allow delete: if isSignedIn() && resource.data.fromUid == uid();
+      }
+    }
   }
 }

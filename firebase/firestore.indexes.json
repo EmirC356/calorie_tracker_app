@@ -1,0 +1,14 @@
+{
+  "indexes": [
+    {
+      "//": "watchMySquads: squads where memberUids array-contains uid, ordered by createdAt desc.",
+      "collectionGroup": "squads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "memberUids", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

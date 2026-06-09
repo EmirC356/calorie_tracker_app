@@ -1,0 +1,66 @@
+import 'dart:async';
+import 'package:flutter/material.dart';
+import '../models/squad.dart';
+import '../services/squad_service.dart';
+
+/// Streams the signed-in user's squads and exposes create/join actions.
+/// Call [bind] with the current uid (and null on sign-out).
+class SquadProvider extends ChangeNotifier {
+  final SquadService _service;
+  String? _uid;
+  StreamSubscription<List<Squad>>? _sub;
+
+  List<Squad> _squads = [];
+  bool _loading = false;
+  String? _error;
+
+  SquadProvider({SquadService? service}) : _service = service ?? SquadService();
+
+  List<Squad> get squads => _squads;
+  bool get loading => _loading;
+  String? get error => _error;
+  SquadService get service => _service;
+
+  void bind(String? uid) {
+    if (uid == _uid) return;
+    _uid = uid;
+    _sub?.cancel();
+    if (uid == null) {
+      _squads = [];
+      _loading = false;
+      notifyListeners();
+      return;
+    }
+    _loading = true;
+    _error = null;
+    notifyListeners();
+    _sub = _service.watchMySquads(uid).listen(
+      (list) {
+        _squads = list;
+        _loading = false;
+        notifyListeners();
+      },
+      onError: (e) {
+        _error = e.toString();
+        _loading = false;
+        notifyListeners();
+      },
+    );
+  }
+
+  Future<Squad> createSquad(String name) {
+    if (_uid == null) throw const SquadException('Not signed in.');
+    return _service.createSquad(name: name, ownerUid: _uid!);
+  }
+
+  Future<Squad> joinSquad(String code) {
+    if (_uid == null) throw const SquadException('Not signed in.');
+    return _service.joinSquadByCode(code: code, uid: _uid!);
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
+}

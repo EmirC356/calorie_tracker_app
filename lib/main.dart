@@ -7,6 +7,7 @@ import 'providers/meal_prep_provider.dart';
 import 'providers/weight_provider.dart';
 import 'providers/profile_provider.dart';
 import 'providers/auth_provider.dart';
+import 'providers/squad_provider.dart';
 import 'screens/home_screen.dart';
 import 'services/ai_service.dart';
 import 'theme/app_theme.dart';
@@ -51,6 +52,7 @@ class MyApp extends StatelessWidget {
         // Lazy: only constructed when the Squad tab is first opened, so a
         // Firebase problem never affects the local-only tabs.
         ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => SquadProvider()),
       ],
       child: MaterialApp(
         title: 'Calorie Tracker',

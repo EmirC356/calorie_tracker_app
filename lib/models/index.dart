@@ -7,3 +7,7 @@ export 'meal_prep_item.dart';
 export 'meal_prep.dart';
 export 'weight_entry.dart';
 export 'user_profile.dart';
+export 'app_user.dart';
+export 'squad.dart';
+export 'squad_member.dart';
+export 'squad_goal.dart';
