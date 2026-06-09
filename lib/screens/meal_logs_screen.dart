@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../models/index.dart';
 import '../providers/meal_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/edit_entry_sheets.dart';
 
 class MealLogsScreen extends StatefulWidget {
   const MealLogsScreen({super.key});
@@ -62,16 +63,33 @@ class _MealLogsScreenState extends State<MealLogsScreen> {
             _Chip('Fat', '${meal.nutrients.fat.toStringAsFixed(1)}g', kOrange),
           ]),
           const SizedBox(height: 20),
-          SizedBox(width: double.infinity, child: ElevatedButton.icon(
-            onPressed: () async {
-              Navigator.pop(context);
-              await context.read<MealProvider>().deleteMeal(meal.id!);
-              _load();
-            },
-            icon: const Icon(Icons.delete_outline),
-            label: const Text('DELETE MEAL'),
-            style: ElevatedButton.styleFrom(backgroundColor: kNeonRed, foregroundColor: Colors.white),
-          )),
+          Row(children: [
+            Expanded(child: OutlinedButton.icon(
+              onPressed: () async {
+                final provider = context.read<MealProvider>();
+                Navigator.pop(context);
+                final edited = await showEditMealSheet(context, meal);
+                if (edited != null) {
+                  await provider.updateMeal(edited);
+                  if (mounted) _load();
+                }
+              },
+              icon: const Icon(Icons.edit_outlined, size: 18),
+              label: const Text('EDIT'),
+              style: OutlinedButton.styleFrom(foregroundColor: kCyan, side: const BorderSide(color: kCyan)),
+            )),
+            const SizedBox(width: 10),
+            Expanded(child: ElevatedButton.icon(
+              onPressed: () async {
+                Navigator.pop(context);
+                await context.read<MealProvider>().deleteMeal(meal.id!);
+                _load();
+              },
+              icon: const Icon(Icons.delete_outline, size: 18),
+              label: const Text('DELETE'),
+              style: ElevatedButton.styleFrom(backgroundColor: kNeonRed, foregroundColor: Colors.white),
+            )),
+          ]),
         ]),
       ),
     );
@@ -109,6 +127,7 @@ class _MealLogsScreenState extends State<MealLogsScreen> {
                   final m = _meals[i];
                   return GestureDetector(
                     onTap: () => _showDetail(m),
+                    onLongPress: () => _showDetail(m),
                     child: Container(
                       margin: const EdgeInsets.only(bottom: 8),
                       padding: const EdgeInsets.all(12),

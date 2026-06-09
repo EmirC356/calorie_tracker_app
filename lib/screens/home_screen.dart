@@ -5,6 +5,7 @@ import '../providers/meal_provider.dart';
 import '../providers/exercise_provider.dart';
 import '../models/index.dart';
 import '../theme/app_theme.dart';
+import '../widgets/edit_entry_sheets.dart';
 import 'log_meal_screen.dart';
 import 'meal_prep_screen.dart';
 import 'weight_tracker_screen.dart';
@@ -170,7 +171,11 @@ class _MealTrackerScreen extends StatelessWidget {
                 child: Text('No meals logged today', style: Theme.of(context).textTheme.bodySmall),
               ))
             else
-              ...mp.todaysMeals.map((meal) => _MealCard(meal: meal, onDelete: () => mp.deleteMeal(meal.id!))),
+              ...mp.todaysMeals.map((meal) => _MealCard(
+                    meal: meal,
+                    onDelete: () => mp.deleteMeal(meal.id!),
+                    onEdit: (updated) => mp.updateMeal(updated),
+                  )),
           ]),
         ),
       ),
@@ -187,7 +192,8 @@ class _MealTrackerScreen extends StatelessWidget {
 class _MealCard extends StatelessWidget {
   final Meal meal;
   final VoidCallback onDelete;
-  const _MealCard({required this.meal, required this.onDelete});
+  final ValueChanged<Meal> onEdit;
+  const _MealCard({required this.meal, required this.onDelete, required this.onEdit});
 
   void _showDetail(BuildContext context) {
     showModalBottomSheet(
@@ -210,12 +216,25 @@ class _MealCard extends StatelessWidget {
             _DetailChip('Fat', '${meal.nutrients.fat.toStringAsFixed(1)}g', kOrange),
           ]),
           const SizedBox(height: 20),
-          SizedBox(width: double.infinity, child: ElevatedButton.icon(
-            onPressed: () { Navigator.pop(context); onDelete(); },
-            icon: const Icon(Icons.delete_outline),
-            label: const Text('DELETE MEAL'),
-            style: ElevatedButton.styleFrom(backgroundColor: kNeonRed, foregroundColor: Colors.white),
-          )),
+          Row(children: [
+            Expanded(child: OutlinedButton.icon(
+              onPressed: () async {
+                Navigator.pop(context);
+                final edited = await showEditMealSheet(context, meal);
+                if (edited != null) onEdit(edited);
+              },
+              icon: const Icon(Icons.edit_outlined, size: 18),
+              label: const Text('EDIT'),
+              style: OutlinedButton.styleFrom(foregroundColor: kCyan, side: const BorderSide(color: kCyan)),
+            )),
+            const SizedBox(width: 10),
+            Expanded(child: ElevatedButton.icon(
+              onPressed: () { Navigator.pop(context); onDelete(); },
+              icon: const Icon(Icons.delete_outline, size: 18),
+              label: const Text('DELETE'),
+              style: ElevatedButton.styleFrom(backgroundColor: kNeonRed, foregroundColor: Colors.white),
+            )),
+          ]),
         ]),
       ),
     );
@@ -225,6 +244,7 @@ class _MealCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () => _showDetail(context),
+      onLongPress: () => _showDetail(context),
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(12),
@@ -266,7 +286,11 @@ class _FitnessTrackerScreen extends StatelessWidget {
                 child: Text('No exercises logged today', style: Theme.of(context).textTheme.bodySmall),
               ))
             else
-              ...ep.todaysExercises.map((ex) => _ExerciseCard(exercise: ex, onDelete: () => ep.deleteExercise(ex.id!))),
+              ...ep.todaysExercises.map((ex) => _ExerciseCard(
+                    exercise: ex,
+                    onDelete: () => ep.deleteExercise(ex.id!),
+                    onEdit: (updated) => ep.updateExercise(updated),
+                  )),
           ]),
         ),
       ),
@@ -283,7 +307,8 @@ class _FitnessTrackerScreen extends StatelessWidget {
 class _ExerciseCard extends StatelessWidget {
   final Exercise exercise;
   final VoidCallback onDelete;
-  const _ExerciseCard({required this.exercise, required this.onDelete});
+  final ValueChanged<Exercise> onEdit;
+  const _ExerciseCard({required this.exercise, required this.onDelete, required this.onEdit});
 
   void _showDetail(BuildContext context) {
     showModalBottomSheet(
@@ -305,12 +330,25 @@ class _ExerciseCard extends StatelessWidget {
             _DetailChip('Intensity', exercise.intensity.toUpperCase(), kNeonGreen),
           ]),
           const SizedBox(height: 20),
-          SizedBox(width: double.infinity, child: ElevatedButton.icon(
-            onPressed: () { Navigator.pop(context); onDelete(); },
-            icon: const Icon(Icons.delete_outline),
-            label: const Text('DELETE EXERCISE'),
-            style: ElevatedButton.styleFrom(backgroundColor: kNeonRed, foregroundColor: Colors.white),
-          )),
+          Row(children: [
+            Expanded(child: OutlinedButton.icon(
+              onPressed: () async {
+                Navigator.pop(context);
+                final edited = await showEditExerciseSheet(context, exercise);
+                if (edited != null) onEdit(edited);
+              },
+              icon: const Icon(Icons.edit_outlined, size: 18),
+              label: const Text('EDIT'),
+              style: OutlinedButton.styleFrom(foregroundColor: kPink, side: const BorderSide(color: kPink)),
+            )),
+            const SizedBox(width: 10),
+            Expanded(child: ElevatedButton.icon(
+              onPressed: () { Navigator.pop(context); onDelete(); },
+              icon: const Icon(Icons.delete_outline, size: 18),
+              label: const Text('DELETE'),
+              style: ElevatedButton.styleFrom(backgroundColor: kNeonRed, foregroundColor: Colors.white),
+            )),
+          ]),
         ]),
       ),
     );
@@ -320,6 +358,7 @@ class _ExerciseCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () => _showDetail(context),
+      onLongPress: () => _showDetail(context),
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(12),

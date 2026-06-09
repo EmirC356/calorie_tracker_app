@@ -40,6 +40,12 @@ class MealProvider extends ChangeNotifier {
     await loadTodaysMeals();
   }
 
+  Future<void> updateMeal(Meal meal) async {
+    await _dbService.updateMeal(meal);
+    await loadMeals();
+    await loadTodaysMeals();
+  }
+
   Future<void> deleteMeal(int id) async {
     await _dbService.deleteMeal(id);
     await loadMeals();

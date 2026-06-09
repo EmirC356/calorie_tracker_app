@@ -214,6 +214,22 @@ class DatabaseService {
         notes: m['notes'] as String?,
       );
 
+  Future<int> updateMeal(Meal meal) async {
+    final database = await db;
+    return await database.update(
+      tablesMeals,
+      {
+        'name': meal.name,
+        'portion_grams': meal.portionGrams,
+        'nutrients': jsonEncode(meal.nutrients.toJson()),
+        'timestamp': meal.timestamp.toIso8601String(),
+        'notes': meal.notes,
+      },
+      where: 'id = ?',
+      whereArgs: [meal.id],
+    );
+  }
+
   Future<int> deleteMeal(int id) async {
     final database = await db;
     return await database.delete(tablesMeals, where: 'id = ?', whereArgs: [id]);
@@ -260,6 +276,23 @@ class DatabaseService {
         notes: m['notes'] as String?,
         intensity: m['intensity'] as String,
       );
+
+  Future<int> updateExercise(Exercise exercise) async {
+    final database = await db;
+    return await database.update(
+      tablesExercises,
+      {
+        'name': exercise.name,
+        'durationMinutes': exercise.durationMinutes,
+        'caloriesBurned': exercise.caloriesBurned,
+        'timestamp': exercise.timestamp.toIso8601String(),
+        'notes': exercise.notes,
+        'intensity': exercise.intensity,
+      },
+      where: 'id = ?',
+      whereArgs: [exercise.id],
+    );
+  }
 
   Future<int> deleteExercise(int id) async {
     final database = await db;

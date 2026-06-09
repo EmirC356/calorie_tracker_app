@@ -34,6 +34,12 @@ class ExerciseProvider extends ChangeNotifier {
     await loadTodaysExercises();
   }
 
+  Future<void> updateExercise(Exercise exercise) async {
+    await _dbService.updateExercise(exercise);
+    await loadExercises();
+    await loadTodaysExercises();
+  }
+
   Future<void> deleteExercise(int id) async {
     await _dbService.deleteExercise(id);
     await loadExercises();

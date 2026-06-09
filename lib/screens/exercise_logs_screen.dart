@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../models/index.dart';
 import '../providers/exercise_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/edit_entry_sheets.dart';
 
 class ExerciseLogsScreen extends StatefulWidget {
   const ExerciseLogsScreen({super.key});
@@ -65,16 +66,33 @@ class _ExerciseLogsScreenState extends State<ExerciseLogsScreen> {
             Text(ex.notes!, style: const TextStyle(color: kTextDim, fontSize: 12, fontStyle: FontStyle.italic)),
           ],
           const SizedBox(height: 20),
-          SizedBox(width: double.infinity, child: ElevatedButton.icon(
-            onPressed: () async {
-              Navigator.pop(context);
-              await context.read<ExerciseProvider>().deleteExercise(ex.id!);
-              _load();
-            },
-            icon: const Icon(Icons.delete_outline),
-            label: const Text('DELETE EXERCISE'),
-            style: ElevatedButton.styleFrom(backgroundColor: kNeonRed, foregroundColor: Colors.white),
-          )),
+          Row(children: [
+            Expanded(child: OutlinedButton.icon(
+              onPressed: () async {
+                final provider = context.read<ExerciseProvider>();
+                Navigator.pop(context);
+                final edited = await showEditExerciseSheet(context, ex);
+                if (edited != null) {
+                  await provider.updateExercise(edited);
+                  if (mounted) _load();
+                }
+              },
+              icon: const Icon(Icons.edit_outlined, size: 18),
+              label: const Text('EDIT'),
+              style: OutlinedButton.styleFrom(foregroundColor: kPink, side: const BorderSide(color: kPink)),
+            )),
+            const SizedBox(width: 10),
+            Expanded(child: ElevatedButton.icon(
+              onPressed: () async {
+                Navigator.pop(context);
+                await context.read<ExerciseProvider>().deleteExercise(ex.id!);
+                _load();
+              },
+              icon: const Icon(Icons.delete_outline, size: 18),
+              label: const Text('DELETE'),
+              style: ElevatedButton.styleFrom(backgroundColor: kNeonRed, foregroundColor: Colors.white),
+            )),
+          ]),
         ]),
       ),
     );
@@ -118,6 +136,7 @@ class _ExerciseLogsScreenState extends State<ExerciseLogsScreen> {
                   final ex = _exercises[i];
                   return GestureDetector(
                     onTap: () => _showDetail(ex),
+                    onLongPress: () => _showDetail(ex),
                     child: Container(
                       margin: const EdgeInsets.only(bottom: 8),
                       padding: const EdgeInsets.all(12),
