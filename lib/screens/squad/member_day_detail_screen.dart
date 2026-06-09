@@ -1,17 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../../models/squad_member.dart';
 import '../../models/squad_day_entry.dart';
+import '../../models/squad_reaction.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/squad_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/squad/goal_summary.dart';
 import '../../widgets/squad/squad_status.dart';
+import '../../widgets/squad/reaction_bar.dart';
 
-/// Shows a member's day at whatever detail their sharing level allows.
-/// (Reaction bar is added in Phase 5.)
+/// Shows a member's day at whatever detail their sharing level allows, plus a
+/// reaction bar (🔥 💪 👏).
 class MemberDayDetailScreen extends StatelessWidget {
   final SquadMember member;
   final SquadDayEntry? entry;
-  const MemberDayDetailScreen({super.key, required this.member, required this.entry});
+  final String squadId;
+  final String dateKey;
+  const MemberDayDetailScreen({
+    super.key,
+    required this.member,
+    required this.entry,
+    required this.squadId,
+    required this.dateKey,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -64,7 +77,38 @@ class MemberDayDetailScreen extends StatelessWidget {
         ] else
           const Text('This member shares only their status with the squad.',
               style: TextStyle(color: kTextDim)),
+        const SizedBox(height: 20),
+        _reactions(context),
       ]),
+    );
+  }
+
+  Widget _reactions(BuildContext context) {
+    final service = context.read<SquadProvider>().service;
+    final auth = context.read<AuthProvider>();
+    final myUid = auth.firebaseUser?.uid;
+    final myName = auth.appUser?.displayName ?? 'Athlete';
+    if (myUid == null) return const SizedBox.shrink();
+    return StreamBuilder<List<SquadReaction>>(
+      stream: service.watchReactions(squadId, dateKey),
+      builder: (context, snap) {
+        final forMember =
+            (snap.data ?? const <SquadReaction>[]).where((r) => r.toUid == member.uid).toList();
+        return ReactionBar(
+          reactions: forMember,
+          myUid: myUid,
+          onTap: (emoji) {
+            final mine = forMember.where((r) => r.fromUid == myUid && r.emoji == emoji).toList();
+            if (mine.isNotEmpty) {
+              service.removeReaction(squadId: squadId, dateKey: dateKey, reactionId: mine.first.id);
+            } else {
+              service.addReaction(
+                  squadId: squadId, dateKey: dateKey, fromUid: myUid, fromName: myName,
+                  toUid: member.uid, emoji: emoji);
+            }
+          },
+        );
+      },
     );
   }
 

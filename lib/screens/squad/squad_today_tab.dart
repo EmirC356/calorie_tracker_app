@@ -62,7 +62,8 @@ class _SquadTodayTabState extends State<SquadTodayTab> {
                   entry: entry,
                   isMe: m.uid == myUid,
                   onTap: () => Navigator.push(context, MaterialPageRoute(
-                      builder: (_) => MemberDayDetailScreen(member: m, entry: entry))),
+                      builder: (_) => MemberDayDetailScreen(
+                          member: m, entry: entry, squadId: widget.squadId, dateKey: _dateKey))),
                 );
               },
             );

@@ -6,6 +6,7 @@ import '../models/squad.dart';
 import '../models/squad_member.dart';
 import '../models/squad_goal.dart';
 import '../models/squad_day_entry.dart';
+import '../models/squad_reaction.dart';
 import 'invite_code.dart';
 
 /// A user-facing failure during a squad operation (shown in a SnackBar).
@@ -263,6 +264,34 @@ class SquadService {
   Stream<List<SquadDayEntry>> watchDayEntries(String squadId, String dateKey) =>
       _entriesCol(squadId, dateKey).snapshots().map(
           (qs) => qs.docs.map((d) => SquadDayEntry.fromMap(d.id, d.data())).toList());
+
+  // ── reactions ───────────────────────────────────────────────────────────────
+
+  CollectionReference<Map<String, dynamic>> _reactionsCol(String squadId, String dateKey) =>
+      _squads.doc(squadId).collection('days').doc(dateKey).collection('reactions');
+
+  Future<void> addReaction({
+    required String squadId,
+    required String dateKey,
+    required String fromUid,
+    required String fromName,
+    required String toUid,
+    required ReactionEmoji emoji,
+  }) =>
+      _reactionsCol(squadId, dateKey).add({
+        'fromUid': fromUid,
+        'fromName': fromName,
+        'toUid': toUid,
+        'emoji': emoji.name,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+  Future<void> removeReaction({required String squadId, required String dateKey, required String reactionId}) =>
+      _reactionsCol(squadId, dateKey).doc(reactionId).delete();
+
+  Stream<List<SquadReaction>> watchReactions(String squadId, String dateKey) =>
+      _reactionsCol(squadId, dateKey).snapshots().map(
+          (qs) => qs.docs.map((d) => SquadReaction.fromMap(d.id, d.data())).toList());
 
   Future<void> deleteSquad(String squadId) async {
     final ref = _squads.doc(squadId);
