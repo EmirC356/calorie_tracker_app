@@ -3,7 +3,7 @@ import 'nutrient.dart';
 class Meal {
   final int? id;
   final String name;
-  final double weight; // in grams
+  final double portionGrams; // portion size in grams (0 = unspecified)
   final NutrientInfo nutrients;
   final DateTime timestamp;
   final String? notes;
@@ -11,7 +11,7 @@ class Meal {
   Meal({
     this.id,
     required this.name,
-    required this.weight,
+    required this.portionGrams,
     required this.nutrients,
     required this.timestamp,
     this.notes,
@@ -21,7 +21,9 @@ class Meal {
     return Meal(
       id: json['id'] as int?,
       name: json['name'] as String,
-      weight: (json['weight'] as num).toDouble(),
+      // Accept the legacy 'weight' key so old exports still import.
+      portionGrams:
+          ((json['portionGrams'] ?? json['weight']) as num?)?.toDouble() ?? 0,
       nutrients: NutrientInfo.fromJson(json['nutrients']),
       timestamp: DateTime.parse(json['timestamp'] as String),
       notes: json['notes'] as String?,
@@ -32,7 +34,7 @@ class Meal {
     return {
       'id': id,
       'name': name,
-      'weight': weight,
+      'portionGrams': portionGrams,
       'nutrients': nutrients.toJson(),
       'timestamp': timestamp.toIso8601String(),
       'notes': notes,

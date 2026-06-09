@@ -6,7 +6,7 @@ import '../models/index.dart';
 
 class DatabaseService {
   static const String _dbName = 'calorie_tracker.db';
-  static const int _dbVersion = 3;
+  static const int _dbVersion = 4;
 
   static const String tablesMeals = 'meals';
   static const String tablesExercises = 'exercises';
@@ -55,6 +55,22 @@ class DatabaseService {
     }
     if (oldVersion < 3) {
       await _createTimestampIndexes(db);
+    }
+    if (oldVersion < 4) {
+      // Rename meals.weight -> meals.portion_grams. Additive: add the new
+      // column and copy values; the legacy 'weight' column is left in place
+      // (unused) so no user data is dropped. Back up first since we touch rows.
+      await backupToJson(db, reason: 'v4_portion_grams');
+      final cols = await db.rawQuery('PRAGMA table_info($tablesMeals)');
+      final names = cols.map((c) => c['name']).toSet();
+      if (!names.contains('portion_grams')) {
+        await db.execute(
+            'ALTER TABLE $tablesMeals ADD COLUMN portion_grams REAL NOT NULL DEFAULT 0');
+      }
+      if (names.contains('weight')) {
+        await db.execute(
+            'UPDATE $tablesMeals SET portion_grams = weight WHERE portion_grams = 0');
+      }
     }
   }
 
@@ -106,7 +122,7 @@ class DatabaseService {
       CREATE TABLE $tablesMeals (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
-        weight REAL NOT NULL,
+        portion_grams REAL NOT NULL DEFAULT 0,
         nutrients TEXT NOT NULL,
         timestamp TEXT NOT NULL,
         notes TEXT
@@ -163,7 +179,7 @@ class DatabaseService {
     final database = await db;
     return await database.insert(tablesMeals, {
       'name': meal.name,
-      'weight': meal.weight,
+      'portion_grams': meal.portionGrams,
       'nutrients': jsonEncode(meal.nutrients.toJson()),
       'timestamp': meal.timestamp.toIso8601String(),
       'notes': meal.notes,
@@ -191,7 +207,7 @@ class DatabaseService {
   Meal _mealFromMap(Map<String, dynamic> m) => Meal(
         id: m['id'] as int?,
         name: m['name'] as String,
-        weight: (m['weight'] as num).toDouble(),
+        portionGrams: (m['portion_grams'] as num?)?.toDouble() ?? 0,
         nutrients: NutrientInfo.fromJson(
             jsonDecode(m['nutrients'] as String) as Map<String, dynamic>),
         timestamp: DateTime.parse(m['timestamp'] as String),

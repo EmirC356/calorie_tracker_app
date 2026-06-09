@@ -217,7 +217,7 @@ class _LogMealScreenState extends State<LogMealScreen> {
 
     context.read<MealProvider>().addMeal(Meal(
       name: name,
-      weight: 0,
+      portionGrams: 0,
       nutrients: nutrients,
       timestamp: DateTime.now(),
     ));
