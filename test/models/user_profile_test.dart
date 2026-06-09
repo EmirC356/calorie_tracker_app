@@ -8,7 +8,7 @@ void main() {
       age: 25,
       sex: Sex.male,
       activity: ActivityLevel.moderate,
-      goal: Goal.maintain,
+      goal: DietGoal.maintain,
     );
 
     test('BMR matches the Mifflin-St Jeor formula for a male', () {
@@ -22,7 +22,7 @@ void main() {
         age: 30,
         sex: Sex.female,
         activity: ActivityLevel.sedentary,
-        goal: Goal.maintain,
+        goal: DietGoal.maintain,
       );
       // 10*60 + 6.25*165 - 5*30 - 161 = 600 + 1031.25 - 150 - 161 = 1320.25
       expect(female.bmr(60), closeTo(1320.25, 0.001));
@@ -34,15 +34,15 @@ void main() {
 
     test('calorie target shifts by goal', () {
       final maintain = male.tdee(80);
-      expect(male.copyWith(goal: Goal.maintain).calorieTarget(80), closeTo(maintain, 0.001));
-      expect(male.copyWith(goal: Goal.cut).calorieTarget(80), closeTo(maintain - 500, 0.001));
-      expect(male.copyWith(goal: Goal.bulk).calorieTarget(80), closeTo(maintain + 300, 0.001));
+      expect(male.copyWith(goal: DietGoal.maintain).calorieTarget(80), closeTo(maintain, 0.001));
+      expect(male.copyWith(goal: DietGoal.cut).calorieTarget(80), closeTo(maintain - 500, 0.001));
+      expect(male.copyWith(goal: DietGoal.bulk).calorieTarget(80), closeTo(maintain + 300, 0.001));
     });
 
     test('protein target uses goal-based g/kg within range', () {
-      expect(male.copyWith(goal: Goal.cut).proteinTargetGrams(80), closeTo(80 * 2.2, 0.001));
-      expect(male.copyWith(goal: Goal.maintain).proteinTargetGrams(80), closeTo(80 * 1.6, 0.001));
-      expect(male.copyWith(goal: Goal.bulk).proteinTargetGrams(80), closeTo(80 * 2.0, 0.001));
+      expect(male.copyWith(goal: DietGoal.cut).proteinTargetGrams(80), closeTo(80 * 2.2, 0.001));
+      expect(male.copyWith(goal: DietGoal.maintain).proteinTargetGrams(80), closeTo(80 * 1.6, 0.001));
+      expect(male.copyWith(goal: DietGoal.bulk).proteinTargetGrams(80), closeTo(80 * 2.0, 0.001));
     });
 
     test('round-trips through JSON', () {
@@ -51,7 +51,7 @@ void main() {
       expect(restored.age, 25);
       expect(restored.sex, Sex.male);
       expect(restored.activity, ActivityLevel.moderate);
-      expect(restored.goal, Goal.maintain);
+      expect(restored.goal, DietGoal.maintain);
       expect(restored.fallbackWeightKg, 82.5);
     });
   });

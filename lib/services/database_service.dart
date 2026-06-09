@@ -6,12 +6,21 @@ import '../models/index.dart';
 
 class DatabaseService {
   static const String _dbName = 'calorie_tracker.db';
-  static const int _dbVersion = 4;
+  static const int _dbVersion = 5;
 
   static const String tablesMeals = 'meals';
   static const String tablesExercises = 'exercises';
   static const String tablesMealPreps = 'meal_preps';
   static const String tablesWeightEntries = 'weight_entries';
+  static const String tablesGoals = 'goals';
+  static const String tablesGoalOccurrences = 'goal_occurrences';
+  static const String tablesGoalSuggestions = 'goal_suggestions';
+
+  /// Optional override for the database file path. When null (production) the
+  /// default app database path is used. Tests inject a temp/in-memory path.
+  final String? overridePath;
+
+  DatabaseService({this.overridePath});
 
   Database? _db;
 
@@ -21,15 +30,23 @@ class DatabaseService {
   }
 
   Future<Database> _initDb() async {
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, _dbName);
+    final path = overridePath ?? join(await getDatabasesPath(), _dbName);
 
     return await openDatabase(
       path,
       version: _dbVersion,
+      onConfigure: _onConfigure,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
+  }
+
+  /// Enables foreign-key enforcement so the goal_occurrences → goals
+  /// `ON DELETE CASCADE` actually fires. sqflite leaves FKs off by default;
+  /// there were no FK constraints before v5, so enabling this is a no-op for
+  /// the existing tables.
+  Future<void> _onConfigure(Database db) async {
+    await db.execute('PRAGMA foreign_keys = ON');
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -38,6 +55,9 @@ class DatabaseService {
     await _createMealPrepsTable(db);
     await _createWeightEntriesTable(db);
     await _createTimestampIndexes(db);
+    await _createGoalsTable(db);
+    await _createGoalOccurrencesTable(db);
+    await _createGoalSuggestionsTable(db);
   }
 
   /// Migration convention
@@ -72,6 +92,13 @@ class DatabaseService {
             'UPDATE $tablesMeals SET portion_grams = weight WHERE portion_grams = 0');
       }
     }
+    if (oldVersion < 5) {
+      // Goals & Calendar feature. Purely additive — three brand-new tables, no
+      // existing rows touched, so no backup is required.
+      await _createGoalsTable(db);
+      await _createGoalOccurrencesTable(db);
+      await _createGoalSuggestionsTable(db);
+    }
   }
 
   /// Indexes the date columns the dashboard queries hit on every load.
@@ -102,6 +129,9 @@ class DatabaseService {
         tablesExercises,
         tablesMealPreps,
         tablesWeightEntries,
+        tablesGoals,
+        tablesGoalOccurrences,
+        tablesGoalSuggestions,
       ]) {
         if (await _tableExists(db, table)) {
           dump[table] = await db.query(table);
@@ -171,6 +201,81 @@ class DatabaseService {
         isEmptyStomach INTEGER NOT NULL DEFAULT 0
       )
     ''');
+  }
+
+  // ─── Goals & Calendar tables (schema v5) ────────────────────────────────────
+
+  Future<void> _createGoalsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE $tablesGoals (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        description TEXT,
+        category TEXT NOT NULL,
+        custom_category_label TEXT,
+        color_argb INTEGER NOT NULL,
+        priority TEXT NOT NULL,
+        type TEXT NOT NULL,
+        metric TEXT,
+        comparator TEXT,
+        target REAL,
+        period TEXT,
+        min_duration_min INTEGER,
+        start_date TEXT NOT NULL,
+        time_of_day TEXT,
+        recurrence_json TEXT NOT NULL,
+        end_date_days_from_start INTEGER,
+        squad_visible INTEGER NOT NULL DEFAULT 0,
+        reminder_minutes_before INTEGER,
+        morning_brief_included INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL,
+        archived INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+    await db.execute(
+        'CREATE INDEX idx_goals_start_date ON $tablesGoals(start_date)');
+    await db.execute(
+        'CREATE INDEX idx_goals_archived ON $tablesGoals(archived)');
+  }
+
+  Future<void> _createGoalOccurrencesTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE $tablesGoalOccurrences (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        goal_id INTEGER NOT NULL,
+        occurrence_date TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'open',
+        done_at TEXT,
+        override_flag INTEGER NOT NULL DEFAULT 0,
+        period_value_cached REAL,
+        notes TEXT,
+        UNIQUE(goal_id, occurrence_date),
+        FOREIGN KEY(goal_id) REFERENCES $tablesGoals(id) ON DELETE CASCADE
+      )
+    ''');
+    await db.execute(
+        'CREATE INDEX idx_occurrences_date ON $tablesGoalOccurrences(occurrence_date)');
+    await db.execute(
+        'CREATE INDEX idx_occurrences_status ON $tablesGoalOccurrences(status)');
+    await db.execute(
+        'CREATE INDEX idx_occurrences_goal ON $tablesGoalOccurrences(goal_id)');
+  }
+
+  Future<void> _createGoalSuggestionsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE $tablesGoalSuggestions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        from_uid TEXT NOT NULL,
+        from_name TEXT NOT NULL,
+        squad_id TEXT NOT NULL,
+        suggested_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        payload_json TEXT NOT NULL
+      )
+    ''');
+    await db.execute(
+        'CREATE INDEX idx_suggestions_status ON $tablesGoalSuggestions(status)');
   }
 
   // ─── Meal operations ───────────────────────────────────────────────────────

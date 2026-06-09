@@ -11,6 +11,7 @@ import 'providers/profile_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/squad_provider.dart';
 import 'providers/snapshot_provider.dart';
+import 'providers/goal_provider.dart';
 import 'screens/home_screen.dart';
 import 'services/ai_service.dart';
 import 'theme/app_theme.dart';
@@ -54,6 +55,8 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => MealPrepProvider()),
         ChangeNotifierProvider(create: (_) => WeightProvider()),
         ChangeNotifierProvider(create: (_) => ProfileProvider()),
+        // Calendar/Goals — local-only, loads lazily on first Calendar open.
+        ChangeNotifierProvider(create: (_) => GoalProvider()),
         // Lazy: only constructed when the Squad tab is first opened, so a
         // Firebase problem never affects the local-only tabs.
         ChangeNotifierProvider(create: (_) => AuthProvider()),

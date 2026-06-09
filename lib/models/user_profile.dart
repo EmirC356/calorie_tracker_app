@@ -2,7 +2,7 @@ enum Sex { male, female }
 
 enum ActivityLevel { sedentary, light, moderate, active, veryActive }
 
-enum Goal { cut, maintain, bulk }
+enum DietGoal { cut, maintain, bulk }
 
 /// User body metrics + goal, used to derive daily calorie and protein targets
 /// via the Mifflin-St Jeor equation. Body weight is supplied at call time
@@ -12,7 +12,7 @@ class UserProfile {
   final int age;
   final Sex sex;
   final ActivityLevel activity;
-  final Goal goal;
+  final DietGoal goal;
   final double? fallbackWeightKg;
 
   const UserProfile({
@@ -29,7 +29,7 @@ class UserProfile {
     age: 0,
     sex: Sex.male,
     activity: ActivityLevel.moderate,
-    goal: Goal.maintain,
+    goal: DietGoal.maintain,
   );
 
   bool get isComplete => heightCm > 0 && age > 0;
@@ -61,11 +61,11 @@ class UserProfile {
   double calorieTarget(double weightKg) {
     final t = tdee(weightKg);
     switch (goal) {
-      case Goal.cut:
+      case DietGoal.cut:
         return t - 500;
-      case Goal.maintain:
+      case DietGoal.maintain:
         return t;
-      case Goal.bulk:
+      case DietGoal.bulk:
         return t + 300;
     }
   }
@@ -74,11 +74,11 @@ class UserProfile {
   /// cut = 2.2 (spare muscle in a deficit), maintain = 1.6, bulk = 2.0.
   double get proteinPerKg {
     switch (goal) {
-      case Goal.cut:
+      case DietGoal.cut:
         return 2.2;
-      case Goal.maintain:
+      case DietGoal.maintain:
         return 1.6;
-      case Goal.bulk:
+      case DietGoal.bulk:
         return 2.0;
     }
   }
@@ -90,7 +90,7 @@ class UserProfile {
     int? age,
     Sex? sex,
     ActivityLevel? activity,
-    Goal? goal,
+    DietGoal? goal,
     double? fallbackWeightKg,
   }) {
     return UserProfile(
@@ -118,7 +118,7 @@ class UserProfile {
         sex: Sex.values.byName(json['sex'] as String? ?? 'male'),
         activity:
             ActivityLevel.values.byName(json['activity'] as String? ?? 'moderate'),
-        goal: Goal.values.byName(json['goal'] as String? ?? 'maintain'),
+        goal: DietGoal.values.byName(json['goal'] as String? ?? 'maintain'),
         fallbackWeightKg: (json['fallbackWeightKg'] as num?)?.toDouble(),
       );
 }

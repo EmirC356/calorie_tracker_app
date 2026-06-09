@@ -19,7 +19,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late final TextEditingController _weight;
   late Sex _sex;
   late ActivityLevel _activity;
-  late Goal _goal;
+  late DietGoal _goal;
 
   static const _activityLabels = {
     ActivityLevel.sedentary: 'Sedentary (little/no exercise)',
@@ -121,8 +121,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 18),
           Text('GOAL', style: neonLabel(kCyan, size: 12)),
           const SizedBox(height: 8),
-          _segmented<Goal>(
-            values: Goal.values,
+          _segmented<DietGoal>(
+            values: DietGoal.values,
             current: _goal,
             label: (g) => g.name.toUpperCase(),
             onChanged: (g) => setState(() => _goal = g),

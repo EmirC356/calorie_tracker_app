@@ -14,3 +14,10 @@ export 'squad_goal.dart';
 export 'squad_day_entry.dart';
 export 'squad_reaction.dart';
 export 'squad_stats.dart';
+// Goals & Calendar (schema v5)
+export 'date_helpers.dart';
+export 'recurrence.dart';
+export 'goal.dart';
+export 'goal_occurrence.dart';
+export 'goal_suggestion.dart';
+export 'goal_evaluation_result.dart';
