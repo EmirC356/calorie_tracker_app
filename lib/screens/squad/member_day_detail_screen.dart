@@ -100,25 +100,21 @@ class MemberDayDetailScreen extends StatelessWidget {
       );
     }
 
-    return StreamBuilder<List<SquadReaction>>(
-      stream: service.watchReactions(squadId, dateKey),
-      builder: (context, snap) {
-        final reactions = snap.data ?? const <SquadReaction>[];
-        return ReactionBar(
-          onSend: (emoji) {
-            final remaining = reactionCooldownRemaining(reactions, myUid, member.uid, DateTime.now());
-            if (remaining > Duration.zero) {
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text('You can nudge ${member.displayName} again in ${remaining.inSeconds}s')));
-              return;
-            }
-            service.addReaction(
-                squadId: squadId, dateKey: dateKey, fromUid: myUid, fromName: myName,
-                toUid: member.uid, emoji: emoji);
-            ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('${emoji.glyph} sent to ${member.displayName}')));
-          },
-        );
+    final squadProvider = context.read<SquadProvider>();
+    return ReactionBar(
+      onSend: (emoji) {
+        final remaining = squadProvider.nudgeCooldownRemaining(squadId, member.uid);
+        if (remaining > Duration.zero) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('You can nudge ${member.displayName} again in ${remaining.inSeconds}s')));
+          return;
+        }
+        squadProvider.markNudged(squadId, member.uid);
+        service.addReaction(
+            squadId: squadId, dateKey: dateKey, fromUid: myUid, fromName: myName,
+            toUid: member.uid, emoji: emoji);
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${emoji.glyph} sent to ${member.displayName}')));
       },
     );
   }

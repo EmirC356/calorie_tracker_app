@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/squad.dart';
+import '../models/squad_reaction.dart';
 import '../services/squad_service.dart';
 
 /// Streams the signed-in user's squads and exposes create/join actions.
@@ -62,6 +63,23 @@ class SquadProvider extends ChangeNotifier {
     if (_uid == null) throw const SquadException('Not signed in.');
     return _service.joinSquadByCode(
         code: code, uid: _uid!, displayName: _displayName, photoURL: _photoURL);
+  }
+
+  // ── nudge cooldown (device-clock, skew-free) ────────────────────────────────
+  // Tracked locally with DateTime.now() on both ends so it can't get stuck the
+  // way a server-timestamp-vs-device-clock comparison can.
+  final Map<String, DateTime> _lastNudgeAt = {};
+
+  Duration nudgeCooldownRemaining(String squadId, String toUid,
+      [Duration cooldown = kReactionCooldown]) {
+    final last = _lastNudgeAt['$squadId:$toUid'];
+    if (last == null) return Duration.zero;
+    final remaining = cooldown - DateTime.now().difference(last);
+    return remaining.isNegative ? Duration.zero : remaining;
+  }
+
+  void markNudged(String squadId, String toUid) {
+    _lastNudgeAt['$squadId:$toUid'] = DateTime.now();
   }
 
   @override
