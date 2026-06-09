@@ -17,6 +17,7 @@ export 'squad_stats.dart';
 // Goals & Calendar (schema v5)
 export 'date_helpers.dart';
 export 'recurrence.dart';
+export 'recurrence_engine.dart';
 export 'goal.dart';
 export 'goal_occurrence.dart';
 export 'goal_suggestion.dart';
