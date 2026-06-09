@@ -20,6 +20,19 @@ const kRedDeep = Color(0xFFB3271F);
 // primary, readable on the near-black base.
 const kNavy = Color(0xFF4A6CF7);
 
+// Calendar / Goals section accent — amber. Distinct from the red primary and
+// the navy Squad accent, so the Goals surface reads as its own area.
+const kAmber = Color(0xFFF5A524);
+
+// Curated category palette for Goals. Each hue is chosen to sit clearly against
+// the near-black furnace base (kBg); contrast is tightened in Phase 9. Used for
+// goal chips and the Calendar legend.
+const kCatHealth = kAmber; // amber
+const kCatStudy = Color(0xFF4A90E2); // blue
+const kCatHome = Color(0xFF4CC38A); // green
+const kCatPersonal = Color(0xFFB57EDC); // lavender
+const kCatCustom = Color(0xFF9AA0A6); // neutral gray
+
 // ── Legacy aliases ───────────────────────────────────────────────────────────
 // The screens were built against the old cyberpunk constant names. They are
 // remapped here onto the red / white / gray system so the whole app restyles

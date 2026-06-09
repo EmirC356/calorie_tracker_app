@@ -1,4 +1,9 @@
 export 'home_screen.dart';
+export 'health/health_shell_screen.dart';
+export 'health/dashboard_screen.dart';
+export 'health/meals_tab_screen.dart';
+export 'health/fitness_tab_screen.dart';
+export 'calendar/calendar_screen.dart';
 export 'log_meal_screen.dart';
 export 'meal_prep_screen.dart';
 export 'weight_tracker_screen.dart';
