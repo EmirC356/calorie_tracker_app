@@ -53,8 +53,18 @@ class SquadService {
     return snap.exists ? AppUser.fromMap(snap.id, snap.data()!) : null;
   }
 
-  Future<void> updateDisplayName(String uid, String displayName) =>
-      _users.doc(uid).update({'displayName': displayName});
+  /// Updates the user's profile name AND fans it out to the denormalized
+  /// `members/{uid}.displayName` doc in every squad they belong to, so existing
+  /// squads show the new name (they were denormalized at join time).
+  Future<void> updateDisplayName(String uid, String displayName) async {
+    final squads = await _squads.where('memberUids', arrayContains: uid).get();
+    final batch = _db.batch();
+    batch.set(_users.doc(uid), {'displayName': displayName}, SetOptions(merge: true));
+    for (final s in squads.docs) {
+      batch.set(_memberRef(s.id, uid), {'displayName': displayName}, SetOptions(merge: true));
+    }
+    await batch.commit();
+  }
 
   Future<void> addFcmToken(String uid, String token) => _users.doc(uid).update({
         'fcmTokens': FieldValue.arrayUnion([token]),

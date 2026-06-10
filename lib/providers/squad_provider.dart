@@ -1,8 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/squad.dart';
 import '../models/squad_reaction.dart';
 import '../services/squad_service.dart';
+
+const String _kNudgePref = 'squad_nudge_cooldowns';
 
 /// Streams the signed-in user's squads and exposes create/join actions.
 /// Call [bind] with the current uid (and null on sign-out).
@@ -17,7 +21,9 @@ class SquadProvider extends ChangeNotifier {
   String _displayName = 'Athlete';
   String? _photoURL;
 
-  SquadProvider({SquadService? service}) : _service = service ?? SquadService();
+  SquadProvider({SquadService? service}) : _service = service ?? SquadService() {
+    _loadNudges();
+  }
 
   List<Squad> get squads => _squads;
   bool get loading => _loading;
@@ -80,6 +86,31 @@ class SquadProvider extends ChangeNotifier {
 
   void markNudged(String squadId, String toUid) {
     _lastNudgeAt['$squadId:$toUid'] = DateTime.now();
+    _saveNudges();
+  }
+
+  /// Loads persisted nudge timestamps, dropping any already past the cooldown.
+  Future<void> _loadNudges() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_kNudgePref);
+      if (raw == null) return;
+      final now = DateTime.now();
+      (jsonDecode(raw) as Map).forEach((k, v) {
+        final t = DateTime.tryParse(v as String);
+        if (t != null && now.difference(t) < kReactionCooldown) {
+          _lastNudgeAt[k as String] = t;
+        }
+      });
+    } catch (_) {/* best-effort */}
+  }
+
+  Future<void> _saveNudges() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kNudgePref,
+          jsonEncode(_lastNudgeAt.map((k, v) => MapEntry(k, v.toIso8601String()))));
+    } catch (_) {/* best-effort */}
   }
 
   @override

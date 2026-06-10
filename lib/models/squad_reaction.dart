@@ -3,8 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 enum ReactionEmoji { fire, flex, clap }
 
 /// Minimum gap between nudges to the *same* member from the same sender.
-/// TODO: set to `Duration(minutes: 5)` for production — 5s while testing.
-const Duration kReactionCooldown = Duration(seconds: 5);
+const Duration kReactionCooldown = Duration(minutes: 5);
 
 extension ReactionEmojiGlyph on ReactionEmoji {
   String get glyph {
