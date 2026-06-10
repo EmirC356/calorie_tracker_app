@@ -1,7 +1,7 @@
 {
   "name": "squad-functions",
   "description": "Cloud Functions for Squad notifications (FCM)",
-  "engines": { "node": "20" },
+  "engines": { "node": "22" },
   "main": "lib/index.js",
   "scripts": {
     "build": "tsc",
