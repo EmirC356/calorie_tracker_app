@@ -243,13 +243,22 @@ class GoalProvider extends ChangeNotifier {
   }
 
   /// Ends a recurring series the day before [date] (used by the "this and
-  /// future" edit/delete scope). Clamped so it never goes negative.
+  /// future" **delete** scope). Clamped so it never goes negative.
   Future<void> truncateSeriesBefore(Goal goal, DateTime date) async {
     final days =
         dateOnly(date).difference(dateOnly(goal.startDate)).inDays - 1;
     await _service.updateGoal(
         goal.copyWith(endDateDaysFromStart: days < 0 ? 0 : days));
     await refresh();
+  }
+
+  /// "Edit this and future": split the series at [fromDate] inclusive and apply
+  /// [edited] from there onward (see [GoalService.editThisAndFuture]).
+  Future<int> editThisAndFuture(Goal original, DateTime fromDate, Goal edited) async {
+    final id = await _service.editThisAndFuture(
+        original: original, fromDate: fromDate, edited: edited);
+    await refresh();
+    return id;
   }
 
   Future<void> deleteGoal(int id) async {

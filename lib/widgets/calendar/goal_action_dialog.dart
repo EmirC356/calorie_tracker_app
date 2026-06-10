@@ -49,15 +49,15 @@ Future<void> _handleEdit(BuildContext context, Goal goal, DateTime date) async {
       await Navigator.push(context,
           MaterialPageRoute(builder: (_) => GoalEditScreen(goal: goal)));
     case RecurringEditScope.thisAndFuture:
-      // End the original series before this date, then create a fresh series
-      // from this date the user can tweak. (Today-inclusive fix lands in Task 6.)
-      await provider.truncateSeriesBefore(goal, date);
-      if (!context.mounted) return;
+      // Edit the goal in the prefilled form; on save the series is split at
+      // `date` (today INCLUSIVE) so today shows the new values immediately.
       await Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) =>
-              GoalCreateScreen(template: goal.copyWith(clearId: true, startDate: date)),
+          builder: (_) => GoalEditScreen(
+            goal: goal,
+            onSubmit: (edited) => provider.editThisAndFuture(goal, date, edited),
+          ),
         ),
       );
     case RecurringEditScope.onlyThis:

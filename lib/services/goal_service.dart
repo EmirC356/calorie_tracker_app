@@ -31,6 +31,65 @@ class GoalService {
     );
   }
 
+  /// Applies an edit to a recurring goal for [fromDate] **inclusive** and every
+  /// later occurrence, leaving earlier occurrences on the original goal. This is
+  /// the "edit this and future" scope.
+  ///
+  /// When [fromDate] is on/before the original start, the whole series is edited
+  /// in place (no split). Otherwise the original is truncated to end the day
+  /// *before* [fromDate] and a new goal — carrying the edits, the same
+  /// recurrence, and any absolute series-end the original had — starts on
+  /// [fromDate]. Materialized rows for the old goal on/after [fromDate] are
+  /// dropped so a stale title/status can't linger (this discards a status the
+  /// user may have set on today's old occurrence — they are redefining it).
+  /// Returns the id of the goal that owns [fromDate] onward.
+  Future<int> editThisAndFuture({
+    required Goal original,
+    required DateTime fromDate,
+    required Goal edited,
+  }) async {
+    final from = dateOnly(fromDate);
+    final start = dateOnly(original.startDate);
+
+    if (!from.isAfter(start)) {
+      await updateGoal(edited.copyWith(
+        id: original.id,
+        startDate: original.startDate,
+        recurrence: original.recurrence,
+      ));
+      return original.id!;
+    }
+
+    // 1. End the original series the day BEFORE `from` (today excluded).
+    final endDays = from.difference(start).inDays - 1;
+    await updateGoal(original.copyWith(endDateDaysFromStart: endDays));
+
+    // 2. Drop the old goal's materialized rows on/after `from`.
+    final database = await _db.db;
+    await database.delete(
+      DatabaseService.tablesGoalOccurrences,
+      where: 'goal_id = ? AND occurrence_date >= ?',
+      whereArgs: [original.id, ymd(from)],
+    );
+
+    // 3. New series starts on `from` INCLUSIVE; inherit the original's absolute
+    //    series-end (computed from the original's pre-truncation value).
+    int? newEndDays;
+    final origEnd = original.seriesEndDate;
+    if (origEnd != null) {
+      final d = origEnd.difference(from).inDays;
+      newEndDays = d < 0 ? 0 : d;
+    }
+    final newGoal = edited.copyWith(
+      clearId: true,
+      startDate: from,
+      recurrence: original.recurrence,
+      endDateDaysFromStart: newEndDays,
+      clearEndDate: newEndDays == null,
+    );
+    return createGoal(newGoal);
+  }
+
   /// Soft-archives a goal: hidden from the calendar going forward, history kept.
   Future<void> archiveGoal(int id) async {
     final database = await _db.db;
