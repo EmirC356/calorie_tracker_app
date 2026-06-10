@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../services/ai_service.dart';
 import '../../theme/app_theme.dart';
 
@@ -287,6 +289,115 @@ class _ApiKeyScreenState extends State<ApiKeyScreen> {
     ]);
   }
 
-  // Replaced with the full provider instructions in Task 5.
-  Widget _instructionsSection(BuildContext context) => const SizedBox.shrink();
+  Future<void> _launch(String url) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    if (!ok) messenger.showSnackBar(SnackBar(content: Text('Could not open $url')));
+  }
+
+  static const _body = TextStyle(color: kText, fontSize: 13, height: 1.4);
+
+  Widget _stepText(int n, String text) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Text('$n. $text', style: _body),
+      );
+
+  Widget _stepLink(int n, String label, String url) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('$n. $label', style: _body),
+          Padding(
+            padding: const EdgeInsets.only(left: 16, top: 3),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Flexible(
+                child: SelectableText.rich(TextSpan(
+                  text: url,
+                  style: const TextStyle(
+                      color: kAmber, decoration: TextDecoration.underline, fontSize: 12.5),
+                  recognizer: TapGestureRecognizer()..onTap = () => _launch(url),
+                )),
+              ),
+              const SizedBox(width: 4),
+              GestureDetector(
+                onTap: () => _launch(url),
+                child: const Icon(Icons.open_in_new, color: kAmber, size: 14),
+              ),
+            ]),
+          ),
+        ]),
+      );
+
+  Widget _footer(String note) => Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: Text(note,
+            style: const TextStyle(color: kTextDim, fontSize: 11.5, fontStyle: FontStyle.italic)),
+      );
+
+  Widget _providerCard({
+    required IconData icon,
+    required String header,
+    required List<Widget> children,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: ExpansionTile(
+        backgroundColor: kCard,
+        collapsedBackgroundColor: kCard,
+        iconColor: kAmber,
+        collapsedIconColor: kTextDim,
+        textColor: kAmber,
+        collapsedTextColor: kText,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10), side: const BorderSide(color: kAmber)),
+        collapsedShape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10), side: const BorderSide(color: kBorderDim)),
+        leading: Icon(icon),
+        title: Text(header, style: const TextStyle(fontWeight: FontWeight.bold)),
+        expandedCrossAxisAlignment: CrossAxisAlignment.start,
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        children: children,
+      ),
+    );
+  }
+
+  Widget _instructionsSection(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const SizedBox(height: 28),
+      const Divider(color: kBorderDim),
+      const SizedBox(height: 12),
+      Text('NEED A KEY?', style: neonLabel(kAmber, size: 14)),
+      const SizedBox(height: 4),
+      const Text('Pick a provider above, then follow its steps to create a key.',
+          style: TextStyle(color: kTextDim, fontSize: 12)),
+      const SizedBox(height: 14),
+      _providerCard(icon: Icons.auto_awesome, header: 'Google Gemini', children: [
+        _stepLink(1, 'Open the API keys page:', 'https://aistudio.google.com/apikey'),
+        _stepText(2, 'Sign in with your Google account.'),
+        _stepText(3, 'Click "Create API key" → "Create API key in new project".'),
+        _stepText(4, 'Copy the key (starts with AIza…).'),
+        _stepText(5, 'Paste it above and tap "Test key".'),
+        _footer('Free tier: 60 requests/min, 1500/day on gemini-2.5-flash.'),
+      ]),
+      _providerCard(icon: Icons.smart_toy, header: 'OpenAI', children: [
+        _stepLink(1, 'Open the API keys page:', 'https://platform.openai.com/api-keys'),
+        _stepText(2, 'Sign in or create an OpenAI account.'),
+        _stepText(3, 'Click "Create new secret key" — give it any name.'),
+        _stepText(4, 'Copy the key (starts with sk-…).'),
+        _stepLink(5, 'Add a payment method (OpenAI requires one even for trial use):',
+            'https://platform.openai.com/settings/organization/billing'),
+        _stepText(6, 'Paste the key above and tap "Test key".'),
+        _footer('Pay-as-you-go. gpt-4o-mini is the cheapest option for meal analysis.'),
+      ]),
+      _providerCard(icon: Icons.psychology, header: 'Anthropic Claude', children: [
+        _stepLink(1, 'Open the API keys page:', 'https://console.anthropic.com/settings/keys'),
+        _stepText(2, 'Sign in or create an Anthropic account.'),
+        _stepText(3, 'Click "Create Key" — give it any name and select your workspace.'),
+        _stepText(4, 'Copy the key (starts with sk-ant-…).'),
+        _stepLink(5, 'Add credits if you haven\'t already:',
+            'https://console.anthropic.com/settings/billing'),
+        _stepText(6, 'Paste the key above and tap "Test key".'),
+        _footer('Pay-as-you-go. claude-haiku-4-5 is cheapest for meal analysis.'),
+      ]),
+    ]);
+  }
 }

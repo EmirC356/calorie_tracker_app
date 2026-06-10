@@ -64,4 +64,33 @@ void main() {
     expect(find.text('Not configured'), findsOneWidget);
     expect(find.textContaining('401'), findsWidgets);
   });
+
+  testWidgets('instructions: three provider cards expand to show launchable URLs',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final ai = AiService(client: MockClient((_) async => http.Response('', 200)));
+    await ai.load();
+    await tester.pumpWidget(wrap(ai));
+
+    final scrollable = find.byType(Scrollable).first;
+
+    Future<void> openCard(String header) async {
+      // scrollUntilVisible builds the (off-screen) tile; ensureVisible then
+      // brings it fully into the viewport so the tap actually lands.
+      await tester.scrollUntilVisible(find.text(header), 250, scrollable: scrollable);
+      await tester.ensureVisible(find.text(header));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(header));
+      await tester.pumpAndSettle();
+    }
+
+    await openCard('Google Gemini');
+    expect(find.textContaining('aistudio.google.com', findRichText: true), findsWidgets);
+
+    await openCard('OpenAI');
+    expect(find.textContaining('platform.openai.com/api-keys', findRichText: true), findsWidgets);
+
+    await openCard('Anthropic Claude');
+    expect(find.textContaining('console.anthropic.com', findRichText: true), findsWidgets);
+  });
 }
