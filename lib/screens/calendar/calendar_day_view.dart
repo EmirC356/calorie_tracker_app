@@ -7,7 +7,7 @@ import '../../providers/meal_provider.dart';
 import '../../providers/exercise_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/edit_entry_sheets.dart';
-import '../../widgets/calendar/goal_chip.dart';
+import '../../widgets/calendar/day_goal_row.dart';
 import '../weight_tracker_screen.dart';
 import 'goal_detail_sheet.dart';
 
@@ -49,18 +49,11 @@ class CalendarDayView extends StatelessWidget {
           child: Text('No goals scheduled', style: TextStyle(color: kTextDim, fontSize: 13)),
         )
       else
-        ...occ.map((o) {
-          final status = o.row?.status ?? OccurrenceStatus.open;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: GoalChip(
+        ...occ.map((o) => DayGoalRow(
               goal: o.goal,
-              status: status,
+              status: o.row?.status ?? OccurrenceStatus.open,
               onTap: () => showGoalDetailSheet(context, goal: o.goal, date: date),
-              onLongPress: () => showGoalDetailSheet(context, goal: o.goal, date: date),
-            ),
-          );
-        }),
+            )),
       const SizedBox(height: 24),
       Text('ACTIVITY', style: neonLabel(kAmber, size: 13)),
       const SizedBox(height: 8),
@@ -117,16 +110,17 @@ class CalendarDayView extends StatelessWidget {
       InkWell(
         onTap: onTap,
         child: Container(
-          margin: const EdgeInsets.only(bottom: 6),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          margin: const EdgeInsets.only(bottom: 8),
+          constraints: const BoxConstraints(minHeight: 56),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: neonBox(color),
           child: Row(children: [
-            Icon(icon, color: color, size: 18),
-            const SizedBox(width: 10),
+            Icon(icon, color: color, size: 20),
+            const SizedBox(width: 12),
             Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(title, style: const TextStyle(color: kText, fontSize: 13, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
-                Text(subtitle, style: const TextStyle(color: kTextDim, fontSize: 11)),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                Text(title, style: const TextStyle(color: kText, fontSize: 14, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(subtitle, style: const TextStyle(color: kTextDim, fontSize: 12)),
               ]),
             ),
             const Icon(Icons.chevron_right, color: kTextDim, size: 18),
