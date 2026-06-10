@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/index.dart';
 import '../../providers/goal_provider.dart';
 import '../../theme/app_theme.dart';
@@ -13,6 +14,10 @@ import 'goal_examples.dart';
 
 enum CalendarViewMode { day, week, month }
 
+/// Persisted last-selected calendar view mode. Week is only the first-run
+/// default; the user's choice is remembered across launches.
+const String _kViewModePref = 'calendar.view_mode';
+
 /// The Calendar / Goals tab. Hosts the Day / Week / Month views over a focused
 /// date, a create-goal FAB, and (in Phase 5) the history overflow.
 class CalendarScreen extends StatefulWidget {
@@ -23,7 +28,8 @@ class CalendarScreen extends StatefulWidget {
 }
 
 class _CalendarScreenState extends State<CalendarScreen> {
-  CalendarViewMode _mode = CalendarViewMode.month;
+  // First-run default is Week; overridden by the persisted choice on launch.
+  CalendarViewMode _mode = CalendarViewMode.week;
   DateTime _focused = dateOnly(DateTime.now());
   Map<String, DayActivity> _activity = {};
 
@@ -34,8 +40,27 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   Future<void> _init() async {
-    await context.read<GoalProvider>().ensureLoaded();
+    final goals = context.read<GoalProvider>();
+    await _loadViewMode();
+    await goals.ensureLoaded();
     await _loadActivity();
+  }
+
+  Future<void> _loadViewMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    final name = prefs.getString(_kViewModePref);
+    for (final m in CalendarViewMode.values) {
+      if (m.name == name && mounted) {
+        setState(() => _mode = m);
+        return;
+      }
+    }
+  }
+
+  void _setMode(CalendarViewMode m) {
+    setState(() => _mode = m);
+    _loadActivity();
+    SharedPreferences.getInstance().then((p) => p.setString(_kViewModePref, m.name));
   }
 
   ({DateTime from, DateTime to}) _visibleRange() {
@@ -191,10 +216,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         for (final m in CalendarViewMode.values)
           Expanded(
             child: GestureDetector(
-              onTap: () {
-                setState(() => _mode = m);
-                _loadActivity();
-              },
+              onTap: () => _setMode(m),
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 3),
                 padding: const EdgeInsets.symmetric(vertical: 8),
