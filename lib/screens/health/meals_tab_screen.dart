@@ -63,10 +63,6 @@ class _MealsTabScreenState extends State<MealsTabScreen> {
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          if (_isToday) ...[
-            const WaterCard(),
-            const SizedBox(height: 16),
-          ],
           DateNavBar(selected: _date, accent: kCyan, onChanged: _setDate),
           const SizedBox(height: 12),
           if (_meals.isEmpty)
@@ -81,6 +77,11 @@ class _MealsTabScreenState extends State<MealsTabScreen> {
                   onDelete: () => deleteMealWithUndo(ScaffoldMessenger.of(context), _provider, meal),
                   onEdit: (updated) => _provider.updateMeal(updated),
                 )),
+          // Water quick-add sits at the bottom (today only).
+          if (_isToday) ...[
+            const SizedBox(height: 20),
+            const WaterCard(),
+          ],
         ]),
       ),
       floatingActionButton: FloatingActionButton(
