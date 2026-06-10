@@ -53,3 +53,13 @@ class DbWeightRepo implements WeightRepo {
           DateTime start, DateTime endExclusive) =>
       _db.getWeightEntriesInRange(start, endExclusive);
 }
+
+class DbWaterRepo implements WaterRepo {
+  final DatabaseService _db;
+  const DbWaterRepo(this._db);
+  @override
+  Future<double> waterMlInRange(DateTime start, DateTime endExclusive) async {
+    final entries = await _db.getWaterEntriesInRange(start, endExclusive);
+    return entries.fold<double>(0, (s, e) => s + e.amountMl);
+  }
+}

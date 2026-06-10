@@ -6,7 +6,7 @@ import '../models/index.dart';
 
 class DatabaseService {
   static const String _dbName = 'calorie_tracker.db';
-  static const int _dbVersion = 5;
+  static const int _dbVersion = 6;
 
   /// Current local schema version (for backup metadata).
   static int get currentSchemaVersion => _dbVersion;
@@ -18,6 +18,7 @@ class DatabaseService {
   static const String tablesGoals = 'goals';
   static const String tablesGoalOccurrences = 'goal_occurrences';
   static const String tablesGoalSuggestions = 'goal_suggestions';
+  static const String tablesWaterEntries = 'water_entries';
 
   /// Optional override for the database file path. When null (production) the
   /// default app database path is used. Tests inject a temp/in-memory path.
@@ -61,6 +62,7 @@ class DatabaseService {
     await _createGoalsTable(db);
     await _createGoalOccurrencesTable(db);
     await _createGoalSuggestionsTable(db);
+    await _createWaterEntriesTable(db);
   }
 
   /// Migration convention
@@ -102,6 +104,10 @@ class DatabaseService {
       await _createGoalOccurrencesTable(db);
       await _createGoalSuggestionsTable(db);
     }
+    if (oldVersion < 6) {
+      // Water tracking — one new additive table.
+      await _createWaterEntriesTable(db);
+    }
   }
 
   /// Indexes the date columns the dashboard queries hit on every load.
@@ -135,6 +141,7 @@ class DatabaseService {
         tablesGoals,
         tablesGoalOccurrences,
         tablesGoalSuggestions,
+        tablesWaterEntries,
       ]) {
         if (await _tableExists(db, table)) {
           dump[table] = await db.query(table);
@@ -262,6 +269,18 @@ class DatabaseService {
         'CREATE INDEX idx_occurrences_status ON $tablesGoalOccurrences(status)');
     await db.execute(
         'CREATE INDEX idx_occurrences_goal ON $tablesGoalOccurrences(goal_id)');
+  }
+
+  Future<void> _createWaterEntriesTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE $tablesWaterEntries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        amount_ml INTEGER NOT NULL,
+        timestamp TEXT NOT NULL
+      )
+    ''');
+    await db.execute(
+        'CREATE INDEX idx_water_timestamp ON $tablesWaterEntries(timestamp)');
   }
 
   Future<void> _createGoalSuggestionsTable(Database db) async {
@@ -498,6 +517,35 @@ class DatabaseService {
       orderBy: 'timestamp ASC',
     );
     return maps.map(WeightEntry.fromJson).toList();
+  }
+
+  // ─── Water entry operations ─────────────────────────────────────────────────
+
+  Future<int> insertWaterEntry(WaterEntry entry) async {
+    final database = await db;
+    return database.insert(tablesWaterEntries, entry.toMap());
+  }
+
+  Future<List<WaterEntry>> getWaterEntriesByDate(DateTime date) async {
+    final start = DateTime(date.year, date.month, date.day);
+    return getWaterEntriesInRange(start, start.add(const Duration(days: 1)));
+  }
+
+  Future<List<WaterEntry>> getWaterEntriesInRange(
+      DateTime start, DateTime endExclusive) async {
+    final database = await db;
+    final maps = await database.query(
+      tablesWaterEntries,
+      where: 'timestamp >= ? AND timestamp < ?',
+      whereArgs: [start.toIso8601String(), endExclusive.toIso8601String()],
+      orderBy: 'timestamp ASC',
+    );
+    return maps.map(WaterEntry.fromMap).toList();
+  }
+
+  Future<int> deleteWaterEntry(int id) async {
+    final database = await db;
+    return database.delete(tablesWaterEntries, where: 'id = ?', whereArgs: [id]);
   }
 
   Future<void> close() async {

@@ -7,6 +7,7 @@ import 'providers/meal_provider.dart';
 import 'providers/exercise_provider.dart';
 import 'providers/meal_prep_provider.dart';
 import 'providers/weight_provider.dart';
+import 'providers/water_provider.dart';
 import 'providers/profile_provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/squad_provider.dart';
@@ -54,6 +55,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ExerciseProvider()),
         ChangeNotifierProvider(create: (_) => MealPrepProvider()),
         ChangeNotifierProvider(create: (_) => WeightProvider()),
+        ChangeNotifierProvider(create: (_) => WaterProvider()),
         ChangeNotifierProvider(create: (_) => ProfileProvider()),
         // Calendar/Goals — local-only, loads lazily on first Calendar open.
         ChangeNotifierProvider(create: (_) => GoalProvider()),

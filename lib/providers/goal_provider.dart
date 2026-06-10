@@ -23,6 +23,7 @@ class GoalProvider extends ChangeNotifier {
   late final DbMealRepo _mealRepo;
   late final DbExerciseRepo _exerciseRepo;
   late final DbWeightRepo _weightRepo;
+  late final DbWaterRepo _waterRepo;
   static const _evaluator = GoalEvaluator();
 
   /// Finalizes a tracked goal occurrence during the sweep. Defaults to the
@@ -42,6 +43,7 @@ class GoalProvider extends ChangeNotifier {
     _mealRepo = DbMealRepo(_dbService);
     _exerciseRepo = DbExerciseRepo(_dbService);
     _weightRepo = DbWeightRepo(_dbService);
+    _waterRepo = DbWaterRepo(_dbService);
     this.evaluateTracked = evaluateTracked ?? _defaultTrackedEvaluator;
   }
 
@@ -54,7 +56,7 @@ class GoalProvider extends ChangeNotifier {
         meals: _mealRepo,
         exercises: _exerciseRepo,
         weights: _weightRepo,
-        water: null,
+        water: _waterRepo,
       );
 
   /// Wraps [evaluate] for the sweep: returns null (leave unmaterialized) when

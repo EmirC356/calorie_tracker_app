@@ -4,6 +4,7 @@ import '../providers/meal_provider.dart';
 import '../providers/exercise_provider.dart';
 import '../providers/profile_provider.dart';
 import '../providers/weight_provider.dart';
+import '../providers/water_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/snapshot_provider.dart';
 import '../providers/goal_provider.dart';
@@ -41,6 +42,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final exercises = context.read<ExerciseProvider>();
     final profile = context.read<ProfileProvider>();
     final weight = context.read<WeightProvider>();
+    final water = context.read<WaterProvider>();
     final goals = context.read<GoalProvider>();
     Future.microtask(() {
       meals.loadTodaysMeals();
@@ -48,6 +50,7 @@ class _HomeScreenState extends State<HomeScreen> {
       exercises.loadTodaysExercises();
       profile.load();
       weight.loadEntries();
+      water.loadToday();
     });
     // Wire the cloud snapshot aggregator to local data + auth. Goals are a
     // source too, so toggling a goal squad-visible (or archiving it) syncs the

@@ -216,6 +216,7 @@ class SnapshotService {
     final mealRepo = DbMealRepo(_db);
     final exerciseRepo = DbExerciseRepo(_db);
     final weightRepo = DbWeightRepo(_db);
+    final waterRepo = DbWaterRepo(_db);
 
     final desired = <String, GoalVisible>{};
     for (final g in goals) {
@@ -231,6 +232,7 @@ class SnapshotService {
             meals: mealRepo,
             exercises: exerciseRepo,
             weights: weightRepo,
+            water: waterRepo,
             now: theNow,
           );
           // A user override (materialized row) wins over the live evaluation.
