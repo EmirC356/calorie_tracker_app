@@ -8,6 +8,9 @@ class DatabaseService {
   static const String _dbName = 'calorie_tracker.db';
   static const int _dbVersion = 5;
 
+  /// Current local schema version (for backup metadata).
+  static int get currentSchemaVersion => _dbVersion;
+
   static const String tablesMeals = 'meals';
   static const String tablesExercises = 'exercises';
   static const String tablesMealPreps = 'meal_preps';
