@@ -313,6 +313,8 @@ class _GoalFormScreenState extends State<GoalFormScreen> {
         )),
         _colorSection(),
         _recurrenceSection(),
+        const SizedBox(height: 8),
+        _startDateField(),
         // ── Advanced toggle (chevron, anchored bottom-right) ───────────────────
         Align(
           alignment: Alignment.centerRight,
@@ -376,7 +378,7 @@ class _GoalFormScreenState extends State<GoalFormScreen> {
           (t) => t.name[0].toUpperCase() + t.name.substring(1), (t) => setState(() => _type = t)),
       if (_type == GoalType.tracked) _trackedSection(),
       const SizedBox(height: 16),
-      _scheduleSection(),
+      _timeSection(),
       const SizedBox(height: 8),
       _endSection(),
       const SizedBox(height: 8),
@@ -602,7 +604,8 @@ class _GoalFormScreenState extends State<GoalFormScreen> {
     );
   }
 
-  Widget _scheduleSection() {
+  // Start date is a Simple-zone field (always visible).
+  Widget _startDateField() {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       _label('Start date'),
       _tappableValue(DateFormat('EEE, MMM d, yyyy').format(_startDate), Icons.calendar_today, () async {
@@ -614,7 +617,12 @@ class _GoalFormScreenState extends State<GoalFormScreen> {
         );
         if (picked != null) setState(() => _startDate = dateOnly(picked));
       }),
-      const SizedBox(height: 10),
+    ]);
+  }
+
+  // Optional time-of-day lives in the Advanced zone.
+  Widget _timeSection() {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       SwitchListTile(
         contentPadding: EdgeInsets.zero,
         activeThumbColor: kAmber,

@@ -8,16 +8,17 @@ import '../../widgets/calendar/day_summary_chip.dart';
 import '../../widgets/calendar/goal_action_dialog.dart';
 import '../../widgets/calendar/calendar_status.dart';
 
-/// A swipeable **3-day** window (was a static Mon–Sun week). Each PageView page
-/// shows three day columns; swiping advances the rolling window by **one day**
-/// (so {Mon,Tue,Wed} → {Tue,Wed,Thu}), keeping context. The center column is
-/// the "focused" day.
+/// A swipeable **3-day** window (was a static Mon–Sun grid). Each PageView page
+/// shows three day columns, and a swipe advances by a **full window** (3 days):
+/// {9,10,11} → {12,13,14}. The first window is centered on [initialDate] (today
+/// on a fresh open).
 ///
-/// Page→date conversion: page [_kEpochPage] maps to [initialDate] as the center
-/// (today on a fresh open), and `center = initialDate + (page - _kEpochPage)`
-/// days, giving effectively infinite scroll in both directions.
+/// Page→date conversion: the left column of page p is
+/// `anchorLeft + (p - _kEpochPage) * 3` days, where `anchorLeft = initialDate −
+/// 1` so page _kEpochPage shows [initial−1, initial, initial+1]. This gives
+/// effectively infinite paging in both directions.
 class CalendarWeekView extends StatefulWidget {
-  final DateTime initialDate; // becomes the centered day on first build
+  final DateTime initialDate; // centered in the first window
   final void Function(DateTime day) onTapDay;
 
   const CalendarWeekView({
@@ -33,16 +34,16 @@ class CalendarWeekView extends StatefulWidget {
 const int _kEpochPage = 100000;
 
 class _CalendarWeekViewState extends State<CalendarWeekView> {
-  late final DateTime _initial;
+  late final DateTime _anchorLeft; // left column of the initial (epoch) page
   late final PageController _controller;
-  late DateTime _center; // current center day
+  late DateTime _windowLeft; // left column of the current page
   Map<String, DayActivity> _activity = {};
 
   @override
   void initState() {
     super.initState();
-    _initial = dateOnly(widget.initialDate);
-    _center = _initial;
+    _anchorLeft = dateOnly(widget.initialDate).subtract(const Duration(days: 1));
+    _windowLeft = _anchorLeft;
     _controller = PageController(initialPage: _kEpochPage, viewportFraction: 1.0);
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadActivity());
   }
@@ -53,51 +54,55 @@ class _CalendarWeekViewState extends State<CalendarWeekView> {
     super.dispose();
   }
 
-  DateTime _centerForPage(int page) => _initial.add(Duration(days: page - _kEpochPage));
+  DateTime _leftForPage(int page) =>
+      _anchorLeft.add(Duration(days: (page - _kEpochPage) * 3));
 
   /// Loads summary activity for the visible window ± a buffer (one DB pass).
   /// Guarded so a DB hiccup never blanks the grid.
   Future<void> _loadActivity() async {
     try {
-      final activity = await context
-          .read<GoalProvider>()
-          .activityInRange(_center.subtract(const Duration(days: 8)),
-              _center.add(const Duration(days: 8)));
+      final activity = await context.read<GoalProvider>().activityInRange(
+          _windowLeft.subtract(const Duration(days: 3)),
+          _windowLeft.add(const Duration(days: 5)));
       if (mounted) setState(() => _activity = activity);
     } catch (_) {/* keep last activity */}
   }
 
   void _onPageChanged(int page) {
-    setState(() => _center = _centerForPage(page));
+    setState(() => _windowLeft = _leftForPage(page));
     _loadActivity();
+  }
+
+  bool get _todayVisible {
+    final today = dateOnly(DateTime.now());
+    return !today.isBefore(_windowLeft) &&
+        !today.isAfter(_windowLeft.add(const Duration(days: 2)));
   }
 
   void _goToToday() {
     final today = dateOnly(DateTime.now());
-    final page = _kEpochPage + today.difference(_initial).inDays;
-    _controller.animateToPage(page,
+    final block = (today.difference(_anchorLeft).inDays / 3).floor();
+    _controller.animateToPage(_kEpochPage + block,
         duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
   }
 
-  String _rangeLabel(DateTime center) {
-    final left = center.subtract(const Duration(days: 1));
-    final right = center.add(const Duration(days: 1));
+  String _rangeLabel(DateTime left) {
+    final right = left.add(const Duration(days: 2));
     return '${DateFormat('EEE d').format(left)} – ${DateFormat('EEE d MMM').format(right)}';
   }
 
   @override
   Widget build(BuildContext context) {
-    final isTodayCentered = _center == dateOnly(DateTime.now());
     return Column(children: [
       // Header strip: visible 3-day range + a Today snap-back button.
       Padding(
         padding: const EdgeInsets.fromLTRB(16, 6, 8, 6),
         child: Row(children: [
           Expanded(
-            child: Text(_rangeLabel(_center),
+            child: Text(_rangeLabel(_windowLeft),
                 style: const TextStyle(color: kText, fontSize: 14, fontWeight: FontWeight.w600)),
           ),
-          if (!isTodayCentered)
+          if (!_todayVisible)
             TextButton.icon(
               onPressed: _goToToday,
               icon: const Icon(Icons.today, size: 16, color: kAmber),
@@ -109,18 +114,14 @@ class _CalendarWeekViewState extends State<CalendarWeekView> {
         child: PageView.builder(
           controller: _controller,
           onPageChanged: _onPageChanged,
-          itemBuilder: (_, page) => _threeDayPage(_centerForPage(page)),
+          itemBuilder: (_, page) => _threeDayPage(_leftForPage(page)),
         ),
       ),
     ]);
   }
 
-  Widget _threeDayPage(DateTime center) {
-    final days = [
-      center.subtract(const Duration(days: 1)),
-      center,
-      center.add(const Duration(days: 1)),
-    ];
+  Widget _threeDayPage(DateTime left) {
+    final days = [left, left.add(const Duration(days: 1)), left.add(const Duration(days: 2))];
     // LayoutBuilder sizes each column to exactly one third of the page width.
     return LayoutBuilder(builder: (context, constraints) {
       final colW = constraints.maxWidth / 3;
@@ -136,7 +137,6 @@ class _CalendarWeekViewState extends State<CalendarWeekView> {
     final occ = provider.occurrencesOn(day);
     final act = _activity[ymd(day)];
     final isToday = dateOnly(day) == dateOnly(DateTime.now());
-    final isCenter = dateOnly(day) == _center;
 
     return Padding(
       padding: const EdgeInsets.all(3),
@@ -144,10 +144,7 @@ class _CalendarWeekViewState extends State<CalendarWeekView> {
         decoration: BoxDecoration(
           color: isToday ? kAmber.withValues(alpha: 0.07) : kCard,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-              color: isToday
-                  ? kAmber
-                  : (isCenter ? kAmber.withValues(alpha: 0.4) : kBorderDim)),
+          border: Border.all(color: isToday ? kAmber : kBorderDim),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           InkWell(
