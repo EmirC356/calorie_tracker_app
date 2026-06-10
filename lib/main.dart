@@ -1,7 +1,9 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'services/notification_service.dart';
 import 'providers/meal_provider.dart';
 import 'providers/exercise_provider.dart';
@@ -33,6 +35,13 @@ void main() async {
     await Firebase.initializeApp();
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
     await notificationService.init();
+    // Route uncaught Flutter + platform errors to Crashlytics (so we hear about
+    // crashes on testers' devices). Guarded with the rest of Firebase init.
+    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+    PlatformDispatcher.instance.onError = (error, stack) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      return true;
+    };
   } catch (e) {
     debugPrint('Firebase init failed (Squad features disabled): $e');
   }
