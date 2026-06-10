@@ -70,7 +70,12 @@ class _GoalFormScreenState extends State<GoalFormScreen> {
 
   _ReminderMode _reminderMode = _ReminderMode.none;
   bool _morningBrief = true;
-  bool _squadVisible = false;
+  // Create-form default is ON (the suggest flow hides this toggle; edit/accept
+  // forms hydrate the goal's own value, so this only affects fresh creates).
+  bool _squadVisible = true;
+
+  // Advanced (collapsible) section, hidden by default.
+  bool _advanced = false;
 
   bool _saving = false;
 
@@ -299,67 +304,43 @@ class _GoalFormScreenState extends State<GoalFormScreen> {
         iconTheme: const IconThemeData(color: kAmber),
       ),
       body: ListView(padding: const EdgeInsets.all(16), children: [
+        // ── Simple zone: exactly title, color, recurrence ──────────────────────
         _field('Title', TextField(
           controller: _title,
           maxLength: kTitleMaxLen,
           style: const TextStyle(color: kText),
           decoration: const InputDecoration(hintText: 'e.g. Stay under 2200 kcal'),
         )),
-        _field('Description (optional)', TextField(
-          controller: _desc,
-          maxLength: kDescMaxLen,
-          maxLines: 2,
-          style: const TextStyle(color: kText),
-          decoration: const InputDecoration(hintText: 'Notes for yourself'),
-        )),
-        _categorySection(),
         _colorSection(),
-        _label('Priority'),
-        _segmented<GoalPriority>(GoalPriority.values, _priority,
-            (p) => p.name[0].toUpperCase() + p.name.substring(1), (p) => setState(() => _priority = p)),
-        const SizedBox(height: 16),
-        _label('Goal type'),
-        _segmented<GoalType>(GoalType.values, _type,
-            (t) => t.name[0].toUpperCase() + t.name.substring(1), (t) => setState(() => _type = t)),
-        if (_type == GoalType.tracked) _trackedSection(),
-        const SizedBox(height: 16),
-        _scheduleSection(),
-        const SizedBox(height: 8),
         _recurrenceSection(),
-        const SizedBox(height: 8),
-        _endSection(),
-        const SizedBox(height: 8),
-        _reminderSection(),
-        const SizedBox(height: 8),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          activeThumbColor: kAmber,
-          title: const Text('Include in morning brief', style: TextStyle(color: kText, fontSize: 14)),
-          subtitle: const Text('Show this goal in your 8:00 daily summary',
-              style: TextStyle(color: kTextDim, fontSize: 12)),
-          value: _morningBrief,
-          onChanged: (v) => setState(() => _morningBrief = v),
-        ),
-        if (widget.showSquadVisible)
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            activeThumbColor: kAmber,
-            title: Row(children: [
-              const Text('Squad-visible', style: TextStyle(color: kText, fontSize: 14)),
-              const SizedBox(width: 6),
-              Tooltip(
-                message: 'Squadmates you share a squad with will see this goal\'s '
-                    'title, category and status on their Today view — not your '
-                    'private notes.',
-                child: Icon(Icons.info_outline, size: 15, color: kTextDim),
-              ),
-            ]),
-            value: _squadVisible,
-            onChanged: (v) async {
-              setState(() => _squadVisible = v);
-              if (v) await _maybeShowPrivacyDialog();
-            },
+        // ── Advanced toggle (chevron, anchored bottom-right) ───────────────────
+        Align(
+          alignment: Alignment.centerRight,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () => setState(() => _advanced = !_advanced),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Text(_advanced ? 'Fewer options' : 'More options',
+                    style: const TextStyle(color: kAmber, fontSize: 12, fontWeight: FontWeight.w600)),
+                const SizedBox(width: 4),
+                AnimatedRotation(
+                  turns: _advanced ? 0.5 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: const Icon(Icons.expand_more, color: kAmber),
+                ),
+              ]),
+            ),
           ),
+        ),
+        // ── Advanced zone (collapsible) ────────────────────────────────────────
+        AnimatedSize(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          alignment: Alignment.topCenter,
+          child: _advanced ? _advancedSection() : const SizedBox(width: double.infinity),
+        ),
         const SizedBox(height: 20),
         ElevatedButton(
           onPressed: _saving ? null : _save,
@@ -373,6 +354,64 @@ class _GoalFormScreenState extends State<GoalFormScreen> {
         const SizedBox(height: 24),
       ]),
     );
+  }
+
+  /// The collapsible "advanced" fields, defaulted when left untouched.
+  Widget _advancedSection() {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _field('Description (optional)', TextField(
+        controller: _desc,
+        maxLength: kDescMaxLen,
+        maxLines: 2,
+        style: const TextStyle(color: kText),
+        decoration: const InputDecoration(hintText: 'Notes for yourself'),
+      )),
+      _categorySection(),
+      _label('Priority'),
+      _segmented<GoalPriority>(GoalPriority.values, _priority,
+          (p) => p.name[0].toUpperCase() + p.name.substring(1), (p) => setState(() => _priority = p)),
+      const SizedBox(height: 16),
+      _label('Goal type'),
+      _segmented<GoalType>(GoalType.values, _type,
+          (t) => t.name[0].toUpperCase() + t.name.substring(1), (t) => setState(() => _type = t)),
+      if (_type == GoalType.tracked) _trackedSection(),
+      const SizedBox(height: 16),
+      _scheduleSection(),
+      const SizedBox(height: 8),
+      _endSection(),
+      const SizedBox(height: 8),
+      _reminderSection(),
+      const SizedBox(height: 8),
+      SwitchListTile(
+        contentPadding: EdgeInsets.zero,
+        activeThumbColor: kAmber,
+        title: const Text('Include in morning brief', style: TextStyle(color: kText, fontSize: 14)),
+        subtitle: const Text('Show this goal in your 8:00 daily summary',
+            style: TextStyle(color: kTextDim, fontSize: 12)),
+        value: _morningBrief,
+        onChanged: (v) => setState(() => _morningBrief = v),
+      ),
+      if (widget.showSquadVisible)
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          activeThumbColor: kAmber,
+          title: Row(children: [
+            const Text('Squad-visible', style: TextStyle(color: kText, fontSize: 14)),
+            const SizedBox(width: 6),
+            Tooltip(
+              message: 'Squadmates you share a squad with will see this goal\'s '
+                  'title, category and status on their Today view — not your '
+                  'private notes.',
+              child: Icon(Icons.info_outline, size: 15, color: kTextDim),
+            ),
+          ]),
+          value: _squadVisible,
+          onChanged: (v) async {
+            setState(() => _squadVisible = v);
+            if (v) await _maybeShowPrivacyDialog();
+          },
+        ),
+    ]);
   }
 
   // ─── Sections ────────────────────────────────────────────────────────────────
@@ -417,7 +456,11 @@ class _GoalFormScreenState extends State<GoalFormScreen> {
       Wrap(spacing: 10, runSpacing: 10, children: [
         for (final c in kGoalPalette)
           GestureDetector(
-            onTap: () => setState(() => _color = c),
+            // Picking a preset infers the (hidden) category from the color.
+            onTap: () => setState(() {
+              _color = c;
+              _category = _inferCategory(c);
+            }),
             child: Container(
               width: 30, height: 30,
               decoration: BoxDecoration(
@@ -432,9 +475,74 @@ class _GoalFormScreenState extends State<GoalFormScreen> {
                   : null,
             ),
           ),
+        // Custom hex swatch — selecting a non-preset color implies category Custom.
+        GestureDetector(
+          onTap: _pickCustomHex,
+          child: Container(
+            width: 30, height: 30,
+            decoration: BoxDecoration(
+              color: _isCustomColor ? _color : kCard,
+              shape: BoxShape.circle,
+              border: Border.all(color: _isCustomColor ? kWhite : kBorderDim, width: 2),
+            ),
+            child: Icon(Icons.colorize, size: 15, color: _isCustomColor ? kBg : kTextDim),
+          ),
+        ),
       ]),
       const SizedBox(height: 16),
     ]);
+  }
+
+  /// True when the current color isn't one of the presets.
+  bool get _isCustomColor =>
+      !kGoalPalette.any((c) => c.toARGB32() == _color.toARGB32());
+
+  /// Maps a preset color back to its category; anything else is Custom.
+  GoalCategory _inferCategory(Color c) {
+    final v = c.toARGB32();
+    if (v == kCatHealth.toARGB32()) return GoalCategory.health;
+    if (v == kCatStudy.toARGB32()) return GoalCategory.study;
+    if (v == kCatHome.toARGB32()) return GoalCategory.home;
+    if (v == kCatPersonal.toARGB32()) return GoalCategory.personal;
+    return GoalCategory.custom;
+  }
+
+  Future<void> _pickCustomHex() async {
+    final ctrl = TextEditingController(
+        text: '#${_color.toARGB32().toRadixString(16).substring(2).toUpperCase()}');
+    final picked = await showDialog<Color>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Custom color'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          style: const TextStyle(color: kText),
+          decoration: const InputDecoration(hintText: '#RRGGBB'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, _parseHex(ctrl.text)),
+            child: const Text('Use'),
+          ),
+        ],
+      ),
+    );
+    if (picked != null && mounted) {
+      setState(() {
+        _color = picked;
+        _category = GoalCategory.custom;
+      });
+    }
+  }
+
+  static Color? _parseHex(String s) {
+    var h = s.trim().replaceAll('#', '');
+    if (h.length == 6) h = 'FF$h';
+    if (h.length != 8) return null;
+    final v = int.tryParse(h, radix: 16);
+    return v == null ? null : Color(v);
   }
 
   Widget _trackedSection() {
