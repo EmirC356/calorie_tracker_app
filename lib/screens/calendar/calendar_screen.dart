@@ -115,9 +115,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
       case CalendarViewMode.day:
         return DateFormat('EEE, MMM d').format(_focused).toUpperCase();
       case CalendarViewMode.week:
-        final m = mondayOf(_focused);
-        final s = m.add(const Duration(days: 6));
-        return '${DateFormat('MMM d').format(m)} – ${DateFormat('MMM d').format(s)}'.toUpperCase();
+        // The 3-day view shows its own precise range in its header strip.
+        return DateFormat('MMMM yyyy').format(_focused).toUpperCase();
       case CalendarViewMode.month:
         return DateFormat('MMMM yyyy').format(_focused).toUpperCase();
     }
@@ -170,14 +169,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
       ),
       body: Column(children: [
         _modeBar(),
-        _navBar(),
+        // The 3-day Week view self-navigates (swipe) and has its own header,
+        // so the parent prev/next bar is hidden in that mode.
+        if (_mode != CalendarViewMode.week) _navBar(),
         if (provider.isLoaded && provider.activeGoals.isEmpty) _emptyHint(),
         Expanded(
-          child: RefreshIndicator(
-            color: kAmber,
-            onRefresh: _refresh,
-            child: _body(),
-          ),
+          child: _mode == CalendarViewMode.week
+              ? _body()
+              : RefreshIndicator(color: kAmber, onRefresh: _refresh, child: _body()),
         ),
       ]),
     );
@@ -195,12 +194,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
           },
         );
       case CalendarViewMode.week:
-        return ListView(children: [
-          SizedBox(
-            height: 420,
-            child: CalendarWeekView(focused: _focused, activity: _activity, onTapDay: _openDay),
-          ),
-        ]);
+        // Re-key on the focused date so the parent "Today" / day-tap re-centers
+        // the 3-day window.
+        return CalendarWeekView(
+          key: ValueKey(_focused),
+          initialDate: _focused,
+          onTapDay: _openDay,
+        );
       case CalendarViewMode.month:
         return Padding(
           padding: const EdgeInsets.all(8),

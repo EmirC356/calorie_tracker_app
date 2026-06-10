@@ -4,82 +4,216 @@ import 'package:intl/intl.dart';
 import '../../models/index.dart';
 import '../../providers/goal_provider.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/calendar/goal_chip.dart';
 import '../../widgets/calendar/day_summary_chip.dart';
 import '../../widgets/calendar/goal_action_dialog.dart';
+import '../../widgets/calendar/calendar_status.dart';
 
-/// Seven-column week (Mon–Sun). Each column is a compact day cell; tapping it
-/// opens the Day view for that date.
-class CalendarWeekView extends StatelessWidget {
-  final DateTime focused; // any date in the week
-  final Map<String, DayActivity> activity;
+/// A swipeable **3-day** window (was a static Mon–Sun week). Each PageView page
+/// shows three day columns; swiping advances the rolling window by **one day**
+/// (so {Mon,Tue,Wed} → {Tue,Wed,Thu}), keeping context. The center column is
+/// the "focused" day.
+///
+/// Page→date conversion: page [_kEpochPage] maps to [initialDate] as the center
+/// (today on a fresh open), and `center = initialDate + (page - _kEpochPage)`
+/// days, giving effectively infinite scroll in both directions.
+class CalendarWeekView extends StatefulWidget {
+  final DateTime initialDate; // becomes the centered day on first build
   final void Function(DateTime day) onTapDay;
 
   const CalendarWeekView({
     super.key,
-    required this.focused,
-    required this.activity,
+    required this.initialDate,
     required this.onTapDay,
   });
 
   @override
-  Widget build(BuildContext context) {
-    final provider = context.watch<GoalProvider>();
-    final monday = mondayOf(focused);
-    final today = dateOnly(DateTime.now());
+  State<CalendarWeekView> createState() => _CalendarWeekViewState();
+}
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (var i = 0; i < 7; i++)
-          Expanded(child: _column(context, provider, monday.add(Duration(days: i)), today)),
-      ],
-    );
+const int _kEpochPage = 100000;
+
+class _CalendarWeekViewState extends State<CalendarWeekView> {
+  late final DateTime _initial;
+  late final PageController _controller;
+  late DateTime _center; // current center day
+  Map<String, DayActivity> _activity = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _initial = dateOnly(widget.initialDate);
+    _center = _initial;
+    _controller = PageController(initialPage: _kEpochPage, viewportFraction: 1.0);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadActivity());
   }
 
-  Widget _column(BuildContext context, GoalProvider provider, DateTime day, DateTime today) {
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  DateTime _centerForPage(int page) => _initial.add(Duration(days: page - _kEpochPage));
+
+  /// Loads summary activity for the visible window ± a buffer (one DB pass).
+  /// Guarded so a DB hiccup never blanks the grid.
+  Future<void> _loadActivity() async {
+    try {
+      final activity = await context
+          .read<GoalProvider>()
+          .activityInRange(_center.subtract(const Duration(days: 8)),
+              _center.add(const Duration(days: 8)));
+      if (mounted) setState(() => _activity = activity);
+    } catch (_) {/* keep last activity */}
+  }
+
+  void _onPageChanged(int page) {
+    setState(() => _center = _centerForPage(page));
+    _loadActivity();
+  }
+
+  void _goToToday() {
+    final today = dateOnly(DateTime.now());
+    final page = _kEpochPage + today.difference(_initial).inDays;
+    _controller.animateToPage(page,
+        duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+  }
+
+  String _rangeLabel(DateTime center) {
+    final left = center.subtract(const Duration(days: 1));
+    final right = center.add(const Duration(days: 1));
+    return '${DateFormat('EEE d').format(left)} – ${DateFormat('EEE d MMM').format(right)}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isTodayCentered = _center == dateOnly(DateTime.now());
+    return Column(children: [
+      // Header strip: visible 3-day range + a Today snap-back button.
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 6, 8, 6),
+        child: Row(children: [
+          Expanded(
+            child: Text(_rangeLabel(_center),
+                style: const TextStyle(color: kText, fontSize: 14, fontWeight: FontWeight.w600)),
+          ),
+          if (!isTodayCentered)
+            TextButton.icon(
+              onPressed: _goToToday,
+              icon: const Icon(Icons.today, size: 16, color: kAmber),
+              label: const Text('Today', style: TextStyle(color: kAmber)),
+            ),
+        ]),
+      ),
+      Expanded(
+        child: PageView.builder(
+          controller: _controller,
+          onPageChanged: _onPageChanged,
+          itemBuilder: (_, page) => _threeDayPage(_centerForPage(page)),
+        ),
+      ),
+    ]);
+  }
+
+  Widget _threeDayPage(DateTime center) {
+    final days = [
+      center.subtract(const Duration(days: 1)),
+      center,
+      center.add(const Duration(days: 1)),
+    ];
+    // LayoutBuilder sizes each column to exactly one third of the page width.
+    return LayoutBuilder(builder: (context, constraints) {
+      final colW = constraints.maxWidth / 3;
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [for (final d in days) SizedBox(width: colW, child: _column(d))],
+      );
+    });
+  }
+
+  Widget _column(DateTime day) {
+    final provider = context.watch<GoalProvider>();
     final occ = provider.occurrencesOn(day);
-    final act = activity[ymd(day)];
-    final isToday = dateOnly(day) == today;
-    return GestureDetector(
-      onTap: () => onTapDay(day),
+    final act = _activity[ymd(day)];
+    final isToday = dateOnly(day) == dateOnly(DateTime.now());
+    final isCenter = dateOnly(day) == _center;
+
+    return Padding(
+      padding: const EdgeInsets.all(3),
       child: Container(
-        margin: const EdgeInsets.all(2),
         decoration: BoxDecoration(
-          color: isToday ? kAmber.withValues(alpha: 0.08) : kCard,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: isToday ? kAmber : kBorderDim),
+          color: isToday ? kAmber.withValues(alpha: 0.07) : kCard,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+              color: isToday
+                  ? kAmber
+                  : (isCenter ? kAmber.withValues(alpha: 0.4) : kBorderDim)),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            child: Column(children: [
-              Text(DateFormat('E').format(day).substring(0, 1),
-                  style: TextStyle(color: isToday ? kAmber : kTextDim, fontSize: 11)),
-              Text('${day.day}',
-                  style: TextStyle(
-                      color: isToday ? kAmber : kText,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold)),
-            ]),
+          InkWell(
+            onTap: () => widget.onTapDay(day),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Column(children: [
+                Text(DateFormat('EEE').format(day),
+                    style: TextStyle(color: isToday ? kAmber : kTextDim, fontSize: 12)),
+                Text('${day.day}',
+                    style: TextStyle(
+                        color: isToday ? kAmber : kText,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold)),
+              ]),
+            ),
           ),
           const Divider(height: 1, color: kBorderDim),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(3),
-              child: Column(children: [
+              padding: const EdgeInsets.all(4),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 for (final o in occ)
-                  GoalChip(
-                    goal: o.goal,
-                    status: o.row?.status ?? OccurrenceStatus.open,
-                    compact: true,
-                    onTap: () => showGoalActionDialog(context, goal: o.goal, date: day),
-                  ),
+                  _weekGoalChip(o.goal, o.row?.status ?? OccurrenceStatus.open, day),
                 if (act != null) ...DaySummaryChip.forActivity(act),
               ]),
             ),
           ),
         ]),
+      ),
+    );
+  }
+
+  /// Goal chip sized for a narrow column: full width, ≥ 64dp tall.
+  Widget _weekGoalChip(Goal goal, OccurrenceStatus status, DateTime day) {
+    final color = occurrenceStatusColor(status);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: InkWell(
+        onTap: () => showGoalActionDialog(context, goal: goal, date: day),
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 64),
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: goal.color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: goal.color.withValues(alpha: 0.55)),
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+            Row(children: [
+              Container(width: 8, height: 8, decoration: BoxDecoration(color: goalPriorityColor(goal.priority), shape: BoxShape.circle)),
+              const Spacer(),
+              Icon(occurrenceStatusIcon(status), size: 14, color: color),
+            ]),
+            const SizedBox(height: 4),
+            Text(goal.title,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    color: kText,
+                    fontSize: 11,
+                    decoration: status == OccurrenceStatus.done ? TextDecoration.lineThrough : null,
+                    decorationColor: color)),
+          ]),
+        ),
       ),
     );
   }
