@@ -38,6 +38,7 @@ class EntryExercise {
 class SquadDayEntry {
   final String uid;
   final GoalStatus status;
+  final bool paused; // a paused (vacation) day — status falls back to inProgress
   final double? consumed; // totals+
   final double? burned;
   final int? exerciseMinutes;
@@ -48,6 +49,7 @@ class SquadDayEntry {
   const SquadDayEntry({
     required this.uid,
     required this.status,
+    this.paused = false,
     this.consumed,
     this.burned,
     this.exerciseMinutes,
@@ -59,14 +61,20 @@ class SquadDayEntry {
   bool get hasTotals => consumed != null || burned != null || exerciseMinutes != null;
   bool get hasDetails => meals != null || exercises != null;
 
-  factory SquadDayEntry.fromMap(String uid, Map<String, dynamic> m) => SquadDayEntry(
-        uid: uid,
-        status: GoalStatus.values.byName((m['status'] as String?) ?? 'inProgress'),
-        consumed: (m['consumed'] as num?)?.toDouble(),
-        burned: (m['burned'] as num?)?.toDouble(),
-        exerciseMinutes: (m['exerciseMinutes'] as num?)?.toInt(),
-        meals: (m['meals'] as List?)?.map((e) => EntryMeal.fromMap(Map<String, dynamic>.from(e))).toList(),
-        exercises: (m['exercises'] as List?)?.map((e) => EntryExercise.fromMap(Map<String, dynamic>.from(e))).toList(),
-        updatedAt: (m['updatedAt'] as Timestamp?)?.toDate(),
-      );
+  factory SquadDayEntry.fromMap(String uid, Map<String, dynamic> m) {
+    final statusName = (m['status'] as String?) ?? 'inProgress';
+    final paused = (m['paused'] as bool?) ?? (statusName == 'paused');
+    return SquadDayEntry(
+      uid: uid,
+      // 'paused' isn't a GoalStatus — fall back to inProgress and use [paused].
+      status: GoalStatus.values.asNameMap()[statusName] ?? GoalStatus.inProgress,
+      paused: paused,
+      consumed: (m['consumed'] as num?)?.toDouble(),
+      burned: (m['burned'] as num?)?.toDouble(),
+      exerciseMinutes: (m['exerciseMinutes'] as num?)?.toInt(),
+      meals: (m['meals'] as List?)?.map((e) => EntryMeal.fromMap(Map<String, dynamic>.from(e))).toList(),
+      exercises: (m['exercises'] as List?)?.map((e) => EntryExercise.fromMap(Map<String, dynamic>.from(e))).toList(),
+      updatedAt: (m['updatedAt'] as Timestamp?)?.toDate(),
+    );
+  }
 }

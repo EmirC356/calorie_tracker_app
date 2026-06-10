@@ -26,6 +26,7 @@ class MemberCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (entry?.paused ?? false) return _pausedCard(context);
     final status = entry?.status ?? GoalStatus.inProgress;
     final color = entry == null ? kBorderDim : statusColor(status);
     return GestureDetector(
@@ -72,5 +73,55 @@ class MemberCard extends StatelessWidget {
         ]),
       ),
     );
+  }
+
+  /// Paused/vacation card: the progress ring + status are replaced with a 🌴
+  /// chip; no nudge/reaction affordance (handled by the caller hiding it).
+  Widget _pausedCard(BuildContext context) {
+    const muted = Color(0xFF4CC38A); // calm teal-green for "on vacation"
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: neonBox(muted),
+        child: Column(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Row(children: [
+            CircleAvatar(
+              radius: 16, backgroundColor: kSurface,
+              backgroundImage: (member.photoURL?.isNotEmpty ?? false) ? NetworkImage(member.photoURL!) : null,
+              child: (member.photoURL?.isEmpty ?? true) ? const Icon(Icons.person, color: kNavy, size: 16) : null,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(isMe ? '${member.displayName} (you)' : member.displayName,
+                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: kText, fontWeight: FontWeight.bold, fontSize: 13)),
+            ),
+          ]),
+          const SizedBox(height: 6),
+          const Text('🌴', style: TextStyle(fontSize: 34)),
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: muted.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: muted.withValues(alpha: 0.6)),
+            ),
+            child: Text(
+              member.pause.until != null
+                  ? 'PAUSED TIL ${_shortDate(member.pause.until!)}'
+                  : 'PAUSED',
+              style: const TextStyle(color: muted, fontSize: 10, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  static String _shortDate(DateTime d) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${months[d.month - 1]} ${d.day}';
   }
 }

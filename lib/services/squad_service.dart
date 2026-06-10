@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/app_user.dart';
 import '../models/squad.dart';
 import '../models/squad_member.dart';
+import '../models/squad_pause.dart';
 import '../models/squad_goal.dart';
 import '../models/squad_day_entry.dart';
 import '../models/squad_reaction.dart';
@@ -242,6 +243,10 @@ class SquadService {
   /// Per-squad notification mute (checked by the Cloud Functions before push).
   Future<void> updateMuted(String squadId, String uid, bool muted) =>
       _memberRef(squadId, uid).set({'muted': muted}, SetOptions(merge: true));
+
+  /// Writes the member's pause/vacation object (merge — keeps goal/sharing).
+  Future<void> setPause(String squadId, String uid, SquadPause pause) =>
+      _memberRef(squadId, uid).set({'pause': pause.toMap()}, SetOptions(merge: true));
 
   // ── owner controls ──────────────────────────────────────────────────────────
 

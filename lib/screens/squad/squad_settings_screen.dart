@@ -3,9 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../models/squad.dart';
 import '../../models/squad_member.dart';
+import '../../models/squad_pause.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/squad_provider.dart';
 import '../../services/squad_service.dart';
+import '../../services/pause_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/squad/goal_summary.dart';
 import 'goal_editor_screen.dart';
@@ -159,9 +161,92 @@ class SquadSettingsScreen extends StatelessWidget {
               onChanged: (v) => service.updateMuted(squad.id, myUid, v),
             ),
           ),
+          const SizedBox(height: 16),
+          _pauseCard(context, service, squad.id, myUid, me),
         ]);
       },
     );
+  }
+
+  Widget _pauseCard(BuildContext context, SquadService service, String squadId, String myUid, SquadMember me) {
+    final paused = me.pause.isCurrentlyPaused(DateTime.now());
+    const teal = Color(0xFF4CC38A);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: neonBox(kBorderDim),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('PAUSE / VACATION', style: neonLabel(kNavy, size: 12)),
+        const SizedBox(height: 4),
+        const Text('Freeze your streak and skip ghost/streak alerts while you\'re off. '
+            'Max 21 days at a time, 60 days a year.',
+            style: TextStyle(color: kTextDim, fontSize: 11)),
+        const SizedBox(height: 10),
+        if (paused) ...[
+          Row(children: [
+            const Text('🌴  ', style: TextStyle(fontSize: 18)),
+            Expanded(child: Text('Paused til ${_fmtDate(me.pause.until!)}',
+                style: const TextStyle(color: teal, fontWeight: FontWeight.bold))),
+          ]),
+          const SizedBox(height: 4),
+          Text('${me.pause.daysUsedThisYear}/60 pause days used this year',
+              style: const TextStyle(color: kTextDim, fontSize: 11)),
+        ] else
+          OutlinedButton.icon(
+            onPressed: () => _startPause(context, service, squadId, myUid),
+            style: OutlinedButton.styleFrom(foregroundColor: teal, side: const BorderSide(color: teal)),
+            icon: const Icon(Icons.beach_access, size: 18),
+            label: const Text('PAUSE THIS SQUAD'),
+          ),
+      ]),
+    );
+  }
+
+  Future<void> _startPause(BuildContext context, SquadService service, String squadId, String myUid) async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final until = await showDatePicker(
+      context: context,
+      initialDate: today,
+      firstDate: today,
+      lastDate: today.add(const Duration(days: 21)),
+      helpText: 'Paused until (inclusive)',
+    );
+    if (until == null || !context.mounted) return;
+
+    final reasonCtrl = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: kSurface,
+        title: const Text('Pause reason (optional)', style: TextStyle(color: kText, fontSize: 16)),
+        content: TextField(
+          controller: reasonCtrl, maxLength: 60, style: const TextStyle(color: kText),
+          decoration: const InputDecoration(hintText: 'e.g. traveling'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCEL')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('PAUSE')),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    final plan = await PauseService(squad: service).declarePause(
+      squadId: squadId, uid: myUid, until: until, reason: reasonCtrl.text, now: now);
+    final msg = switch (plan.validation) {
+      PauseValidation.ok => 'Paused til ${_fmtDate(until)} — streak frozen 🌴',
+      PauseValidation.alreadyPaused => 'You\'re already paused for this squad.',
+      PauseValidation.yearlyCapReached => 'That would exceed your 60 pause days this year.',
+      PauseValidation.windowTooLong => 'Pauses can be at most 21 days.',
+      PauseValidation.endInPast => 'Pick a date in the future.',
+    };
+    messenger.showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  static String _fmtDate(DateTime d) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${months[d.month - 1]} ${d.day}';
   }
 
   Widget _sharingToggle(BuildContext context, SquadService service, String squadId, String myUid, SharingLevel current) {

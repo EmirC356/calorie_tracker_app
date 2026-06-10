@@ -567,6 +567,30 @@ class DatabaseService {
     return database.delete(tablesWaterEntries, where: 'id = ?', whereArgs: [id]);
   }
 
+  // ─── Pause history (personal records of squad pauses) ───────────────────────
+
+  Future<int> insertPauseHistory({
+    required String squadId,
+    required DateTime until,
+    String? reason,
+    required int days,
+    required DateTime declaredAt,
+  }) async {
+    final database = await db;
+    return database.insert(tablesPauseHistory, {
+      'squad_id': squadId,
+      'until': ymd(until),
+      'reason': reason,
+      'days': days,
+      'declared_at': declaredAt.toUtc().toIso8601String(),
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> getPauseHistory() async {
+    final database = await db;
+    return database.query(tablesPauseHistory, orderBy: 'declared_at DESC');
+  }
+
   Future<void> close() async {
     final database = await db;
     database.close();
