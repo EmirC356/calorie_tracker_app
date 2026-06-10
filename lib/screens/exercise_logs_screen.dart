@@ -5,6 +5,7 @@ import '../models/index.dart';
 import '../providers/exercise_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/edit_entry_sheets.dart';
+import '../widgets/undo_delete.dart';
 
 class ExerciseLogsScreen extends StatefulWidget {
   const ExerciseLogsScreen({super.key});
@@ -83,10 +84,12 @@ class _ExerciseLogsScreenState extends State<ExerciseLogsScreen> {
             )),
             const SizedBox(width: 10),
             Expanded(child: ElevatedButton.icon(
-              onPressed: () async {
+              onPressed: () {
+                final messenger = ScaffoldMessenger.of(context);
+                final provider = context.read<ExerciseProvider>();
                 Navigator.pop(context);
-                await context.read<ExerciseProvider>().deleteExercise(ex.id!);
-                _load();
+                deleteExerciseWithUndo(messenger, provider, ex,
+                    afterChange: () async { if (mounted) _load(); });
               },
               icon: const Icon(Icons.delete_outline, size: 18),
               label: const Text('DELETE'),

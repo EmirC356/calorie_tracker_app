@@ -5,6 +5,7 @@ import '../../providers/exercise_provider.dart';
 import '../../models/index.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/edit_entry_sheets.dart';
+import '../../widgets/undo_delete.dart';
 import '../exercise_logging_screen.dart';
 import 'health_chips.dart';
 
@@ -29,7 +30,7 @@ class FitnessTabScreen extends StatelessWidget {
             else
               ...ep.todaysExercises.map((ex) => _ExerciseCard(
                     exercise: ex,
-                    onDelete: () => ep.deleteExercise(ex.id!),
+                    onDelete: () => deleteExerciseWithUndo(ScaffoldMessenger.of(context), ep, ex),
                     onEdit: (updated) => ep.updateExercise(updated),
                   )),
           ]),

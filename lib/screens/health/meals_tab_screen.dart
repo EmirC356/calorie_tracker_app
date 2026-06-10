@@ -5,6 +5,7 @@ import '../../providers/meal_provider.dart';
 import '../../models/index.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/edit_entry_sheets.dart';
+import '../../widgets/undo_delete.dart';
 import '../log_meal_screen.dart';
 import 'health_chips.dart';
 
@@ -28,7 +29,7 @@ class MealsTabScreen extends StatelessWidget {
             else
               ...mp.todaysMeals.map((meal) => _MealCard(
                     meal: meal,
-                    onDelete: () => mp.deleteMeal(meal.id!),
+                    onDelete: () => deleteMealWithUndo(ScaffoldMessenger.of(context), mp, meal),
                     onEdit: (updated) => mp.updateMeal(updated),
                   )),
           ]),
