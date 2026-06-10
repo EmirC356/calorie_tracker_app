@@ -1,0 +1,65 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:calorie_tracker_app/models/index.dart';
+import 'package:calorie_tracker_app/services/database_service.dart';
+import 'package:calorie_tracker_app/services/squad_service.dart';
+import 'package:calorie_tracker_app/services/snapshot_service.dart';
+
+/// Test transformer that tags the entry and can halt the pipeline.
+class _Tag extends SnapshotTransformer {
+  final String key;
+  final bool cont;
+  const _Tag(this.key, {this.cont = true});
+  @override
+  Future<bool> apply(SnapshotContext ctx, Map<String, dynamic> entry) async {
+    entry[key] = true;
+    return cont;
+  }
+}
+
+void main() {
+  setUpAll(() {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  });
+
+  test('pipeline composes transformers in order and a false return halts it', () async {
+    final fs = FakeFirebaseFirestore();
+    final db = DatabaseService(overridePath: inMemoryDatabasePath);
+    final ss = SquadService(firestore: fs);
+
+    await fs.doc('squads/s1').set({
+      'name': 'S', 'ownerUid': 'u1', 'memberUids': ['u1'],
+      'inviteCode': '123456', 'createdAt': Timestamp.fromDate(DateTime(2026, 1, 1)),
+    });
+    // Empty goal + totals sharing → a finalized past day is 'missed'.
+    await fs.doc('squads/s1/members/u1').set({'sharingLevel': 'totals', 'displayName': 'A'});
+
+    await db.insertMeal(Meal(
+      name: 'X', portionGrams: 0,
+      nutrients: NutrientInfo(calories: 2000, protein: 0, carbohydrates: 0, fat: 0, fiber: 0, sugar: 0),
+      timestamp: DateTime(2026, 6, 8, 12),
+    ));
+
+    final snapshot = SnapshotService(
+      db: db,
+      squadService: ss,
+      transformers: const [StatusTransformer(), _Tag('mid'), _Tag('halt', cont: false), _Tag('never')],
+    );
+
+    // Push a *past* day so only the entry pipeline runs (no goalVisibility queue).
+    await snapshot.pushForUser(uid: 'u1', date: DateTime(2026, 6, 8), now: DateTime(2026, 6, 9, 12));
+
+    final doc = await fs.doc('squads/s1/days/2026-06-08/entries/u1').get();
+    final e = doc.data()!;
+    expect(e['status'], 'missed');      // StatusTransformer (empty goal, day over)
+    expect(e['consumed'], 2000);        // totals sharing level
+    expect(e['mid'], isTrue);           // ran
+    expect(e['halt'], isTrue);          // ran, then halted
+    expect(e.containsKey('never'), isFalse); // skipped after the halt
+
+    await db.close();
+  });
+}

@@ -32,11 +32,22 @@ class SnapshotService {
   static const _engine = RecurrenceEngine();
   static const _evaluator = GoalEvaluator();
 
-  SnapshotService({DatabaseService? db, SquadService? squadService, GoalService? goalService}) {
+  /// The day-entry build pipeline. Each feature adds a transformer here rather
+  /// than editing the core write. Order matters — a transformer that returns
+  /// false (e.g. a paused day) finalizes the entry and skips the rest.
+  late final List<SnapshotTransformer> transformers;
+
+  SnapshotService({
+    DatabaseService? db,
+    SquadService? squadService,
+    GoalService? goalService,
+    List<SnapshotTransformer>? transformers,
+  }) {
     _db = db ?? DatabaseService();
     _squadService = squadService ?? SquadService();
     // Reuse the same database instance so goal reads hit the same store.
     _goalService = goalService ?? GoalService(db: _db);
+    this.transformers = transformers ?? const [StatusTransformer()];
   }
 
   /// Local-timezone date key (a meal logged at 1am Tuesday counts as Tuesday).
@@ -102,13 +113,22 @@ class SnapshotService {
     for (final squad in squads) {
       final member = await _squadService.getMember(squad.id, uid);
       if (member == null) continue;
-      final status = member.goal.evaluate(
-        consumed: stats.consumed,
-        exerciseMinutes: stats.exerciseMinutes,
-        burned: stats.burned,
+      final ctx = SnapshotContext(
+        uid: uid,
+        squad: squad,
+        member: member,
+        date: day,
+        dateKey: key,
+        now: theNow,
         dayOver: dayOver,
+        stats: stats,
+        db: _db,
+        squadService: _squadService,
       );
-      final entry = buildEntry(status: status, stats: stats, level: member.sharingLevel);
+      final entry = <String, dynamic>{};
+      for (final t in transformers) {
+        if (!await t.apply(ctx, entry)) break; // a transformer can finalize early
+      }
       await _squadService.writeDayEntry(squadId: squad.id, dateKey: key, uid: uid, data: entry);
     }
 
@@ -269,5 +289,64 @@ class SnapshotService {
         await _squadService.deleteGoalVisible(uid, id);
       }
     }
+  }
+}
+
+/// Shared, read-only context handed to every [SnapshotTransformer] for one
+/// squad day-entry.
+class SnapshotContext {
+  final String uid;
+  final Squad squad;
+  final SquadMember member;
+  final DateTime date; // the day being written (raw)
+  final String dateKey; // YYYY-MM-DD local key
+  final DateTime now;
+  final bool dayOver;
+  final DayStats stats;
+  final DatabaseService db;
+  final SquadService squadService;
+
+  const SnapshotContext({
+    required this.uid,
+    required this.squad,
+    required this.member,
+    required this.date,
+    required this.dateKey,
+    required this.now,
+    required this.dayOver,
+    required this.stats,
+    required this.db,
+    required this.squadService,
+  });
+}
+
+/// A composable step in the snapshot write pipeline. It mutates [entry] (and may
+/// have side effects, e.g. incrementing a group goal). Return `false` to
+/// finalize the entry as-is and skip the remaining transformers — a paused day
+/// short-circuits this way.
+abstract class SnapshotTransformer {
+  const SnapshotTransformer();
+  Future<bool> apply(SnapshotContext ctx, Map<String, dynamic> entry);
+}
+
+/// Base transformer: the member's goal status + sharing-level-redacted totals.
+/// (Mirrors [SnapshotService.buildEntry], which stays a pure unit-tested fn.)
+class StatusTransformer extends SnapshotTransformer {
+  const StatusTransformer();
+
+  @override
+  Future<bool> apply(SnapshotContext ctx, Map<String, dynamic> entry) async {
+    final status = ctx.member.goal.evaluate(
+      consumed: ctx.stats.consumed,
+      exerciseMinutes: ctx.stats.exerciseMinutes,
+      burned: ctx.stats.burned,
+      dayOver: ctx.dayOver,
+    );
+    entry.addAll(SnapshotService.buildEntry(
+      status: status,
+      stats: ctx.stats,
+      level: ctx.member.sharingLevel,
+    ));
+    return true;
   }
 }
