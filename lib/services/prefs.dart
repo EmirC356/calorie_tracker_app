@@ -1,5 +1,15 @@
-/// SharedPreferences key under which the Gemini API key is stored.
+/// SharedPreferences key under which the legacy Gemini API key is stored.
+/// Migrated to [aiKeyPref]('gemini') on first load of the multi-provider AI.
 const String kGeminiKeyPref = 'gemini_api_key';
+
+/// Active AI provider key ('gemini' | 'openai' | 'anthropic').
+const String kAiActiveProviderPref = 'ai.active_provider';
+
+/// Per-provider selected model id.
+String aiModelPref(String providerKey) => 'ai.active_model.$providerKey';
+
+/// Per-provider API key (device-local; never written to Firestore).
+String aiKeyPref(String providerKey) => 'ai.key.$providerKey';
 
 /// SharedPreferences key for the JSON-encoded [UserProfile].
 const String kUserProfilePref = 'user_profile';

@@ -1,175 +1,168 @@
-import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/nutrient.dart';
 import 'prefs.dart';
+import 'ai/ai_provider.dart';
+import 'ai/gemini_provider.dart';
+import 'ai/openai_provider.dart';
+import 'ai/anthropic_provider.dart';
 
-class AIService {
-  String? _apiKey;
-  bool _isInitialized = false;
+/// Strict BYO (bring-your-own-key) AI facade over multiple providers. Routes the
+/// app's AI calls to the active provider, holds per-provider keys/models on
+/// device (shared_preferences only — never Firestore), and notifies listeners so
+/// the lock overlay reacts the instant a key is configured.
+class AiService extends ChangeNotifier {
+  final http.Client? _client; // injected in tests
+  AiService({http.Client? client}) : _client = client;
 
-  static const _model = 'gemini-2.5-flash';
-  static String _endpoint(String key) =>
-      'https://generativelanguage.googleapis.com/v1beta/models/$_model:generateContent?key=$key';
+  static const List<String> providerKeys = ['gemini', 'openai', 'anthropic'];
+  static const Map<String, String> _defaultModel = {
+    'gemini': 'gemini-2.5-flash',
+    'openai': 'gpt-4o-mini',
+    'anthropic': 'claude-haiku-4-5-20251001',
+  };
 
-  /// Sets the active key and persists it so it survives a cold start.
-  Future<void> initialize(String apiKey) async {
-    _apiKey = apiKey.trim();
-    _isInitialized = _apiKey!.isNotEmpty;
-    final prefs = await SharedPreferences.getInstance();
-    if (_isInitialized) {
-      await prefs.setString(kGeminiKeyPref, _apiKey!);
-    } else {
-      await prefs.remove(kGeminiKeyPref);
+  String _activeProviderKey = 'gemini';
+  final Map<String, String> _keys = {}; // providerKey -> api key
+  final Map<String, String> _models = {}; // providerKey -> selected model
+
+  // ── Active selection ────────────────────────────────────────────────────────
+
+  String get activeProviderKey => _activeProviderKey;
+  String get activeModel => _models[_activeProviderKey] ?? _defaultModel[_activeProviderKey]!;
+  AiProvider get activeProvider => _build(_activeProviderKey);
+
+  /// True iff a non-empty key is persisted for the *active* provider.
+  bool get hasValidKey {
+    final k = _keys[_activeProviderKey];
+    return k != null && k.trim().isNotEmpty;
+  }
+
+  AiProvider _build(String pk) {
+    final key = _keys[pk];
+    final model = _models[pk] ?? _defaultModel[pk]!;
+    switch (pk) {
+      case 'openai':
+        return OpenAiProvider(apiKey: key, model: model, client: _client);
+      case 'anthropic':
+        return AnthropicProvider(apiKey: key, model: model, client: _client);
+      default:
+        return GeminiProvider(apiKey: key, model: model, client: _client);
     }
   }
 
-  /// Restores a previously saved key. Call once on app startup.
-  Future<void> loadFromStorage() async {
+  /// Metadata helpers for the settings UI (no key required).
+  AiProvider providerMeta(String pk) => _build(pk);
+  List<String> modelsFor(String pk) => _build(pk).availableModels;
+  String displayNameFor(String pk) => _build(pk).displayName;
+  String modelFor(String pk) => _models[pk] ?? _defaultModel[pk]!;
+  bool hasKeyFor(String pk) {
+    final k = _keys[pk];
+    return k != null && k.trim().isNotEmpty;
+  }
+
+  // ── Persistence ─────────────────────────────────────────────────────────────
+
+  /// Loads the active provider, per-provider models and keys. Migrates a legacy
+  /// single Gemini key into the new per-provider slot. Call once on startup.
+  Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
-    final stored = prefs.getString(kGeminiKeyPref);
-    if (stored != null && stored.isNotEmpty) {
-      _apiKey = stored;
-      _isInitialized = true;
+    _activeProviderKey = prefs.getString(kAiActiveProviderPref) ?? 'gemini';
+    if (!providerKeys.contains(_activeProviderKey)) _activeProviderKey = 'gemini';
+
+    for (final pk in providerKeys) {
+      final k = prefs.getString(aiKeyPref(pk));
+      if (k != null && k.isNotEmpty) _keys[pk] = k;
+      final m = prefs.getString(aiModelPref(pk));
+      if (m != null && _build(pk).availableModels.contains(m)) _models[pk] = m;
     }
+
+    // Migrate the legacy single Gemini key → ai.key.gemini (one-time).
+    final legacy = prefs.getString(kGeminiKeyPref);
+    if (legacy != null && legacy.isNotEmpty && !_keys.containsKey('gemini')) {
+      _keys['gemini'] = legacy;
+      await prefs.setString(aiKeyPref('gemini'), legacy);
+    }
+    notifyListeners();
   }
 
-  /// Forgets the key in memory and on disk.
-  Future<void> clear() async {
-    _apiKey = null;
-    _isInitialized = false;
+  Future<void> setActiveProvider(String providerKey, {String? model}) async {
+    if (!providerKeys.contains(providerKey)) return;
+    _activeProviderKey = providerKey;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(kGeminiKeyPref);
-  }
-
-  bool get isInitialized => _isInitialized;
-
-  /// A display-safe version of the key, e.g. `AIza••••NFSM`. Null if unset.
-  String? get maskedKey {
-    final k = _apiKey;
-    if (k == null || k.isEmpty) return null;
-    if (k.length <= 8) return '••••';
-    return '${k.substring(0, 4)}••••${k.substring(k.length - 4)}';
-  }
-
-  Future<String> getMealAdvice(String query) async {
-    _requireInit();
-    return _generate(
-      systemPrompt:
-          'You are a professional nutritionist and meal prep advisor. Provide helpful, practical, science-based advice. Keep responses concise (2-3 paragraphs).',
-      userPrompt: query,
-      maxTokens: 500,
-      temperature: 0.7,
-    );
-  }
-
-  Future<NutrientInfo> analyzeFoodText(String description) async {
-    _requireInit();
-    final raw = await _generate(
-      systemPrompt:
-          'You are a precise nutrition calculator. Estimate the total nutrition for the described meal as eaten. Return ONLY valid JSON — no markdown, no explanation.',
-      userPrompt:
-          'Nutrition facts for: "$description"\nReturn exactly: {"calories":0,"protein":0,"carbohydrates":0,"fat":0,"fiber":0,"sugar":0}',
-      maxTokens: 512,
-      temperature: 0.1,
-      jsonMode: true,
-    );
-
-    final start = raw.indexOf('{');
-    final end = raw.lastIndexOf('}');
-    if (start == -1 || end == -1) {
-      throw Exception('Could not parse nutrition JSON. Got: "${raw.trim()}"');
+    await prefs.setString(kAiActiveProviderPref, providerKey);
+    if (model != null && modelsFor(providerKey).contains(model)) {
+      _models[providerKey] = model;
+      await prefs.setString(aiModelPref(providerKey), model);
     }
-    final data = jsonDecode(raw.substring(start, end + 1)) as Map<String, dynamic>;
-    return NutrientInfo.fromJson(data);
+    notifyListeners();
   }
 
-  /// Estimates calories burned for any activity (free text), factoring in
-  /// duration, intensity, and body weight. Used when the activity isn't in the
-  /// built-in MET table.
+  Future<void> setApiKey(String providerKey, String key) async {
+    final trimmed = key.trim();
+    if (trimmed.isEmpty) return clearApiKey(providerKey);
+    _keys[providerKey] = trimmed;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(aiKeyPref(providerKey), trimmed);
+    if (providerKey == 'gemini') await prefs.setString(kGeminiKeyPref, trimmed);
+    notifyListeners();
+  }
+
+  Future<String?> getApiKey(String providerKey) async => _keys[providerKey];
+
+  Future<void> clearApiKey(String providerKey) async {
+    _keys.remove(providerKey);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(aiKeyPref(providerKey));
+    if (providerKey == 'gemini') await prefs.remove(kGeminiKeyPref);
+    notifyListeners();
+  }
+
+  /// Tests the active provider's key. Returns true on success; throws
+  /// [AiRequestException]/[NoApiKeyException] (with a message) on failure.
+  Future<bool> testActiveKey() => activeProvider.testConnection();
+
+  // ── App-facing AI calls (route to the active provider) ──────────────────────
+
+  Future<NutrientInfo> analyzeFoodText(String description, {double grams = 0}) =>
+      activeProvider.analyzeFoodText(description, grams);
+
   Future<double> estimateCaloriesBurned({
     required String activity,
     required int minutes,
     required String intensity,
     required double weightKg,
-  }) async {
-    _requireInit();
-    final raw = await _generate(
-      systemPrompt:
-          'You are an exercise physiologist. Estimate calories burned using MET-based reasoning, adjusting for the stated intensity (low/medium/high). Return ONLY valid JSON — no markdown, no explanation.',
-      userPrompt:
-          'Calories burned for: activity "$activity", duration $minutes minutes, intensity "$intensity", body weight ${weightKg.toStringAsFixed(1)} kg.\nReturn exactly: {"calories":0}',
-      maxTokens: 200,
-      temperature: 0.1,
-      jsonMode: true,
-    );
+  }) =>
+      activeProvider.estimateCaloriesBurned(
+        activity: activity,
+        minutes: minutes,
+        intensity: intensity,
+        bodyWeightKg: weightKg,
+      );
 
-    final start = raw.indexOf('{');
-    final end = raw.lastIndexOf('}');
-    if (start == -1 || end == -1) {
-      throw Exception('Could not parse calories JSON. Got: "${raw.trim()}"');
-    }
-    final data = jsonDecode(raw.substring(start, end + 1)) as Map<String, dynamic>;
-    return (data['calories'] as num?)?.toDouble() ?? 0;
+  Future<String> getMealAdvice(String query) => activeProvider.getMealAdvice(query);
+
+  // ── Legacy aliases (kept so existing call sites compile unchanged) ──────────
+
+  bool get isInitialized => hasValidKey;
+
+  /// A display-safe version of the active key, e.g. `AIza••••NFSM`.
+  String? get maskedKey {
+    final k = _keys[_activeProviderKey];
+    if (k == null || k.isEmpty) return null;
+    if (k.length <= 8) return '••••';
+    return '${k.substring(0, 4)}••••${k.substring(k.length - 4)}';
   }
 
-  Future<String> _generate({
-    required String systemPrompt,
-    required String userPrompt,
-    int maxTokens = 500,
-    double temperature = 0.7,
-    bool jsonMode = false,
-  }) async {
-    final body = jsonEncode({
-      'systemInstruction': {
-        'parts': [
-          {'text': systemPrompt}
-        ]
-      },
-      'contents': [
-        {
-          'parts': [
-            {'text': userPrompt}
-          ]
-        }
-      ],
-      'generationConfig': {
-        'temperature': temperature,
-        'maxOutputTokens': maxTokens,
-        // gemini-2.5-flash is a thinking model; reasoning tokens count against
-        // maxOutputTokens. Disable thinking so the budget goes to the answer.
-        'thinkingConfig': {'thinkingBudget': 0},
-        if (jsonMode) 'responseMimeType': 'application/json',
-      },
-    });
-
-    final response = await http.post(
-      Uri.parse(_endpoint(_apiKey!)),
-      headers: {'Content-Type': 'application/json'},
-      body: body,
-    );
-
-    if (response.statusCode != 200) {
-      throw Exception('Gemini error ${response.statusCode}: ${response.body}');
-    }
-
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
-    final candidates = data['candidates'] as List?;
-    if (candidates == null || candidates.isEmpty) {
-      throw Exception('Gemini returned no candidates');
-    }
-    final parts = candidates.first['content']?['parts'] as List?;
-    if (parts == null || parts.isEmpty) {
-      throw Exception('Gemini returned an empty response');
-    }
-    return parts.map((p) => p['text'] ?? '').join();
+  /// Seeds the Gemini key (used by the optional --dart-define=GEMINI_KEY).
+  Future<void> initialize(String apiKey) async {
+    await setActiveProvider('gemini');
+    await setApiKey('gemini', apiKey);
   }
 
-  void _requireInit() {
-    if (!_isInitialized) {
-      throw Exception('AI Service not initialized. Set your Gemini API key in Settings.');
-    }
-  }
+  Future<void> loadFromStorage() => load();
+  Future<void> clear() => clearApiKey(_activeProviderKey);
 }
 
-final aiService = AIService();
+final aiService = AiService();

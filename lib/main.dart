@@ -66,6 +66,9 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => WeightProvider()),
         ChangeNotifierProvider(create: (_) => WaterProvider()),
         ChangeNotifierProvider(create: (_) => ProfileProvider()),
+        // BYO AI: the single shared instance, so the lock overlay reacts to key
+        // changes app-wide.
+        ChangeNotifierProvider<AiService>.value(value: aiService),
         // Calendar/Goals — local-only, loads lazily on first Calendar open.
         ChangeNotifierProvider(create: (_) => GoalProvider()),
         // Lazy: only constructed when the Squad tab is first opened, so a
