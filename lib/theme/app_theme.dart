@@ -199,3 +199,36 @@ ThemeData buildAppTheme() {
     ),
   );
 }
+
+// ── Streak avatar tiers (feature: "make streaks loud") ───────────────────────
+const Color kStreakGold = Color(0xFFFFD54A);
+
+/// Visual treatment for a member avatar at a given streak length. The flame
+/// grows and the ring escalates amber → scarlet → gold; the top tiers animate.
+class StreakTier {
+  final double flameSize; // 0 = no flame
+  final Color? ringColor;
+  final double ringWidth;
+  final bool animated; // pulse the flame
+  final bool strong; // stronger pulse (30+)
+  const StreakTier({
+    required this.flameSize,
+    this.ringColor,
+    this.ringWidth = 0,
+    this.animated = false,
+    this.strong = false,
+  });
+}
+
+/// Maps a (fractional) current streak to its [StreakTier]. Thresholds:
+/// 0 plain · 1–2 small · 3–6 medium · 7–13 large+amber · 14–29 large+scarlet
+/// (pulse) · 30+ large+gold (strong pulse).
+StreakTier streakTierFor(double streak) {
+  final s = streak.floor();
+  if (s < 1) return const StreakTier(flameSize: 0);
+  if (s < 3) return const StreakTier(flameSize: 12);
+  if (s < 7) return const StreakTier(flameSize: 16);
+  if (s < 14) return const StreakTier(flameSize: 20, ringColor: kAmber, ringWidth: 2);
+  if (s < 30) return const StreakTier(flameSize: 20, ringColor: kRed, ringWidth: 2, animated: true);
+  return const StreakTier(flameSize: 22, ringColor: kStreakGold, ringWidth: 3, animated: true, strong: true);
+}
