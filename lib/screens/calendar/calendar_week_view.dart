@@ -6,7 +6,7 @@ import '../../providers/goal_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/calendar/goal_chip.dart';
 import '../../widgets/calendar/day_summary_chip.dart';
-import 'goal_detail_sheet.dart';
+import '../../widgets/calendar/goal_action_dialog.dart';
 
 /// Seven-column week (Mon–Sun). Each column is a compact day cell; tapping it
 /// opens the Day view for that date.
@@ -73,7 +73,7 @@ class CalendarWeekView extends StatelessWidget {
                     goal: o.goal,
                     status: o.row?.status ?? OccurrenceStatus.open,
                     compact: true,
-                    onTap: () => showGoalDetailSheet(context, goal: o.goal, date: day),
+                    onTap: () => showGoalActionDialog(context, goal: o.goal, date: day),
                   ),
                 if (act != null) ...DaySummaryChip.forActivity(act),
               ]),

@@ -5,7 +5,7 @@ import '../../providers/goal_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/calendar/goal_chip.dart';
 import '../../widgets/calendar/day_summary_chip.dart';
-import 'goal_detail_sheet.dart';
+import '../../widgets/calendar/goal_action_dialog.dart';
 
 /// Month grid (weeks start Monday). Each cell shows the day number, up to 3
 /// compact goal chips (with a "+N" overflow), and up to 2 activity summary
@@ -98,7 +98,7 @@ class CalendarMonthView extends StatelessWidget {
                     goal: o.goal,
                     status: o.row?.status ?? OccurrenceStatus.open,
                     compact: true,
-                    onTap: () => showGoalDetailSheet(context, goal: o.goal, date: day),
+                    onTap: () => showGoalActionDialog(context, goal: o.goal, date: day),
                   ),
                 if (occ.length > 3)
                   Text('+${occ.length - 3}',

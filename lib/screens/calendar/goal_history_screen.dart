@@ -5,7 +5,7 @@ import '../../models/index.dart';
 import '../../providers/goal_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/calendar/calendar_status.dart';
-import 'goal_detail_sheet.dart';
+import '../../widgets/calendar/goal_action_dialog.dart';
 
 /// Goal history: a filterable list of recorded occurrences plus a per-category
 /// success-rate card. Tapping a row reopens the detail sheet so a past outcome
@@ -88,7 +88,7 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
               GoalHistoryBody(
                 entries: filtered,
                 onTap: (e) async {
-                  await showGoalDetailSheet(context, goal: e.goal, date: e.date);
+                  await showGoalActionDialog(context, goal: e.goal, date: e.date);
                   await _load();
                 },
               ),

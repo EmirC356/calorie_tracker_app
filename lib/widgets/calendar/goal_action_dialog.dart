@@ -1,35 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'dart:math' as math;
 import '../../models/index.dart';
 import '../../providers/goal_provider.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/calendar/calendar_status.dart';
-import '../../widgets/calendar/progress_ring.dart';
-import 'goal_edit_screen.dart';
-import 'goal_create_screen.dart';
-import 'recurring_edit_choice_sheet.dart';
+import '../../screens/calendar/goal_edit_screen.dart';
+import '../../screens/calendar/goal_create_screen.dart';
+import '../../screens/calendar/recurring_edit_choice_sheet.dart';
+import 'calendar_status.dart';
+import 'progress_ring.dart';
 
-enum _DetailResult { edit, delete }
+enum _ActionResult { edit, delete }
 
-/// Tap (or long-press) a goal chip → this sheet. Shows the occurrence's status,
-/// live tracked-metric progress, and the actions Edit / Mark done / Mark failed
-/// / Skip / Delete. Edit and Delete route recurring goals through the
-/// "only this / this and future / all" choice sheet.
-Future<void> showGoalDetailSheet(BuildContext context,
+/// Tap a goal occurrence → this **centered modal dialog** (replaces the old
+/// bottom sheet). Shows status + live tracked progress and the actions
+/// Edit / Mark done / Mark failed / Skip / Delete. Edit and Delete route
+/// recurring goals through the "only this / this and future / all" choice sheet.
+Future<void> showGoalActionDialog(BuildContext context,
     {required Goal goal, required DateTime date}) async {
-  final result = await showModalBottomSheet<_DetailResult>(
+  final result = await showDialog<_ActionResult>(
     context: context,
-    isScrollControlled: true,
-    backgroundColor: kSurface,
-    shape: RoundedRectangleBorder(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-      side: BorderSide(color: goal.color, width: 1),
-    ),
-    builder: (_) => _GoalDetailSheet(goal: goal, date: date),
+    useSafeArea: true,
+    barrierDismissible: true,
+    builder: (_) => _GoalActionDialog(goal: goal, date: date),
   );
   if (result == null || !context.mounted) return;
-  if (result == _DetailResult.edit) {
+  if (result == _ActionResult.edit) {
     await _handleEdit(context, goal, date);
   } else {
     await _handleDelete(context, goal, date);
@@ -53,28 +50,33 @@ Future<void> _handleEdit(BuildContext context, Goal goal, DateTime date) async {
           MaterialPageRoute(builder: (_) => GoalEditScreen(goal: goal)));
     case RecurringEditScope.thisAndFuture:
       // End the original series before this date, then create a fresh series
-      // from this date the user can tweak.
+      // from this date the user can tweak. (Today-inclusive fix lands in Task 6.)
       await provider.truncateSeriesBefore(goal, date);
       if (!context.mounted) return;
       await Navigator.push(
-          context,
-          MaterialPageRoute(
-              builder: (_) =>
-                  GoalCreateScreen(template: goal.copyWith(clearId: true, startDate: date))));
+        context,
+        MaterialPageRoute(
+          builder: (_) =>
+              GoalCreateScreen(template: goal.copyWith(clearId: true, startDate: date)),
+        ),
+      );
     case RecurringEditScope.onlyThis:
       // Hide this occurrence and create a one-off goal on this date to edit.
       await provider.setOccurrenceStatus(
           goalId: goal.id!, date: date, status: OccurrenceStatus.skipped);
       if (!context.mounted) return;
       await Navigator.push(
-          context,
-          MaterialPageRoute(
-              builder: (_) => GoalCreateScreen(
-                  template: goal.copyWith(
-                      clearId: true,
-                      startDate: date,
-                      recurrence: const RecurrenceNone(),
-                      clearEndDate: true))));
+        context,
+        MaterialPageRoute(
+          builder: (_) => GoalCreateScreen(
+            template: goal.copyWith(
+                clearId: true,
+                startDate: date,
+                recurrence: const RecurrenceNone(),
+                clearEndDate: true),
+          ),
+        ),
+      );
   }
 }
 
@@ -101,10 +103,10 @@ Future<void> _handleDelete(BuildContext context, Goal goal, DateTime date) async
   }
 }
 
-class _GoalDetailSheet extends StatelessWidget {
+class _GoalActionDialog extends StatelessWidget {
   final Goal goal;
   final DateTime date;
-  const _GoalDetailSheet({required this.goal, required this.date});
+  const _GoalActionDialog({required this.goal, required this.date});
 
   bool get _periodOver {
     final period = goal.period ?? GoalPeriod.day;
@@ -112,8 +114,6 @@ class _GoalDetailSheet extends StatelessWidget {
   }
 
   Future<void> _setStatus(BuildContext context, OccurrenceStatus status) async {
-    // A status change on an occurrence whose period has already ended is a
-    // retroactive override.
     await context.read<GoalProvider>().setOccurrenceStatus(
           goalId: goal.id!,
           date: date,
@@ -128,51 +128,66 @@ class _GoalDetailSheet extends StatelessWidget {
     final provider = context.watch<GoalProvider>();
     final row = goal.id == null ? null : provider.rowFor(goal.id!, date);
     final status = row?.status ?? OccurrenceStatus.open;
+    final width = math.min(MediaQuery.of(context).size.width * 0.85, 360.0);
 
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
-        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Container(width: 12, height: 12, decoration: BoxDecoration(color: goal.color, shape: BoxShape.circle)),
-            const SizedBox(width: 8),
-            Expanded(child: Text(goal.title, style: const TextStyle(color: kText, fontSize: 16, fontWeight: FontWeight.bold))),
-            if (row?.overrideFlag == true)
-              const Padding(
-                padding: EdgeInsets.only(left: 6),
-                child: Text('edited', style: TextStyle(color: kTextDim, fontSize: 11, fontStyle: FontStyle.italic)),
-              ),
-          ]),
-          const SizedBox(height: 4),
-          Text('${goal.categoryLabel} · ${goalScheduleLabel(goal)}',
-              style: const TextStyle(color: kTextDim, fontSize: 12)),
-          Text(DateFormat('EEEE, MMM d, yyyy').format(date),
-              style: const TextStyle(color: kTextDim, fontSize: 12)),
-          if (goal.description != null && goal.description!.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Text(goal.description!, style: const TextStyle(color: kText, fontSize: 13)),
-          ],
-          const SizedBox(height: 14),
-          Row(children: [
-            Icon(occurrenceStatusIcon(status), color: occurrenceStatusColor(status), size: 18),
-            const SizedBox(width: 6),
-            Text(occurrenceStatusLabel(status),
-                style: TextStyle(color: occurrenceStatusColor(status), fontWeight: FontWeight.bold)),
-          ]),
-          if (goal.isTracked) _trackedProgress(context, provider),
-          const SizedBox(height: 18),
-          Wrap(spacing: 8, runSpacing: 8, children: [
-            _action('Mark done', Icons.check_circle, const Color(0xFF4CC38A),
+    return Dialog(
+      backgroundColor: kSurface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: goal.color.withValues(alpha: 0.6)),
+      ),
+      child: SizedBox(
+        width: width,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text(goal.title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: kText, fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Container(width: 10, height: 10, decoration: BoxDecoration(color: goal.color, shape: BoxShape.circle)),
+              const SizedBox(width: 6),
+              Text('${goal.categoryLabel} · ${DateFormat('EEE, MMM d').format(date)}',
+                  style: const TextStyle(color: kTextDim, fontSize: 12)),
+            ]),
+            const SizedBox(height: 12),
+            _statusPill(status),
+            if (goal.isTracked) _trackedProgress(context, provider),
+            const SizedBox(height: 20),
+            _btn('Edit', Icons.edit, kAmber, () => Navigator.pop(context, _ActionResult.edit)),
+            const SizedBox(height: 12),
+            _btn('Mark done', Icons.check_circle, const Color(0xFF4CC38A),
                 () => _setStatus(context, OccurrenceStatus.done)),
-            _action('Mark failed', Icons.cancel, kNeonRed,
+            const SizedBox(height: 12),
+            _btn('Mark failed', Icons.cancel, kNeonRed,
                 () => _setStatus(context, OccurrenceStatus.failed)),
-            _action('Skip', Icons.remove_circle, kTextDim,
+            const SizedBox(height: 12),
+            _btn('Skip', Icons.remove_circle, kTextDim,
                 () => _setStatus(context, OccurrenceStatus.skipped)),
-            _action('Edit', Icons.edit, kAmber,
-                () => Navigator.pop(context, _DetailResult.edit)),
-            _action('Delete', Icons.delete, kNeonRed,
-                () => Navigator.pop(context, _DetailResult.delete)),
+            const SizedBox(height: 12),
+            _btn('Delete', Icons.delete, kNeonRed,
+                () => Navigator.pop(context, _ActionResult.delete), destructive: true),
           ]),
+        ),
+      ),
+    );
+  }
+
+  Widget _statusPill(OccurrenceStatus status) {
+    final color = occurrenceStatusColor(status);
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.16),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: color),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(occurrenceStatusIcon(status), color: color, size: 16),
+          const SizedBox(width: 6),
+          Text(occurrenceStatusLabel(status), style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 13)),
         ]),
       ),
     );
@@ -180,7 +195,7 @@ class _GoalDetailSheet extends StatelessWidget {
 
   Widget _trackedProgress(BuildContext context, GoalProvider provider) {
     return Padding(
-      padding: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.only(top: 16),
       child: FutureBuilder<GoalEvaluationResult>(
         future: provider.evaluate(goal, date),
         builder: (_, snap) {
@@ -211,10 +226,15 @@ class _GoalDetailSheet extends StatelessWidget {
     );
   }
 
-  Widget _action(String label, IconData icon, Color color, VoidCallback onTap) => OutlinedButton.icon(
+  Widget _btn(String label, IconData icon, Color color, VoidCallback onTap,
+          {bool destructive = false}) =>
+      OutlinedButton.icon(
         onPressed: onTap,
-        icon: Icon(icon, size: 16, color: color),
-        label: Text(label, style: TextStyle(color: color, fontSize: 12)),
-        style: OutlinedButton.styleFrom(side: BorderSide(color: color.withValues(alpha: 0.6))),
+        icon: Icon(icon, size: 18, color: color),
+        label: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w600)),
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size.fromHeight(48),
+          side: BorderSide(color: color.withValues(alpha: destructive ? 1.0 : 0.5)),
+        ),
       );
 }

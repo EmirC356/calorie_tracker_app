@@ -8,8 +8,8 @@ import '../../providers/exercise_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/edit_entry_sheets.dart';
 import '../../widgets/calendar/day_goal_row.dart';
+import '../../widgets/calendar/goal_action_dialog.dart';
 import '../weight_tracker_screen.dart';
-import 'goal_detail_sheet.dart';
 
 /// Single-day view: a Goals section (one row per occurrence) and an Activity
 /// section (meals / exercises / weight, each linking to its edit flow).
@@ -52,7 +52,7 @@ class CalendarDayView extends StatelessWidget {
         ...occ.map((o) => DayGoalRow(
               goal: o.goal,
               status: o.row?.status ?? OccurrenceStatus.open,
-              onTap: () => showGoalDetailSheet(context, goal: o.goal, date: date),
+              onTap: () => showGoalActionDialog(context, goal: o.goal, date: date),
             )),
       const SizedBox(height: 24),
       Text('ACTIVITY', style: neonLabel(kAmber, size: 13)),
