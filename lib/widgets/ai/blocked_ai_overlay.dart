@@ -34,11 +34,24 @@ class BlockedAiOverlay extends StatelessWidget {
           child: Stack(
             children: [
               // Absorbs pointer events meant for the child below.
-              const ModalBarrier(
-                dismissible: false,
-                color: Color(0xB3000000), // black @ 70%
+              const Positioned.fill(
+                child: ModalBarrier(
+                  dismissible: false,
+                  color: Color(0xB3000000), // black @ 70%
+                ),
               ),
-              Center(child: _LockCard(message: message)),
+              // Scroll-safe centering so a short locked region (e.g. the QUICK
+              // meal sub-form) never overflows the lock card.
+              Positioned.fill(
+                child: LayoutBuilder(
+                  builder: (_, c) => SingleChildScrollView(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(minHeight: c.maxHeight),
+                      child: Center(child: _LockCard(message: message)),
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),

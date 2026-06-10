@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/ai_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/ai/blocked_ai_overlay.dart';
 
 class MealAdviceScreen extends StatefulWidget {
   const MealAdviceScreen({super.key});
@@ -84,7 +85,8 @@ class _MealAdviceScreenState extends State<MealAdviceScreen> {
             ),
           ],
         ]),
-      ),
+      ).lockedWhenNoKey(context,
+          message: 'Add your API key to ask the Meal Advisor.'),
     );
   }
 }

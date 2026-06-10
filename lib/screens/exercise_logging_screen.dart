@@ -8,6 +8,7 @@ import '../providers/profile_provider.dart';
 import '../providers/weight_provider.dart';
 import '../services/ai_service.dart';
 import '../theme/app_theme.dart';
+import 'settings/api_key_screen.dart';
 
 class ExerciseLoggingScreen extends StatefulWidget {
   const ExerciseLoggingScreen({super.key});
@@ -130,6 +131,33 @@ class _ExerciseLoggingScreenState extends State<ExerciseLoggingScreen> {
     Navigator.of(context).pop();
   }
 
+  /// Inline replacement for the AI-estimate button when no key is configured.
+  /// The manual + MET path stays fully usable; only this affordance is locked.
+  Widget _aiLockedCard(BuildContext context) {
+    return InkWell(
+      onTap: () => Navigator.push(
+          context, MaterialPageRoute(builder: (_) => const ApiKeyScreen())),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: kSurface,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: kAmber),
+        ),
+        child: Row(children: [
+          const Icon(Icons.lock_outline, color: kAmber, size: 18),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text('AI estimate locked — add API key',
+                style: TextStyle(color: kAmber, fontWeight: FontWeight.bold, fontSize: 13)),
+          ),
+          const Icon(Icons.chevron_right, color: kAmber, size: 18),
+        ]),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final (weightKg, weightSource) = _weightInfo;
@@ -200,17 +228,20 @@ class _ExerciseLoggingScreenState extends State<ExerciseLoggingScreen> {
                       child: Text('AUTO', style: TextStyle(color: kPink, fontSize: 11, fontWeight: FontWeight.bold)))
                   : null),
           const SizedBox(height: 10),
-          OutlinedButton.icon(
-            onPressed: _aiLoading ? null : _estimateWithAi,
-            style: OutlinedButton.styleFrom(
-                foregroundColor: kPink, side: const BorderSide(color: kPink),
-                padding: const EdgeInsets.symmetric(vertical: 12)),
-            icon: _aiLoading
-                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: kPink))
-                : const Icon(Icons.auto_awesome, size: 18),
-            label: Text(_aiLoading ? 'ESTIMATING...' : 'ESTIMATE WITH AI',
-                style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
-          ),
+          if (context.watch<AiService>().hasValidKey)
+            OutlinedButton.icon(
+              onPressed: _aiLoading ? null : _estimateWithAi,
+              style: OutlinedButton.styleFrom(
+                  foregroundColor: kPink, side: const BorderSide(color: kPink),
+                  padding: const EdgeInsets.symmetric(vertical: 12)),
+              icon: _aiLoading
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: kPink))
+                  : const Icon(Icons.auto_awesome, size: 18),
+              label: Text(_aiLoading ? 'ESTIMATING...' : 'ESTIMATE WITH AI',
+                  style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+            )
+          else
+            _aiLockedCard(context),
           const SizedBox(height: 6),
           const Text('Works for any activity — uses the name, duration, intensity & your weight.',
               style: TextStyle(color: kTextDim, fontSize: 11)),

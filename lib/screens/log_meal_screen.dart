@@ -6,6 +6,7 @@ import '../providers/meal_provider.dart';
 import '../providers/meal_prep_provider.dart';
 import '../services/ai_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/ai/blocked_ai_overlay.dart';
 
 class _FoodRow {
   FoodItem food;
@@ -252,7 +253,15 @@ class _LogMealScreenState extends State<LogMealScreen> {
           const SizedBox(height: 14),
           _buildModeToggle(),
           const SizedBox(height: 16),
-          if (_quickMode) _buildQuickMode() else _buildDetailedMode(),
+          if (_quickMode)
+            BlockedAiOverlay(
+              isBlocked: !context.watch<AiService>().hasValidKey,
+              message: 'Add your API key to use AI meal estimates. '
+                  'Switch to DETAILED to log exact grams without AI.',
+              child: _buildQuickMode(),
+            )
+          else
+            _buildDetailedMode(),
           const SizedBox(height: 16),
           _buildTotals(totals),
           const SizedBox(height: 16),
