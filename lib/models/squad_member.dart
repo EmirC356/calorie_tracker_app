@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'squad_goal.dart';
+import 'squad_pause.dart';
 
 /// How much of a member's day a *specific squad* can see. Stored on the member
 /// doc (per-squad, per-user), not the global user doc.
@@ -21,6 +22,7 @@ class SquadMember {
   final String displayName;
   final String? photoURL;
   final bool muted;
+  final SquadPause pause;
 
   const SquadMember({
     required this.uid,
@@ -30,6 +32,7 @@ class SquadMember {
     this.displayName = 'Athlete',
     this.photoURL,
     this.muted = false,
+    this.pause = const SquadPause(),
   });
 
   factory SquadMember.fromMap(String uid, Map<String, dynamic> map) => SquadMember(
@@ -42,6 +45,7 @@ class SquadMember {
             : 'Athlete',
         photoURL: map['photoURL'] as String?,
         muted: (map['muted'] as bool?) ?? false,
+        pause: SquadPause.fromMap(map['pause'] as Map<String, dynamic>?),
       );
 
   /// Field map for writes. joinedAt is written separately (server timestamp).
@@ -52,12 +56,14 @@ class SquadMember {
         'photoURL': photoURL,
       };
 
-  SquadMember copyWith({SquadGoal? goal, SharingLevel? sharingLevel}) => SquadMember(
+  SquadMember copyWith({SquadGoal? goal, SharingLevel? sharingLevel, SquadPause? pause}) => SquadMember(
         uid: uid,
         joinedAt: joinedAt,
         goal: goal ?? this.goal,
         sharingLevel: sharingLevel ?? this.sharingLevel,
         displayName: displayName,
         photoURL: photoURL,
+        muted: muted,
+        pause: pause ?? this.pause,
       );
 }

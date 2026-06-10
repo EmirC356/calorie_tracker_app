@@ -47,7 +47,9 @@ class SnapshotService {
     _squadService = squadService ?? SquadService();
     // Reuse the same database instance so goal reads hit the same store.
     _goalService = goalService ?? GoalService(db: _db);
-    this.transformers = transformers ?? const [StatusTransformer()];
+    // Pause is the first gate: a paused day finalizes as `paused` and skips the
+    // rest of the pipeline (status, totals, group-goal contributions).
+    this.transformers = transformers ?? const [PauseTransformer(), StatusTransformer()];
   }
 
   /// Local-timezone date key (a meal logged at 1am Tuesday counts as Tuesday).
@@ -327,6 +329,23 @@ class SnapshotContext {
 abstract class SnapshotTransformer {
   const SnapshotTransformer();
   Future<bool> apply(SnapshotContext ctx, Map<String, dynamic> entry);
+}
+
+/// First gate: if the member is paused on this day, write `{status:'paused',
+/// paused:true}` and finalize — no streak break, no ghosting, no contributions.
+class PauseTransformer extends SnapshotTransformer {
+  const PauseTransformer();
+
+  @override
+  Future<bool> apply(SnapshotContext ctx, Map<String, dynamic> entry) async {
+    if (ctx.member.pause.isPausedOn(ctx.date)) {
+      entry['status'] = 'paused';
+      entry['paused'] = true;
+      entry['updatedAt'] = FieldValue.serverTimestamp();
+      return false; // finalize — skip status/totals/contributions
+    }
+    return true;
+  }
 }
 
 /// Base transformer: the member's goal status + sharing-level-redacted totals.

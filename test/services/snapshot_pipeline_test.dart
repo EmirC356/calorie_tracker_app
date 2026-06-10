@@ -62,4 +62,41 @@ void main() {
 
     await db.close();
   });
+
+  test('a paused member finalizes the day as paused and skips status/totals', () async {
+    final fs = FakeFirebaseFirestore();
+    final db = DatabaseService(overridePath: inMemoryDatabasePath);
+    final ss = SquadService(firestore: fs);
+
+    await fs.doc('squads/s1').set({
+      'name': 'S', 'ownerUid': 'u1', 'memberUids': ['u1'],
+      'inviteCode': '123456', 'createdAt': Timestamp.fromDate(DateTime(2026, 1, 1)),
+    });
+    await fs.doc('squads/s1/members/u1').set({
+      'sharingLevel': 'totals', 'displayName': 'A',
+      'pause': {
+        'active': true,
+        'until': '2026-06-09',
+        'declaredAt': Timestamp.fromDate(DateTime(2026, 6, 5)),
+        'daysUsedThisYear': 3,
+      },
+    });
+    // Even with logged data, a paused day ignores it.
+    await db.insertMeal(Meal(
+      name: 'X', portionGrams: 0,
+      nutrients: NutrientInfo(calories: 2000, protein: 0, carbohydrates: 0, fat: 0, fiber: 0, sugar: 0),
+      timestamp: DateTime(2026, 6, 8, 12),
+    ));
+
+    // Default transformers ([PauseTransformer, StatusTransformer]).
+    final snapshot = SnapshotService(db: db, squadService: ss);
+    await snapshot.pushForUser(uid: 'u1', date: DateTime(2026, 6, 8), now: DateTime(2026, 6, 9, 12));
+
+    final e = (await fs.doc('squads/s1/days/2026-06-08/entries/u1').get()).data()!;
+    expect(e['status'], 'paused');
+    expect(e['paused'], isTrue);
+    expect(e.containsKey('consumed'), isFalse); // status/totals transformer skipped
+
+    await db.close();
+  });
 }

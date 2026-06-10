@@ -77,6 +77,17 @@ await check('invalid sharingLevel rejected', assertFails(setDoc(doc(member, 'squ
 await check('member can update OWN goal (merge)', assertSucceeds(setDoc(doc(member, 'squads/s1/members/m1'), { goal: { calorieMode: 'cap', calorieTarget: 2000 } }, { merge: true })));
 await check("member CANNOT edit another's member doc", assertFails(setDoc(doc(member, 'squads/s1/members/owner'), { sharingLevel: 'full', goal: {} })));
 
+// Pause object bounded: ≤21-day window and ≤60-day yearly tally (merge onto the
+// existing member doc, which already carries a valid sharingLevel).
+await check('valid pause accepted',
+  assertSucceeds(setDoc(doc(member, 'squads/s1/members/m1'), { pause: { active: true, until: '2026-06-20', windowDays: 5, daysUsedThisYear: 10 } }, { merge: true })));
+await check('pause window of exactly 21 days accepted',
+  assertSucceeds(setDoc(doc(member, 'squads/s1/members/m1'), { pause: { active: true, until: '2026-06-30', windowDays: 21, daysUsedThisYear: 21 } }, { merge: true })));
+await check('pause window over 21 days rejected',
+  assertFails(setDoc(doc(member, 'squads/s1/members/m1'), { pause: { active: true, until: '2026-08-01', windowDays: 22, daysUsedThisYear: 22 } }, { merge: true })));
+await check('pause exceeding the 60-day yearly cap rejected',
+  assertFails(setDoc(doc(member, 'squads/s1/members/m1'), { pause: { active: true, until: '2026-06-20', windowDays: 5, daysUsedThisYear: 61 } }, { merge: true })));
+
 // Reactions: nudge another member yes, yourself no.
 const reactions = 'squads/s1/days/2026-06-09/reactions';
 await check('member can nudge another member',
@@ -121,4 +132,4 @@ await check("outsider CANNOT read another's pending reminders",
 
 await testEnv.cleanup();
 console.log(`\nALL ${n} RULES TESTS PASSED`);
-assert(n === 32);
+assert(n === 36);

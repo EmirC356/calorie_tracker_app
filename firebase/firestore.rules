@@ -21,6 +21,16 @@ service cloud.firestore {
     function isMember(squadId, u) {
       return u in squadData(squadId).memberUids;
     }
+    // A pause object is bounded: a window of at most 21 days and a yearly tally
+    // of at most 60 days. windowDays is denormalized so we needn't parse `until`.
+    function isValidPause(p) {
+      return p.windowDays is int
+        && p.windowDays >= 0
+        && p.windowDays <= 21
+        && p.daysUsedThisYear is int
+        && p.daysUsedThisYear >= 0
+        && p.daysUsedThisYear <= 60;
+    }
 
     // ── users/{uid} ───────────────────────────────────────────────────────────
     // A signed-in user reads/writes ONLY their own profile. No deletes.
@@ -127,9 +137,13 @@ service cloud.firestore {
       match /members/{memberUid} {
         allow read: if isMemberOf(squadId);
         // Write only your OWN member doc; sharingLevel must be in the enum.
+        // A `pause` object (if present) is bounded: window ≤ 21 days and the
+        // yearly tally ≤ 60 days (the rest of the window is validated client-side
+        // / Dart-tested in SquadPause.planPause).
         allow create, update: if isSignedIn()
           && uid() == memberUid
-          && request.resource.data.sharingLevel in ['status', 'totals', 'full'];
+          && request.resource.data.sharingLevel in ['status', 'totals', 'full']
+          && (!('pause' in request.resource.data) || isValidPause(request.resource.data.pause));
         // Leave (self) or owner-kick.
         allow delete: if isSignedIn() && (uid() == memberUid || isOwnerOf(squadId));
       }

@@ -111,7 +111,7 @@ void main() {
     if (tmp.existsSync()) tmp.deleteSync(recursive: true);
   });
 
-  test('v4 → v6 migration keeps all data and adds the goal + water tables', () async {
+  test('v4 → v7 migration keeps all data and adds goal + water + pause tables', () async {
     await _createV4Database(dbPath);
 
     // Reopen through the real DatabaseService (version 5) → runs the additive
@@ -121,7 +121,7 @@ void main() {
 
     final version =
         (await db.rawQuery('PRAGMA user_version')).first.values.first;
-    expect(version, 6);
+    expect(version, 7);
 
     // Existing v4 tables and their rows are intact.
     expect(await _tableExists(db, 'meals'), isTrue);
@@ -141,6 +141,7 @@ void main() {
     expect(await _tableExists(db, 'goal_occurrences'), isTrue);
     expect(await _tableExists(db, 'goal_suggestions'), isTrue);
     expect(await _tableExists(db, 'water_entries'), isTrue);
+    expect(await _tableExists(db, 'pause_history'), isTrue);
 
     // And the migrated DB is usable for goals end-to-end.
     final goals = GoalService(db: service);

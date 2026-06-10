@@ -6,7 +6,7 @@ import '../models/index.dart';
 
 class DatabaseService {
   static const String _dbName = 'calorie_tracker.db';
-  static const int _dbVersion = 6;
+  static const int _dbVersion = 7;
 
   /// Current local schema version (for backup metadata).
   static int get currentSchemaVersion => _dbVersion;
@@ -19,6 +19,7 @@ class DatabaseService {
   static const String tablesGoalOccurrences = 'goal_occurrences';
   static const String tablesGoalSuggestions = 'goal_suggestions';
   static const String tablesWaterEntries = 'water_entries';
+  static const String tablesPauseHistory = 'pause_history';
 
   /// Optional override for the database file path. When null (production) the
   /// default app database path is used. Tests inject a temp/in-memory path.
@@ -63,6 +64,7 @@ class DatabaseService {
     await _createGoalOccurrencesTable(db);
     await _createGoalSuggestionsTable(db);
     await _createWaterEntriesTable(db);
+    await _createPauseHistoryTable(db);
   }
 
   /// Migration convention
@@ -107,6 +109,10 @@ class DatabaseService {
     if (oldVersion < 6) {
       // Water tracking — one new additive table.
       await _createWaterEntriesTable(db);
+    }
+    if (oldVersion < 7) {
+      // Squad pause/vacation personal records — additive.
+      await _createPauseHistoryTable(db);
     }
   }
 
@@ -269,6 +275,19 @@ class DatabaseService {
         'CREATE INDEX idx_occurrences_status ON $tablesGoalOccurrences(status)');
     await db.execute(
         'CREATE INDEX idx_occurrences_goal ON $tablesGoalOccurrences(goal_id)');
+  }
+
+  Future<void> _createPauseHistoryTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE $tablesPauseHistory (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        squad_id TEXT NOT NULL,
+        until TEXT NOT NULL,
+        reason TEXT,
+        days INTEGER NOT NULL,
+        declared_at TEXT NOT NULL
+      )
+    ''');
   }
 
   Future<void> _createWaterEntriesTable(Database db) async {
