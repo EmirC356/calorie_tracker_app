@@ -10,6 +10,7 @@ import '../services/backup_service.dart';
 import '../providers/auth_provider.dart';
 import '../providers/squad_provider.dart';
 import '../theme/app_theme.dart';
+import 'settings/api_key_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -19,14 +20,11 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  final _ctrl = TextEditingController();
-  bool _isSet = false;
   bool _goalNotifs = true;
 
   @override
   void initState() {
     super.initState();
-    _isSet = aiService.isInitialized;
     SharedPreferences.getInstance().then((p) {
       if (mounted) setState(() => _goalNotifs = p.getBool(kGoalNotificationsEnabledPref) ?? true);
     });
@@ -45,30 +43,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         await service.setGoalNotificationsEnabled(uid, v);
       } catch (_) {/* offline / signed out — local flag still saved */}
     }
-  }
-
-  @override
-  void dispose() { _ctrl.dispose(); super.dispose(); }
-
-  Future<void> _save() async {
-    final key = _ctrl.text.trim();
-    if (key.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter an API key')));
-      return;
-    }
-    await aiService.initialize(key);
-    if (!mounted) return;
-    setState(() => _isSet = true);
-    _ctrl.clear();
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('API key updated!')));
-  }
-
-  Future<void> _clear() async {
-    await aiService.clear();
-    if (!mounted) return;
-    setState(() => _isSet = false);
-    _ctrl.clear();
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('API key cleared')));
   }
 
   Future<void> _exportBackup() async {
@@ -132,51 +106,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('API CONFIGURATION', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: neonBox(_isSet ? kNeonGreen : kNeonYellow),
-            child: Row(children: [
-              Icon(_isSet ? Icons.check_circle : Icons.warning_amber, color: _isSet ? kNeonGreen : kNeonYellow),
-              const SizedBox(width: 10),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(
-                  _isSet ? 'Gemini key is active' : 'No API key — AI features disabled',
-                  style: TextStyle(color: _isSet ? kNeonGreen : kNeonYellow),
-                ),
-                if (_isSet && aiService.maskedKey != null)
-                  Text(aiService.maskedKey!,
-                    style: const TextStyle(color: kTextDim, fontSize: 12, fontFamily: 'monospace')),
-              ])),
-              if (_isSet)
-                TextButton(
-                  onPressed: _clear,
-                  child: const Text('CLEAR', style: TextStyle(color: kNeonRed, fontWeight: FontWeight.bold)),
-                ),
-            ]),
-          ),
-          const SizedBox(height: 16),
-          Text('GEMINI API KEY', style: neonLabel(kCyan, size: 12)),
+          Text('AI PROVIDER', style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 8),
-          TextField(
-            controller: _ctrl,
-            obscureText: true,
-            style: const TextStyle(color: kText),
-            decoration: const InputDecoration(
-              hintText: 'AIza...',
-              labelText: 'Paste new key here',
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _save,
-              style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
-              child: const Text('SAVE KEY', style: TextStyle(letterSpacing: 1.5)),
-            ),
-          ),
+          Consumer<AiService>(builder: (_, ai, __) {
+            final configured = ai.hasValidKey;
+            return Container(
+              decoration: neonBox(configured ? kNeonGreen : kNeonYellow),
+              child: ListTile(
+                leading: Icon(configured ? Icons.smart_toy : Icons.warning_amber,
+                    color: configured ? kNeonGreen : kNeonYellow),
+                title: const Text('AI Provider', style: TextStyle(color: kText, fontSize: 15)),
+                subtitle: Text(
+                  configured
+                      ? 'Configured (${ai.displayNameFor(ai.activeProviderKey)} · ${ai.activeModel})'
+                      : 'Not configured — required for AI features',
+                  style: TextStyle(color: configured ? kTextDim : kNeonYellow, fontSize: 12),
+                ),
+                trailing: const Icon(Icons.chevron_right, color: kTextDim),
+                onTap: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const ApiKeyScreen())),
+              ),
+            );
+          }),
           const SizedBox(height: 32),
           Text('DATA & BACKUP', style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 8),
