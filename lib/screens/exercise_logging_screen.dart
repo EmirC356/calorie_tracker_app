@@ -117,6 +117,14 @@ class _ExerciseLoggingScreenState extends State<ExerciseLoggingScreen> {
         const SnackBar(content: Text('Fill in name, duration and calories')));
       return;
     }
+    final burned = double.tryParse(_caloriesController.text) ?? 0;
+    if (burned > kMaxSingleEntryCalories) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(
+              'That\'s ${burned.toStringAsFixed(0)} kcal for one workout — '
+              'over the ${kMaxSingleEntryCalories.toStringAsFixed(0)} kcal cap. Split it into multiple entries.')));
+      return;
+    }
     final exercise = Exercise(
       name: _nameController.text.trim(),
       durationMinutes: int.tryParse(_durationController.text) ?? 0,

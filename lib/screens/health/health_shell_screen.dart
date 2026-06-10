@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../weight_tracker_screen.dart';
 import '../meal_advice_screen.dart';
+import '../meal_prep_screen.dart';
 import 'dashboard_screen.dart';
 import 'meals_tab_screen.dart';
 import 'fitness_tab_screen.dart';
@@ -18,6 +19,7 @@ class HealthShellScreen extends StatelessWidget {
     Tab(text: 'Meals'),
     Tab(text: 'Fitness'),
     Tab(text: 'Weight'),
+    Tab(text: 'Meal Prep'),
     Tab(text: 'Advisor'),
   ];
 
@@ -47,6 +49,7 @@ class HealthShellScreen extends StatelessWidget {
                 MealsTabScreen(),
                 FitnessTabScreen(),
                 WeightTrackerScreen(),
+                MealPrepScreen(),
                 MealAdviceScreen(),
               ]),
             ),

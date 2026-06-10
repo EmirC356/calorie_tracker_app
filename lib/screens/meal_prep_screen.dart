@@ -322,21 +322,31 @@ class _MealPrepScreenState extends State<MealPrepScreen> {
         ]),
         const SizedBox(height: 12),
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [3, 5, 10, 20].map((s) {
             final sel = _oilSprays == s;
-            return GestureDetector(
-              onTap: () => setState(() => _oilSprays = sel ? null : s),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: sel ? kOrange : kSurface,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: kOrange),
+            // Expanded so the four chips share the width and never overflow.
+            return Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 3),
+                child: GestureDetector(
+                  onTap: () => setState(() => _oilSprays = sel ? null : s),
+                  child: Container(
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: sel ? kOrange : kSurface,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: kOrange),
+                    ),
+                    child: Text('$s sprays',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            color: sel ? kBg : kOrange,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600)),
+                  ),
                 ),
-                child: Text('$s sprays',
-                    style: TextStyle(
-                        color: sel ? kBg : kOrange, fontWeight: FontWeight.w600)),
               ),
             );
           }).toList(),

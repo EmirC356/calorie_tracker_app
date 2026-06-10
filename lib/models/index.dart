@@ -7,6 +7,7 @@ export 'meal_prep_item.dart';
 export 'meal_prep.dart';
 export 'weight_entry.dart';
 export 'water_entry.dart';
+export 'logging_limits.dart';
 export 'user_profile.dart';
 export 'app_user.dart';
 export 'squad.dart';

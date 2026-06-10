@@ -216,6 +216,21 @@ class _LogMealScreenState extends State<LogMealScreen> {
       name = parts.join(' + ');
     }
 
+    if (nutrients.calories > kMaxSingleEntryCalories) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(
+              'That\'s ${nutrients.calories.toStringAsFixed(0)} kcal for one meal — '
+              'over the ${kMaxSingleEntryCalories.toStringAsFixed(0)} kcal cap. Split it into multiple entries.')));
+      return;
+    }
+    if (nutrients.protein > kMaxSingleMealProtein) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(
+              'That\'s ${nutrients.protein.toStringAsFixed(0)} g protein for one meal — '
+              'over the ${kMaxSingleMealProtein.toStringAsFixed(0)} g cap. Split it into multiple entries.')));
+      return;
+    }
+
     context.read<MealProvider>().addMeal(Meal(
       name: name,
       portionGrams: 0,

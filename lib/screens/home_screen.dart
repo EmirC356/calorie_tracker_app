@@ -28,10 +28,10 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // Default to the Health tab so the app opens on useful local content (its
-  // Dashboard sub-tab) — same landing as before the nav collapse — instead of
-  // a sign-in prompt.
-  int _selectedIndex = 1;
+  // Open on the Calendar tab (the Goals surface). It's local-first, so it works
+  // signed in or not; defaulting here avoids forcing the lazy AuthProvider to
+  // construct at startup just to branch on login state.
+  int _selectedIndex = 2;
 
   @override
   void initState() {

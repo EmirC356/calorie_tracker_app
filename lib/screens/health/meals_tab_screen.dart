@@ -6,6 +6,7 @@ import '../../models/index.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/edit_entry_sheets.dart';
 import '../../widgets/undo_delete.dart';
+import '../../widgets/water_card.dart';
 import '../log_meal_screen.dart';
 import 'health_chips.dart';
 
@@ -21,6 +22,8 @@ class MealsTabScreen extends StatelessWidget {
         builder: (_, mp, __) => SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const WaterCard(),
+            const SizedBox(height: 16),
             if (mp.todaysMeals.isEmpty)
               Center(child: Padding(
                 padding: const EdgeInsets.all(40),

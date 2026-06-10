@@ -102,12 +102,12 @@ class _CalendarWeekViewState extends State<CalendarWeekView> {
             child: Text(_rangeLabel(_windowLeft),
                 style: const TextStyle(color: kText, fontSize: 14, fontWeight: FontWeight.w600)),
           ),
-          if (!_todayVisible)
-            TextButton.icon(
-              onPressed: _goToToday,
-              icon: const Icon(Icons.today, size: 16, color: kAmber),
-              label: const Text('Today', style: TextStyle(color: kAmber)),
-            ),
+          // Always visible; greyed out + disabled while today is in view.
+          TextButton.icon(
+            onPressed: _todayVisible ? null : _goToToday,
+            icon: Icon(Icons.today, size: 16, color: _todayVisible ? kTextDim : kAmber),
+            label: Text('Today', style: TextStyle(color: _todayVisible ? kTextDim : kAmber)),
+          ),
         ]),
       ),
       Expanded(

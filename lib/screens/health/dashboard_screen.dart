@@ -4,7 +4,6 @@ import '../../providers/meal_provider.dart';
 import '../../providers/exercise_provider.dart';
 import '../../providers/profile_provider.dart';
 import '../../providers/weight_provider.dart';
-import '../../providers/water_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/dashboard_charts.dart';
 import '../log_meal_screen.dart';
@@ -72,8 +71,6 @@ class DashboardScreen extends StatelessWidget {
               ]);
             },
           ),
-          const SizedBox(height: 8),
-          const _WaterCard(),
           const SizedBox(height: 24),
           Text('TRENDS', style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 12),
@@ -157,54 +154,6 @@ class DashboardScreen extends StatelessWidget {
       ),
     );
   }
-}
-
-class _WaterCard extends StatelessWidget {
-  const _WaterCard();
-
-  static const _blue = Color(0xFF4A90E2);
-
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<WaterProvider>(
-      builder: (_, wp, __) {
-        final litres = (wp.todaysTotalMl / 1000).toStringAsFixed(2);
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: neonBox(_blue),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              const Icon(Icons.water_drop, color: _blue, size: 18),
-              const SizedBox(width: 8),
-              const Text('Water', style: TextStyle(color: kText, fontSize: 14)),
-              const Spacer(),
-              Text('${wp.todaysTotalMl} ml  ·  $litres L',
-                  style: TextStyle(color: _blue, fontWeight: FontWeight.bold, fontSize: 15, shadows: textGlow(_blue))),
-            ]),
-            const SizedBox(height: 10),
-            Row(children: [
-              Expanded(child: _waterButton('+250 ml', () => wp.add(250))),
-              const SizedBox(width: 8),
-              Expanded(child: _waterButton('+500 ml', () => wp.add(500))),
-              const SizedBox(width: 8),
-              IconButton(
-                tooltip: 'Undo last',
-                icon: const Icon(Icons.undo, color: kTextDim, size: 20),
-                onPressed: wp.todaysEntries.isEmpty ? null : wp.removeLast,
-              ),
-            ]),
-          ]),
-        );
-      },
-    );
-  }
-
-  Widget _waterButton(String label, VoidCallback onTap) => OutlinedButton(
-        onPressed: onTap,
-        style: OutlinedButton.styleFrom(
-            foregroundColor: _blue, side: const BorderSide(color: _blue)),
-        child: Text(label),
-      );
 }
 
 class _ProgressCard extends StatelessWidget {
