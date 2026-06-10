@@ -42,6 +42,16 @@ have an old Oracle Java 8 shim first on PATH, put a 21 JDK ahead of it, e.g.
 Android Studio's `jbr`). Uses a `demo-` project id so no `firebase login` is
 needed. Last run: **9/9 passing**.
 
+## CI
+
+The GitHub Actions workflow
+[`.github/workflows/ci.yml`](../.github/workflows/ci.yml) runs these rules tests
+on every push and pull request via the **`rules-test`** job (parallel to the
+Flutter analyze/test job). It provisions **JDK 21** (Temurin) + **Node 22**, runs
+`npm ci` in `firebase/`, installs `firebase-tools`, and executes
+`npm run test:rules` — so the JDK-21 requirement above is satisfied in CI even
+when a contributor's machine only has an older JDK.
+
 ## Indexes
 
 `firestore.indexes.json` holds the composite index for the "my squads" query
