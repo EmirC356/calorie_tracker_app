@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../models/index.dart';
 import '../providers/weight_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/date_nav_bar.dart';
 
 class WeightTrackerScreen extends StatefulWidget {
   const WeightTrackerScreen({super.key});
@@ -16,6 +17,7 @@ class WeightTrackerScreen extends StatefulWidget {
 class _WeightTrackerScreenState extends State<WeightTrackerScreen> {
   final _weightCtrl = TextEditingController();
   bool _isEmptyStomach = false;
+  DateTime _date = dateOnly(DateTime.now()); // day shown in LOG HISTORY
 
   @override
   void initState() {
@@ -142,16 +144,36 @@ class _WeightTrackerScreenState extends State<WeightTrackerScreen> {
 
             Text('LOG HISTORY', style: neonLabel(kNeonGreen, size: 13)),
             const SizedBox(height: 8),
-            if (provider.entries.isEmpty)
-              Center(child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Text('No weight entries yet', style: Theme.of(context).textTheme.bodySmall),
-              ))
-            else
-              ...provider.entries.reversed.take(30).map((e) => _WeightTile(
-                entry: e,
-                onDelete: () => provider.deleteEntry(e.id!),
-              )),
+            DateNavBar(
+              selected: _date,
+              accent: kNeonGreen,
+              onChanged: (d) => setState(() => _date = d),
+            ),
+            const SizedBox(height: 8),
+            ...() {
+              final dayEntries = provider.entries
+                  .where((e) => dateOnly(e.timestamp) == _date)
+                  .toList()
+                  .reversed
+                  .toList();
+              final isToday = _date == dateOnly(DateTime.now());
+              if (dayEntries.isEmpty) {
+                return [
+                  Center(child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Text(
+                        isToday ? 'No weight entries today' : 'No weight entries on this day',
+                        style: Theme.of(context).textTheme.bodySmall),
+                  )),
+                ];
+              }
+              return dayEntries
+                  .map((e) => _WeightTile(
+                        entry: e,
+                        onDelete: () => provider.deleteEntry(e.id!),
+                      ))
+                  .toList();
+            }(),
           ]),
         ),
       ),

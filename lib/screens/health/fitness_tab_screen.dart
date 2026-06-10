@@ -6,38 +6,81 @@ import '../../models/index.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/edit_entry_sheets.dart';
 import '../../widgets/undo_delete.dart';
+import '../../widgets/date_nav_bar.dart';
 import '../exercise_logging_screen.dart';
 import 'health_chips.dart';
 
-/// Fitness sub-tab of the Health shell — today's exercises list with a log FAB.
-class FitnessTabScreen extends StatelessWidget {
+/// Fitness sub-tab of the Health shell — the selected day's exercises with a
+/// date navigator to browse previous days. The FAB always logs to today.
+class FitnessTabScreen extends StatefulWidget {
   const FitnessTabScreen({super.key});
+
+  @override
+  State<FitnessTabScreen> createState() => _FitnessTabScreenState();
+}
+
+class _FitnessTabScreenState extends State<FitnessTabScreen> {
+  late final ExerciseProvider _provider;
+  DateTime _date = dateOnly(DateTime.now());
+  List<Exercise> _exercises = [];
+
+  bool get _isToday => _date == dateOnly(DateTime.now());
+
+  @override
+  void initState() {
+    super.initState();
+    _provider = context.read<ExerciseProvider>();
+    _provider.addListener(_reload);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _reload());
+  }
+
+  @override
+  void dispose() {
+    _provider.removeListener(_reload);
+    super.dispose();
+  }
+
+  Future<void> _reload() async {
+    final list = await _provider.getExercisesByDate(_date);
+    if (mounted) setState(() => _exercises = list);
+  }
+
+  void _setDate(DateTime d) {
+    setState(() => _date = d);
+    _reload();
+  }
+
+  Future<void> _logExercise() async {
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => const ExerciseLoggingScreen()));
+    if (mounted) _setDate(dateOnly(DateTime.now()));
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('FITNESS TODAY'),
+      appBar: AppBar(title: const Text('FITNESS'),
         titleTextStyle: const TextStyle(color: kPink, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.2, shadows: [Shadow(color: kPink, blurRadius: 8)])),
-      body: Consumer<ExerciseProvider>(
-        builder: (_, ep, __) => SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            if (ep.todaysExercises.isEmpty)
-              Center(child: Padding(
-                padding: const EdgeInsets.all(40),
-                child: Text('No exercises logged today', style: Theme.of(context).textTheme.bodySmall),
-              ))
-            else
-              ...ep.todaysExercises.map((ex) => _ExerciseCard(
-                    exercise: ex,
-                    onDelete: () => deleteExerciseWithUndo(ScaffoldMessenger.of(context), ep, ex),
-                    onEdit: (updated) => ep.updateExercise(updated),
-                  )),
-          ]),
-        ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          DateNavBar(selected: _date, accent: kPink, onChanged: _setDate),
+          const SizedBox(height: 12),
+          if (_exercises.isEmpty)
+            Center(child: Padding(
+              padding: const EdgeInsets.all(40),
+              child: Text(_isToday ? 'No exercises logged today' : 'No exercises logged on this day',
+                  style: Theme.of(context).textTheme.bodySmall),
+            ))
+          else
+            ..._exercises.map((ex) => _ExerciseCard(
+                  exercise: ex,
+                  onDelete: () => deleteExerciseWithUndo(ScaffoldMessenger.of(context), _provider, ex),
+                  onEdit: (updated) => _provider.updateExercise(updated),
+                )),
+        ]),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ExerciseLoggingScreen())),
+        onPressed: _logExercise,
         backgroundColor: kPink,
         foregroundColor: kBg,
         child: const Icon(Icons.add),
