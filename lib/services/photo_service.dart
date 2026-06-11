@@ -19,14 +19,18 @@ class PhotoService {
   final FirebaseAuth _auth;
   final StoragePut _put;
 
+  final Future<String> Function(String path) _resolveUrl;
+
   PhotoService({
     FirebaseFirestore? firestore,
     FirebaseAuth? auth,
     FirebaseStorage? storage,
     StoragePut? put,
+    Future<String> Function(String path)? resolveUrl,
   })  : _fs = firestore ?? FirebaseFirestore.instance,
         _auth = auth ?? FirebaseAuth.instance,
-        _put = put ?? _defaultPut(storage);
+        _put = put ?? _defaultPut(storage),
+        _resolveUrl = resolveUrl ?? _defaultResolve(storage);
 
   static StoragePut _defaultPut(FirebaseStorage? storage) {
     return (path, bytes, contentType, metadata) async {
@@ -35,6 +39,12 @@ class PhotoService {
           bytes, SettableMetadata(contentType: contentType, customMetadata: metadata));
     };
   }
+
+  static Future<String> Function(String) _defaultResolve(FirebaseStorage? storage) =>
+      (path) async => (storage ?? FirebaseStorage.instance).ref(path).getDownloadURL();
+
+  /// Resolves a Storage object path to a download URL (token-authenticated).
+  Future<String> downloadUrl(String path) => _resolveUrl(path);
 
   CollectionReference<Map<String, dynamic>> _photos(String squadId) =>
       _fs.collection('squads/$squadId/photos');

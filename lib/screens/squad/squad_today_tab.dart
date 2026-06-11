@@ -17,6 +17,7 @@ import '../../widgets/squad/member_card_compact.dart';
 import '../../widgets/squad/intentions_strip.dart';
 import '../../widgets/squad/group_goals_strip.dart';
 import '../../widgets/squad/activity_feed_strip.dart';
+import '../../widgets/squad/photo_strip.dart';
 import 'member_day_detail_screen.dart';
 
 /// Today tab: activity + intentions strips, a compact check-in chip, a vertical
@@ -76,6 +77,7 @@ class _SquadTodayTabState extends State<SquadTodayTab> {
                   padding: const EdgeInsets.only(bottom: Spacing.s24),
                   children: [
                     ActivityFeedStrip(squadId: widget.squadId),
+                    PhotoStrip(squadId: widget.squadId),
                     if (myUid != null) IntentionsStrip(squadId: widget.squadId, myUid: myUid),
                     const SizedBox(height: Spacing.s8),
                     for (final m in members)
