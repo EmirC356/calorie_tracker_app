@@ -177,6 +177,26 @@ service cloud.firestore {
         allow delete: if isSignedIn() && resource.data.fromUid == uid();
       }
 
+      // ── days/{date}/comments/{id}: words on a member's day ──────────────────
+      // Self-from, recipient must be a member, ≤200 chars, ≤5 per (from,to,day)
+      // — the count is validated via the same-batch counter (getAfter). Edits +
+      // soft-deletes are author-only (the 5-min edit window is client-side).
+      match /days/{date}/comments/{commentId} {
+        allow read: if isMemberOf(squadId);
+        allow create: if isMemberOf(squadId)
+          && request.resource.data.fromUid == uid()
+          && isMember(squadId, request.resource.data.toUid)
+          && request.resource.data.text is string
+          && request.resource.data.text.size() <= 200
+          && getAfter(/databases/$(database)/documents/squads/$(squadId)/days/$(date)/commentCounters/$(uid() + '_' + request.resource.data.toUid)).data.count <= 5;
+        allow update, delete: if isSignedIn() && resource.data.fromUid == uid();
+      }
+      // Per-pair daily comment counter (kept in sync by the batch above).
+      match /days/{date}/commentCounters/{counterId} {
+        allow read: if isMemberOf(squadId);
+        allow write: if isMemberOf(squadId);
+      }
+
       // ── days/{date}/markers/{id}: function-only idempotency markers ──────────
       // (e.g. full-squad-day fired). Members may read; only the admin SDK writes.
       match /days/{date}/markers/{markerId} {

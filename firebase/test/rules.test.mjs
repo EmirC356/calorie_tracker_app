@@ -11,7 +11,7 @@ import {
 } from '@firebase/rules-unit-testing';
 import {
   doc, getDoc, setDoc, updateDoc, arrayUnion, arrayRemove, setLogLevel,
-  collection, query, where, getDocs, addDoc,
+  collection, query, where, getDocs, addDoc, writeBatch, increment,
 } from 'firebase/firestore';
 
 setLogLevel('error');
@@ -173,6 +173,37 @@ await check("member CANNOT change another's contribution",
 await check('member CANNOT edit the goal definition',
   assertFails(updateDoc(doc(member, 'squads/s1/groupGoals/gg1'), { title: 'hacked' })));
 
+// ── Per-day comments (self-from, member-to, ≤200, ≤5/pair/day via counter) ─────
+const cday = 'squads/s1/days/2026-06-09';
+function commentBatch(db, counterId, commentId, data) {
+  const b = writeBatch(db);
+  b.set(doc(db, `${cday}/commentCounters/${counterId}`), { count: increment(1), ...data.counter }, { merge: true });
+  b.set(doc(db, `${cday}/comments/${commentId}`), data.comment);
+  return b;
+}
+await check('member CAN comment on a squadmate',
+  assertSucceeds(commentBatch(member, 'm1_owner', 'c1',
+    { counter: { fromUid: 'm1', toUid: 'owner' }, comment: { fromUid: 'm1', fromName: 'M', toUid: 'owner', text: 'nice work', createdAt: new Date() } }).commit()));
+await check('CANNOT comment to a non-member',
+  assertFails(commentBatch(member, 'm1_out', 'c2',
+    { counter: {}, comment: { fromUid: 'm1', fromName: 'M', toUid: 'out', text: 'x', createdAt: new Date() } }).commit()));
+await check('CANNOT forge fromUid',
+  assertFails(commentBatch(member, 'owner_owner', 'c3',
+    { counter: {}, comment: { fromUid: 'owner', fromName: 'M', toUid: 'owner', text: 'x', createdAt: new Date() } }).commit()));
+await check('comment over 200 chars rejected',
+  assertFails(commentBatch(member, 'm1_owner', 'c4',
+    { counter: {}, comment: { fromUid: 'm1', fromName: 'M', toUid: 'owner', text: 'x'.repeat(201), createdAt: new Date() } }).commit()));
+await testEnv.withSecurityRulesDisabled(async (ctx) => {
+  await setDoc(doc(ctx.firestore(), `${cday}/commentCounters/m1_owner`), { count: 5 });
+});
+await check('6th comment to the same pair rejected',
+  assertFails(commentBatch(member, 'm1_owner', 'c5',
+    { counter: {}, comment: { fromUid: 'm1', fromName: 'M', toUid: 'owner', text: 'one too many', createdAt: new Date() } }).commit()));
+await check('author CAN edit own comment',
+  assertSucceeds(updateDoc(doc(member, `${cday}/comments/c1`), { text: 'edited', editedAt: new Date() })));
+await check('non-author CANNOT edit a comment',
+  assertFails(updateDoc(doc(owner, `${cday}/comments/c1`), { text: 'hax' })));
+
 await testEnv.cleanup();
 console.log(`\nALL ${n} RULES TESTS PASSED`);
-assert(n === 53);
+assert(n === 60);

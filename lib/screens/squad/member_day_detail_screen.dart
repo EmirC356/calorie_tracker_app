@@ -12,6 +12,7 @@ import '../../widgets/squad/goal_summary.dart';
 import '../../widgets/squad/squad_status.dart';
 import '../../widgets/squad/reaction_bar.dart';
 import '../../widgets/squad/squadmate_goals.dart';
+import '../../widgets/squad/comment_thread.dart';
 import 'goal_suggest_screen.dart';
 
 /// Shows a member's day at whatever detail their sharing level allows, plus a
@@ -85,6 +86,8 @@ class MemberDayDetailScreen extends StatelessWidget {
         const SizedBox(height: 20),
         _reactions(context),
         _suggestButton(context),
+        const SizedBox(height: 24),
+        _commentThread(context),
       ]),
     );
   }
@@ -143,6 +146,19 @@ class MemberDayDetailScreen extends StatelessWidget {
             foregroundColor: kAmber, side: const BorderSide(color: kAmber),
             minimumSize: const Size.fromHeight(46)),
       ),
+    );
+  }
+
+  Widget _commentThread(BuildContext context) {
+    final auth = context.read<AuthProvider>();
+    final myUid = auth.firebaseUser?.uid;
+    if (myUid == null) return const SizedBox.shrink();
+    return CommentThread(
+      squadId: squadId,
+      dateKey: dateKey,
+      toUid: member.uid,
+      myUid: myUid,
+      myName: auth.appUser?.displayName ?? 'Athlete',
     );
   }
 

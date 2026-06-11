@@ -7,6 +7,7 @@ import '../models/squad_member.dart';
 import '../models/squad_pause.dart';
 import '../models/squad_intention.dart';
 import '../models/squad_group_goal.dart';
+import '../models/squad_comment.dart';
 import '../models/squad_goal.dart';
 import '../models/squad_day_entry.dart';
 import '../models/squad_reaction.dart';
@@ -292,6 +293,41 @@ class SquadService {
       tx.update(ref, update);
     });
   }
+
+  // ── Per-day comments ────────────────────────────────────────────────────────
+
+  CollectionReference<Map<String, dynamic>> _comments(String squadId, String dateKey) =>
+      _squads.doc(squadId).collection('days').doc(dateKey).collection('comments');
+
+  Stream<List<SquadComment>> watchComments(String squadId, String dateKey, String toUid) =>
+      _comments(squadId, dateKey).where('toUid', isEqualTo: toUid).snapshots().map((qs) {
+        final list = qs.docs.map((d) => SquadComment.fromMap(d.id, d.data())).toList();
+        list.sort((a, b) => (a.createdAt ?? DateTime(0)).compareTo(b.createdAt ?? DateTime(0)));
+        return list;
+      });
+
+  /// Posts a comment in a batch with a per-(from,to,date) counter so the rules'
+  /// getAfter rate-limit (≤5/pair/day) can validate it.
+  Future<void> addComment(String squadId, String dateKey,
+      {required String fromUid, required String fromName, required String toUid, required String text}) async {
+    final counter = _squads.doc(squadId).collection('days').doc(dateKey)
+        .collection('commentCounters').doc('${fromUid}_$toUid');
+    final comment = _comments(squadId, dateKey).doc();
+    final batch = _db.batch();
+    batch.set(counter, {'count': FieldValue.increment(1), 'fromUid': fromUid, 'toUid': toUid}, SetOptions(merge: true));
+    batch.set(comment, {
+      'fromUid': fromUid, 'fromName': fromName, 'toUid': toUid,
+      'text': text, 'createdAt': FieldValue.serverTimestamp(),
+    });
+    await batch.commit();
+  }
+
+  Future<void> editComment(String squadId, String dateKey, String commentId, String text) =>
+      _comments(squadId, dateKey).doc(commentId).update({'text': text, 'editedAt': FieldValue.serverTimestamp()});
+
+  /// Soft-delete: keep the doc (preserves rate-limit accounting), blank the text.
+  Future<void> deleteComment(String squadId, String dateKey, String commentId) =>
+      _comments(squadId, dateKey).doc(commentId).update({'text': '[deleted]', 'deletedAt': FieldValue.serverTimestamp()});
 
   // ── Weekly intentions ───────────────────────────────────────────────────────
 
