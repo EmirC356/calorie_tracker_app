@@ -79,7 +79,16 @@ class SnapshotProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) pushNow();
+    if (state == AppLifecycleState.resumed) {
+      // Presence: a debounced lightweight ping so "Active now" stays fresh even
+      // when there's nothing new to snapshot.
+      final uid = _uid;
+      if (uid != null) {
+        // ignore: discarded_futures
+        _service.heartbeat(uid);
+      }
+      pushNow();
+    }
   }
 
   @override

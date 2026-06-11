@@ -37,6 +37,8 @@ class SnapshotService {
   /// false (e.g. a paused day) finalizes the entry and skips the rest.
   late final List<SnapshotTransformer> transformers;
 
+  DateTime? _lastHeartbeat;
+
   SnapshotService({
     DatabaseService? db,
     SquadService? squadService,
@@ -101,6 +103,24 @@ class SnapshotService {
   bool _isDayOver(DateTime date, DateTime now) {
     final endOfDay = DateTime(date.year, date.month, date.day).add(const Duration(days: 1));
     return !now.isBefore(endOfDay);
+  }
+
+  /// Lightweight presence ping: bumps `members/{uid}.lastActivityAt` across the
+  /// user's squads (clearing any ghost flag), debounced to once per 60s so a
+  /// foreground/active session keeps presence fresh without a full snapshot
+  /// push. The full pushForUser already bumps it on meal/exercise/weight writes.
+  Future<void> heartbeat(String uid, {DateTime? now}) async {
+    final n = now ?? DateTime.now();
+    if (_lastHeartbeat != null && n.difference(_lastHeartbeat!) < const Duration(seconds: 60)) {
+      return;
+    }
+    _lastHeartbeat = n;
+    final squads = await _squadService.getMySquadsOnce(uid);
+    for (final s in squads) {
+      try {
+        await _squadService.markActivity(s.id, uid);
+      } catch (_) {/* best-effort */}
+    }
   }
 
   /// Computes the user's [date] stats once, then writes a redacted entry to
