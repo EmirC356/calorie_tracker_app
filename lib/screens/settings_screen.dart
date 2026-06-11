@@ -26,6 +26,16 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _goalNotifs = true;
   int _streakWarnHour = 21; // -1 = off
+  int _versionTaps = 0; // 5 taps on the version opens hidden Diagnostics
+
+  void _onVersionTap() {
+    _versionTaps++;
+    if (_versionTaps >= 5) {
+      _versionTaps = 0;
+      Navigator.push(context,
+          MaterialPageRoute(builder: (_) => const DiagnosticsScreen()));
+    }
+  }
 
   @override
   void initState() {
@@ -232,7 +242,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: Spacing.s32),
           Text('ABOUT', style: AppText.caption),
           const SizedBox(height: Spacing.s12),
-          Text('Calorie Tracker v2.0', style: AppText.titleM),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _onVersionTap,
+            child: Text('Calorie Tracker v2.0', style: AppText.titleM),
+          ),
           const SizedBox(height: Spacing.s8),
           Text(
             'Track meals, meal preps, exercises, and weight.\nPowered by Google Gemini for nutrition advice.',
@@ -240,6 +254,57 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 .copyWith(color: AppColors.textSecondary, height: 1.5),
           ),
         ]),
+      ),
+    );
+  }
+}
+
+/// Hidden dev/debug screen (5 taps on the version). Surfaces the auth + cloud
+/// state that's useful when chasing listener/permission issues like the
+/// post-relogin squad bug.
+class DiagnosticsScreen extends StatelessWidget {
+  const DiagnosticsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+    final squads = context.watch<SquadProvider>();
+    final liveUid = auth.firebaseUser?.uid;
+    final rows = <(String, String)>[
+      ('Firebase uid', liveUid ?? '— (signed out)'),
+      ('Squad stream uid', squads.currentUid ?? '— (detached)'),
+      ('Last-known uid', squads.lastKnownUid ?? '—'),
+      ('Firestore connected', squads.connected ? 'yes' : 'no'),
+      ('Squads loaded', '${squads.squads.length}'),
+      ('Loading', squads.loading ? 'yes' : 'no'),
+      ('Last error', squads.error ?? 'none'),
+    ];
+    return Scaffold(
+      appBar: AppBar(title: const Text('Diagnostics')),
+      body: ListView(
+        padding: const EdgeInsets.all(Spacing.s16),
+        children: [
+          Text('AUTH & CLOUD', style: AppText.caption),
+          const SizedBox(height: Spacing.s12),
+          for (final (label, value) in rows) ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                    flex: 2,
+                    child: Text(label,
+                        style: AppText.bodyM
+                            .copyWith(color: AppColors.textSecondary))),
+                Expanded(
+                    flex: 3,
+                    child: Text(value,
+                        style: AppText.tabular(AppText.bodyM),
+                        textAlign: TextAlign.right)),
+              ],
+            ),
+            const Divider(color: AppColors.surface2),
+          ],
+        ],
       ),
     );
   }

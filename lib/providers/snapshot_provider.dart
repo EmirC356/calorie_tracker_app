@@ -44,7 +44,13 @@ class SnapshotProvider extends ChangeNotifier with WidgetsBindingObserver {
     final uid = _auth?.firebaseUser?.uid;
     if (uid == _uid) return;
     _uid = uid;
-    if (uid != null) pushNow();
+    if (uid == null) {
+      // Sign-out: drop the previous user's day-rollover state so the next user
+      // doesn't inherit it (no listener to cancel — this provider only writes).
+      _lastDateKey = null;
+      return;
+    }
+    pushNow();
   }
 
   void _onLocalChange() {

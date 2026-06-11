@@ -12,6 +12,10 @@ class AuthService {
         _googleSignIn = googleSignIn ?? GoogleSignIn();
 
   User? get currentUser => _auth.currentUser;
+
+  /// Mirrors [FirebaseAuth.authStateChanges]. Emits the current user on listen,
+  /// then on every sign-in / sign-out. Auth-listening providers drive their
+  /// Firestore subscriptions off this so a re-login re-attaches cleanly.
   Stream<User?> authStateChanges() => _auth.authStateChanges();
 
   /// Returns the credential on success, or null if the user cancelled the
@@ -24,7 +28,12 @@ class AuthService {
       accessToken: googleAuth.accessToken,
       idToken: googleAuth.idToken,
     );
-    return _auth.signInWithCredential(credential);
+    final cred = await _auth.signInWithCredential(credential);
+    // Force-refresh the ID token so the first Firestore query right after
+    // sign-in carries a fresh token — otherwise a query can race a still-
+    // rehydrating token and get rejected with permission-denied.
+    await cred.user?.getIdToken(true);
+    return cred;
   }
 
   Future<void> signOut() async {

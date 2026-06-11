@@ -83,11 +83,15 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider<AiService>.value(value: aiService),
         // Calendar/Goals — local-only, loads lazily on first Calendar open.
         ChangeNotifierProvider(create: (_) => GoalProvider()),
-        // Lazy: only constructed when the Squad tab is first opened, so a
-        // Firebase problem never affects the local-only tabs.
+        // AuthProvider stays lazy (its ctor touches FirebaseAuth; HomeScreen
+        // reads it at startup inside a guard, so it still hears auth early).
         ChangeNotifierProvider(create: (_) => AuthProvider()),
-        ChangeNotifierProvider(create: (_) => SquadProvider()),
-        ChangeNotifierProvider(create: (_) => SnapshotProvider()),
+        // Eager: these subscribe to auth state in their constructors, so they
+        // must exist from launch to catch a sign-in that happens before the
+        // Squad tab is ever opened. Both ctors are guarded against a missing
+        // Firebase init, so eagerness can't take down the local-only tabs.
+        ChangeNotifierProvider(create: (_) => SquadProvider(), lazy: false),
+        ChangeNotifierProvider(create: (_) => SnapshotProvider(), lazy: false),
       ],
       child: MaterialApp(
         title: 'Calorie Tracker',
