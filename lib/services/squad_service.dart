@@ -12,6 +12,7 @@ import '../models/squad_activity.dart';
 import '../models/squad_goal.dart';
 import '../models/squad_day_entry.dart';
 import '../models/date_helpers.dart';
+import '../models/streak_engine_v2.dart';
 import '../models/squad_reaction.dart';
 import '../models/goal_visible.dart';
 import '../models/squad_goal_suggestion.dart';
@@ -317,6 +318,47 @@ class SquadService {
       }
     }
     return out;
+  }
+
+  /// Squads where a streak worth protecting (≥3) is at risk because today is
+  /// still inProgress past 18:00 — drives the precise streak-warning body via
+  /// the pure streak engine. Reuses [computeStreakV2] over the lookback window.
+  Future<List<({String squadName, int streak})>> computeAtRiskSquads(
+    String uid, {
+    DateTime? now,
+    int lookbackDays = 14,
+  }) async {
+    final theNow = now ?? DateTime.now();
+    final today = dateOnly(theNow);
+    final squads = await getMySquadsOnce(uid);
+    final out = <({String squadName, int streak})>[];
+    for (final squad in squads) {
+      final history = <StreakDay>[];
+      for (var i = lookbackDays; i >= 0; i--) {
+        final day = today.subtract(Duration(days: i));
+        final entry = await getDayEntry(squad.id, ymd(day), uid);
+        if (entry == null) continue;
+        history.add(StreakDay(date: day, status: _streakStatusOf(entry), redeemed: entry.redeemed));
+      }
+      if (history.isEmpty) continue;
+      final insights = computeStreakV2(history, now: theNow);
+      if (insights.atRiskFlag && insights.currentStreak >= 3) {
+        out.add((squadName: squad.name, streak: insights.currentStreak.floor()));
+      }
+    }
+    return out;
+  }
+
+  static StreakStatus _streakStatusOf(SquadDayEntry e) {
+    if (e.paused) return StreakStatus.paused;
+    switch (e.status) {
+      case GoalStatus.hit:
+        return StreakStatus.hit;
+      case GoalStatus.missed:
+        return StreakStatus.missed;
+      case GoalStatus.inProgress:
+        return StreakStatus.inProgress;
+    }
   }
 
   /// Transactionally applies [delta] to a member's contribution + currentValue,

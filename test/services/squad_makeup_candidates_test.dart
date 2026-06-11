@@ -36,4 +36,39 @@ void main() {
     final candidates = await svc.findMakeupCandidates('u1', now: now);
     expect(candidates, isEmpty);
   });
+
+  test('computeAtRiskSquads flags a >=3 streak still inProgress in the evening', () async {
+    final fs = FakeFirebaseFirestore();
+    final svc = SquadService(firestore: fs);
+    final now = DateTime(2026, 6, 10, 20); // 8pm → past the 18:00 at-risk hour
+
+    await fs.doc('squads/s1').set({
+      'name': 'Gym', 'ownerUid': 'u1', 'memberUids': ['u1'], 'inviteCode': '123456',
+    });
+    for (final d in ['2026-06-07', '2026-06-08', '2026-06-09']) {
+      await fs.doc('squads/s1/days/$d/entries/u1').set({'status': 'hit'});
+    }
+    await fs.doc('squads/s1/days/2026-06-10/entries/u1').set({'status': 'inProgress'});
+
+    final atRisk = await svc.computeAtRiskSquads('u1', now: now);
+    expect(atRisk, hasLength(1));
+    expect(atRisk.first.squadName, 'Gym');
+    expect(atRisk.first.streak, 3);
+  });
+
+  test('not at risk once today is already hit', () async {
+    final fs = FakeFirebaseFirestore();
+    final svc = SquadService(firestore: fs);
+    final now = DateTime(2026, 6, 10, 20);
+
+    await fs.doc('squads/s1').set({
+      'name': 'Gym', 'ownerUid': 'u1', 'memberUids': ['u1'], 'inviteCode': '123456',
+    });
+    for (final d in ['2026-06-08', '2026-06-09', '2026-06-10']) {
+      await fs.doc('squads/s1/days/$d/entries/u1').set({'status': 'hit'});
+    }
+
+    final atRisk = await svc.computeAtRiskSquads('u1', now: now);
+    expect(atRisk, isEmpty);
+  });
 }
