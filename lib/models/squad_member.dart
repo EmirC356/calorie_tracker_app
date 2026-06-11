@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'squad_goal.dart';
 import 'squad_pause.dart';
+import 'profile_goal_snapshot.dart';
 
 /// How much of a member's day a *specific squad* can see. Stored on the member
 /// doc (per-squad, per-user), not the global user doc.
@@ -24,6 +25,12 @@ class SquadMember {
   final bool muted;
   final SquadPause pause;
 
+  /// When true (default), the squad-effective goal is derived from
+  /// [profileGoalSnapshot] (the user's profile Health Goals). When false, the
+  /// explicit [goal] is an override for this squad.
+  final bool inheritedFromProfile;
+  final ProfileGoalSnapshot profileGoalSnapshot;
+
   const SquadMember({
     required this.uid,
     this.joinedAt,
@@ -33,7 +40,15 @@ class SquadMember {
     this.photoURL,
     this.muted = false,
     this.pause = const SquadPause(),
+    this.inheritedFromProfile = true,
+    this.profileGoalSnapshot = const ProfileGoalSnapshot(),
   });
+
+  /// The goal the daily evaluator + UI should use: the profile snapshot when
+  /// inherited and non-empty, otherwise the explicit [goal] (back-compat: an
+  /// existing member with a manual goal and no snapshot keeps using [goal]).
+  SquadGoal get effectiveGoal =>
+      inheritedFromProfile && !profileGoalSnapshot.isEmpty ? profileGoalSnapshot.toDailyGoal() : goal;
 
   factory SquadMember.fromMap(String uid, Map<String, dynamic> map) => SquadMember(
         uid: uid,
@@ -46,6 +61,8 @@ class SquadMember {
         photoURL: map['photoURL'] as String?,
         muted: (map['muted'] as bool?) ?? false,
         pause: SquadPause.fromMap(map['pause'] as Map<String, dynamic>?),
+        inheritedFromProfile: (map['inheritedFromProfile'] as bool?) ?? true,
+        profileGoalSnapshot: ProfileGoalSnapshot.fromMap(map['profileGoalSnapshot'] as Map<String, dynamic>?),
       );
 
   /// Field map for writes. joinedAt is written separately (server timestamp).
@@ -56,7 +73,14 @@ class SquadMember {
         'photoURL': photoURL,
       };
 
-  SquadMember copyWith({SquadGoal? goal, SharingLevel? sharingLevel, SquadPause? pause}) => SquadMember(
+  SquadMember copyWith({
+    SquadGoal? goal,
+    SharingLevel? sharingLevel,
+    SquadPause? pause,
+    bool? inheritedFromProfile,
+    ProfileGoalSnapshot? profileGoalSnapshot,
+  }) =>
+      SquadMember(
         uid: uid,
         joinedAt: joinedAt,
         goal: goal ?? this.goal,
@@ -65,5 +89,7 @@ class SquadMember {
         photoURL: photoURL,
         muted: muted,
         pause: pause ?? this.pause,
+        inheritedFromProfile: inheritedFromProfile ?? this.inheritedFromProfile,
+        profileGoalSnapshot: profileGoalSnapshot ?? this.profileGoalSnapshot,
       );
 }

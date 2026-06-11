@@ -1,3 +1,6 @@
+import 'squad_goal.dart' show CalorieMode;
+import 'profile_goal_snapshot.dart';
+
 enum Sex { male, female }
 
 enum ActivityLevel { sedentary, light, moderate, active, veryActive }
@@ -15,6 +18,14 @@ class UserProfile {
   final DietGoal goal;
   final double? fallbackWeightKg;
 
+  // ── Health Goals (the user's primary squad goal — see ProfileGoalSnapshot) ──
+  final CalorieMode calorieGoalMode; // none | cap | floor
+  final double? calorieGoalTarget; // kcal/day, when mode != none
+  final int? weeklyExerciseSessions; // null/0 = no exercise goal
+  final int minSessionMinutes; // a session counts at ≥ this many minutes
+  final String? birthday; // ISO YYYY-MM-DD (Task 6); derives age when set
+  final DateTime? healthGoalsUpdatedAt;
+
   const UserProfile({
     required this.heightCm,
     required this.age,
@@ -22,6 +33,12 @@ class UserProfile {
     required this.activity,
     required this.goal,
     this.fallbackWeightKg,
+    this.calorieGoalMode = CalorieMode.none,
+    this.calorieGoalTarget,
+    this.weeklyExerciseSessions,
+    this.minSessionMinutes = 20,
+    this.birthday,
+    this.healthGoalsUpdatedAt,
   });
 
   static const empty = UserProfile(
@@ -33,6 +50,21 @@ class UserProfile {
   );
 
   bool get isComplete => heightCm > 0 && age > 0;
+
+  /// The Health Goals denormalized to squad member docs.
+  ProfileGoalSnapshot get healthGoalSnapshot => ProfileGoalSnapshot(
+        calorieMode: calorieGoalMode,
+        calorieTarget: calorieGoalTarget,
+        weeklyExerciseSessions: weeklyExerciseSessions,
+        minSessionMinutes: minSessionMinutes,
+      );
+
+  bool get hasHealthGoal => !healthGoalSnapshot.isEmpty;
+
+  /// Default direction for a new calorie goal: bulk floors intake, cut/maintain
+  /// caps it.
+  CalorieMode get suggestedCalorieMode =>
+      goal == DietGoal.bulk ? CalorieMode.floor : CalorieMode.cap;
 
   double get activityFactor {
     switch (activity) {
@@ -92,6 +124,15 @@ class UserProfile {
     ActivityLevel? activity,
     DietGoal? goal,
     double? fallbackWeightKg,
+    CalorieMode? calorieGoalMode,
+    double? calorieGoalTarget,
+    bool clearCalorieGoalTarget = false,
+    int? weeklyExerciseSessions,
+    bool clearWeeklyExerciseSessions = false,
+    int? minSessionMinutes,
+    String? birthday,
+    bool clearBirthday = false,
+    DateTime? healthGoalsUpdatedAt,
   }) {
     return UserProfile(
       heightCm: heightCm ?? this.heightCm,
@@ -100,6 +141,15 @@ class UserProfile {
       activity: activity ?? this.activity,
       goal: goal ?? this.goal,
       fallbackWeightKg: fallbackWeightKg ?? this.fallbackWeightKg,
+      calorieGoalMode: calorieGoalMode ?? this.calorieGoalMode,
+      calorieGoalTarget:
+          clearCalorieGoalTarget ? null : (calorieGoalTarget ?? this.calorieGoalTarget),
+      weeklyExerciseSessions: clearWeeklyExerciseSessions
+          ? null
+          : (weeklyExerciseSessions ?? this.weeklyExerciseSessions),
+      minSessionMinutes: minSessionMinutes ?? this.minSessionMinutes,
+      birthday: clearBirthday ? null : (birthday ?? this.birthday),
+      healthGoalsUpdatedAt: healthGoalsUpdatedAt ?? this.healthGoalsUpdatedAt,
     );
   }
 
@@ -110,6 +160,12 @@ class UserProfile {
         'activity': activity.name,
         'goal': goal.name,
         'fallbackWeightKg': fallbackWeightKg,
+        'calorieGoalMode': calorieGoalMode.name,
+        'calorieGoalTarget': calorieGoalTarget,
+        'weeklyExerciseSessions': weeklyExerciseSessions,
+        'minSessionMinutes': minSessionMinutes,
+        'birthday': birthday,
+        'healthGoalsUpdatedAt': healthGoalsUpdatedAt?.toIso8601String(),
       };
 
   factory UserProfile.fromJson(Map<String, dynamic> json) => UserProfile(
@@ -120,5 +176,14 @@ class UserProfile {
             ActivityLevel.values.byName(json['activity'] as String? ?? 'moderate'),
         goal: DietGoal.values.byName(json['goal'] as String? ?? 'maintain'),
         fallbackWeightKg: (json['fallbackWeightKg'] as num?)?.toDouble(),
+        calorieGoalMode:
+            CalorieMode.values.byName(json['calorieGoalMode'] as String? ?? 'none'),
+        calorieGoalTarget: (json['calorieGoalTarget'] as num?)?.toDouble(),
+        weeklyExerciseSessions: (json['weeklyExerciseSessions'] as num?)?.toInt(),
+        minSessionMinutes: (json['minSessionMinutes'] as num?)?.toInt() ?? 20,
+        birthday: json['birthday'] as String?,
+        healthGoalsUpdatedAt: json['healthGoalsUpdatedAt'] != null
+            ? DateTime.tryParse(json['healthGoalsUpdatedAt'] as String)
+            : null,
       );
 }

@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../models/index.dart';
 import '../providers/profile_provider.dart';
 import '../providers/weight_provider.dart';
+import '../providers/auth_provider.dart';
+import '../providers/squad_provider.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_spacing.dart';
@@ -23,6 +25,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late Sex _sex;
   late ActivityLevel _activity;
   late DietGoal _goal;
+  // Health Goals
+  late CalorieMode _calMode;
+  late final TextEditingController _calTarget;
+  int? _weeklySessions; // null = exercise goal off
+  int _minMinutes = 20;
+  String? _birthday; // preserved across saves (date-picker UI lands in Task 6)
 
   static const _activityLabels = {
     ActivityLevel.sedentary: 'Sedentary (little/no exercise)',
@@ -44,6 +52,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _sex = p.sex;
     _activity = p.activity;
     _goal = p.goal;
+    _calMode = p.calorieGoalMode;
+    _calTarget = TextEditingController(
+        text: p.calorieGoalTarget != null ? p.calorieGoalTarget!.round().toString() : '');
+    _weeklySessions = p.weeklyExerciseSessions;
+    _minMinutes = p.minSessionMinutes;
+    _birthday = p.birthday;
   }
 
   @override
@@ -51,6 +65,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _height.dispose();
     _age.dispose();
     _weight.dispose();
+    _calTarget.dispose();
     super.dispose();
   }
 
@@ -66,6 +81,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         activity: _activity,
         goal: _goal,
         fallbackWeightKg: double.tryParse(_weight.text),
+        calorieGoalMode: _calMode,
+        calorieGoalTarget:
+            _calMode == CalorieMode.none ? null : double.tryParse(_calTarget.text),
+        weeklyExerciseSessions: _weeklySessions,
+        minSessionMinutes: _minMinutes,
+        birthday: _birthday,
       );
 
   Future<void> _save() async {
@@ -77,6 +98,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
     await context.read<ProfileProvider>().save(profile);
+    // Propagate the Health Goals to every squad (best-effort; only when signed
+    // in). profileGoalSnapshot is refreshed everywhere; the effective goal
+    // updates only where the member still inherits from the profile.
+    if (mounted) {
+      try {
+        final uid = context.read<AuthProvider>().firebaseUser?.uid;
+        if (uid != null) {
+          await context
+              .read<SquadProvider>()
+              .service
+              .syncProfileGoalsToAllSquads(uid, profile.healthGoalSnapshot);
+        }
+      } catch (_) {/* best-effort — never block a local profile save */}
+    }
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Profile saved!')));
@@ -132,7 +167,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(height: Spacing.s20),
           _preview(),
-          const SizedBox(height: Spacing.s20),
+          const SizedBox(height: Spacing.s24),
+          _healthGoals(),
+          const SizedBox(height: Spacing.s24),
           OutlinedButton(
             onPressed: _save,
             child: const Text('Save profile'),
@@ -170,6 +207,90 @@ class _ProfileScreenState extends State<ProfileScreen> {
             AppColors.textPrimary),
       ]),
     ]);
+  }
+
+  Widget _healthGoals() {
+    final weight = _effectiveWeight;
+    final profile = _currentProfile();
+    final suggestion = (weight != null && weight > 0 && profile.isComplete)
+        ? profile.calorieTarget(weight).round()
+        : null;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Text('HEALTH GOALS', style: AppText.caption),
+      const SizedBox(height: Spacing.s4),
+      Text('Becomes your primary squad goal — no Calendar entry needed.',
+          style: AppText.bodyM.copyWith(color: AppColors.textSecondary)),
+      const SizedBox(height: Spacing.s16),
+      Text('CALORIE GOAL', style: AppText.caption),
+      const SizedBox(height: Spacing.s8),
+      _segmented<CalorieMode>(
+        values: const [CalorieMode.none, CalorieMode.cap, CalorieMode.floor],
+        current: _calMode,
+        label: (m) => switch (m) {
+          CalorieMode.none => 'NONE',
+          CalorieMode.cap => 'CAP ≤',
+          CalorieMode.floor => 'FLOOR ≥',
+        },
+        onChanged: (m) => setState(() {
+          _calMode = m;
+          if (m != CalorieMode.none && _calTarget.text.isEmpty && suggestion != null) {
+            _calTarget.text = suggestion.toString();
+          }
+        }),
+      ),
+      if (_calMode != CalorieMode.none) ...[
+        const SizedBox(height: Spacing.s12),
+        _numField(_calTarget, 'Target (kcal/day)'),
+        if (suggestion != null) ...[
+          const SizedBox(height: Spacing.s8),
+          GestureDetector(
+            onTap: () => setState(() => _calTarget.text = suggestion.toString()),
+            child: Text('Suggested: $suggestion kcal/day  ·  tap to use',
+                style: AppText.caption.copyWith(color: AppColors.healthRed)),
+          ),
+        ],
+      ],
+      const SizedBox(height: Spacing.s16),
+      Text('EXERCISE GOAL', style: AppText.caption),
+      SwitchListTile(
+        contentPadding: EdgeInsets.zero,
+        activeThumbColor: AppColors.healthRed,
+        title: Text('Track weekly exercise sessions', style: AppText.bodyL),
+        subtitle: Text('A session counts when you log an exercise ≥ $_minMinutes min',
+            style: AppText.bodyM.copyWith(color: AppColors.textSecondary)),
+        value: _weeklySessions != null,
+        onChanged: (on) => setState(() => _weeklySessions = on ? (_weeklySessions ?? 3) : null),
+      ),
+      if (_weeklySessions != null) ...[
+        _stepperRow('Sessions per week', _weeklySessions!, 1, 14,
+            (v) => setState(() => _weeklySessions = v)),
+        _stepperRow('Min minutes per session', _minMinutes, 5, 180,
+            (v) => setState(() => _minMinutes = v), step: 5),
+      ],
+    ]);
+  }
+
+  Widget _stepperRow(String label, int value, int min, int max, ValueChanged<int> onChanged,
+      {int step = 1}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: Spacing.s4),
+      child: Row(children: [
+        Expanded(child: Text(label, style: AppText.bodyM)),
+        IconButton(
+          onPressed: value > min ? () => onChanged(value - step) : null,
+          icon: const Icon(Icons.remove_circle_outline, color: AppColors.textSecondary),
+        ),
+        SizedBox(
+          width: 36,
+          child: Text('$value',
+              textAlign: TextAlign.center, style: AppText.tabular(AppText.bodyL)),
+        ),
+        IconButton(
+          onPressed: value < max ? () => onChanged(value + step) : null,
+          icon: const Icon(Icons.add_circle_outline, color: AppColors.healthRed),
+        ),
+      ]),
+    );
   }
 
   Widget _stat(String label, String value, String unit, Color color) =>

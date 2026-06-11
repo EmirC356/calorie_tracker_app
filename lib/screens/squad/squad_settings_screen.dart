@@ -8,6 +8,7 @@ import '../../models/squad_group_goal.dart';
 import '../../models/date_helpers.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/squad_provider.dart';
+import '../../providers/profile_provider.dart';
 import '../../services/squad_service.dart';
 import '../../services/pause_service.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -151,29 +152,68 @@ class SquadSettingsScreen extends StatelessWidget {
     ]);
   }
 
+  Widget _goalModeChip(String label, bool active, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: Spacing.s8, horizontal: Spacing.s8),
+        decoration: BoxDecoration(
+          color: AppColors.surface1,
+          borderRadius: BorderRadius.circular(AppRadius.r8),
+          border: Border.all(
+              color: active ? AppColors.squadBlue : AppColors.surface2,
+              width: active ? 1.5 : 1),
+        ),
+        child: Text(label,
+            textAlign: TextAlign.center,
+            style: AppText.bodyS.copyWith(
+                color: active ? AppColors.squadBlue : AppColors.textSecondary)),
+      ),
+    );
+  }
+
   Widget _myGoalAndSharing(BuildContext context, SquadService service, Squad squad, String myUid) {
     return StreamBuilder<SquadMember?>(
       stream: service.watchMember(squad.id, myUid),
       builder: (context, snap) {
         final me = snap.data ?? const SquadMember(uid: '');
         return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          // My goal
+          // My goal — inherited from profile Health Goals, or overridden here.
           Text('MY DAILY GOAL', style: AppText.caption),
+          const SizedBox(height: Spacing.s8),
+          Row(children: [
+            Expanded(
+              child: _goalModeChip('Same as profile', me.inheritedFromProfile, () {
+                final snap = context.read<ProfileProvider>().profile?.healthGoalSnapshot;
+                service.setGoalInheritance(squad.id, myUid, inherited: true, snapshot: snap);
+              }),
+            ),
+            const SizedBox(width: Spacing.s8),
+            Expanded(
+              child: _goalModeChip('Override for this squad', !me.inheritedFromProfile, () {
+                service.setGoalInheritance(squad.id, myUid, inherited: false, override: me.goal);
+              }),
+            ),
+          ]),
           const SizedBox(height: Spacing.s12),
-          GoalSummary(goal: me.goal, fontSize: 15),
-          const SizedBox(height: Spacing.s12),
-          OutlinedButton.icon(
-            onPressed: () async {
-              final updated = await Navigator.push<dynamic>(context,
-                  MaterialPageRoute(builder: (_) => GoalEditorScreen(initial: me.goal)));
-              if (updated != null) await service.updateGoal(squad.id, myUid, updated);
-            },
-            style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.squadBlue,
-                side: const BorderSide(color: AppColors.squadBlue, width: 1.5)),
-            icon: const Icon(LucideIcons.pencil, size: 18),
-            label: Text(me.goal.isEmpty ? 'Set goal' : 'Edit goal'),
-          ),
+          GoalSummary(goal: me.effectiveGoal, fontSize: 15),
+          const SizedBox(height: Spacing.s8),
+          if (me.inheritedFromProfile)
+            Text('Edit these in Profile → Health Goals.',
+                style: AppText.bodyM.copyWith(color: AppColors.textSecondary))
+          else
+            OutlinedButton.icon(
+              onPressed: () async {
+                final updated = await Navigator.push<dynamic>(context,
+                    MaterialPageRoute(builder: (_) => GoalEditorScreen(initial: me.goal)));
+                if (updated != null) await service.updateGoal(squad.id, myUid, updated);
+              },
+              style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.squadBlue,
+                  side: const BorderSide(color: AppColors.squadBlue, width: 1.5)),
+              icon: const Icon(LucideIcons.pencil, size: 18),
+              label: Text(me.goal.isEmpty ? 'Set goal' : 'Edit goal'),
+            ),
           const SizedBox(height: Spacing.s24),
           // My sharing level
           Text('WHAT THIS SQUAD SEES', style: AppText.caption),

@@ -363,7 +363,7 @@ class StatusTransformer extends SnapshotTransformer {
 
   @override
   Future<bool> apply(SnapshotContext ctx, Map<String, dynamic> entry) async {
-    final status = ctx.member.goal.evaluate(
+    final status = ctx.member.effectiveGoal.evaluate(
       consumed: ctx.stats.consumed,
       exerciseMinutes: ctx.stats.exerciseMinutes,
       burned: ctx.stats.burned,
@@ -396,7 +396,7 @@ class MakeupTransformer extends SnapshotTransformer {
     final burned = ctx.stats.burned + exercises.fold(0.0, (s, e) => s + e.caloriesBurned);
     final minutes = ctx.stats.exerciseMinutes + exercises.fold<int>(0, (s, e) => s + e.durationMinutes);
 
-    final status = ctx.member.goal.evaluate(
+    final status = ctx.member.effectiveGoal.evaluate(
       consumed: consumed, exerciseMinutes: minutes, burned: burned, dayOver: true);
     if (status == GoalStatus.hit) {
       entry['redeemed'] = true; // rescued — streak survives at 0.5

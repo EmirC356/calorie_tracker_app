@@ -12,6 +12,7 @@ export 'user_profile.dart';
 export 'app_user.dart';
 export 'squad.dart';
 export 'squad_member.dart';
+export 'profile_goal_snapshot.dart';
 export 'squad_pause.dart';
 export 'squad_intention.dart';
 export 'squad_group_goal.dart';

@@ -10,6 +10,7 @@ import '../models/squad_group_goal.dart';
 import '../models/squad_comment.dart';
 import '../models/squad_activity.dart';
 import '../models/squad_goal.dart';
+import '../models/profile_goal_snapshot.dart';
 import '../models/squad_day_entry.dart';
 import '../models/date_helpers.dart';
 import '../models/streak_engine_v2.dart';
@@ -240,8 +241,54 @@ class SquadService {
     return qs.docs.map((d) => Squad.fromMap(d.id, d.data())).toList();
   }
 
+  /// Manual goal edit = a per-squad override, so it also flips
+  /// `inheritedFromProfile` false (the explicit goal now wins over the profile).
   Future<void> updateGoal(String squadId, String uid, SquadGoal goal) =>
-      _memberRef(squadId, uid).set({'goal': goal.toMap()}, SetOptions(merge: true));
+      _memberRef(squadId, uid).set(
+          {'goal': goal.toMap(), 'inheritedFromProfile': false}, SetOptions(merge: true));
+
+  /// Switches a member between "same as my profile goal" (inherited) and a
+  /// per-squad override. When switching back to inherited, materializes the
+  /// effective daily goal + snapshot from [snapshot] so the card/evaluator are
+  /// immediately correct.
+  Future<void> setGoalInheritance(
+    String squadId,
+    String uid, {
+    required bool inherited,
+    ProfileGoalSnapshot? snapshot,
+    SquadGoal? override,
+  }) {
+    final update = <String, dynamic>{'inheritedFromProfile': inherited};
+    if (inherited && snapshot != null) {
+      update['profileGoalSnapshot'] = snapshot.toMap();
+      update['goal'] = snapshot.toDailyGoal().toMap();
+    } else if (!inherited && override != null) {
+      update['goal'] = override.toMap();
+    }
+    return _memberRef(squadId, uid).set(update, SetOptions(merge: true));
+  }
+
+  /// Fans the user's profile Health Goals out to every squad they're in:
+  /// always refreshes `profileGoalSnapshot`, and updates the effective `goal`
+  /// only where the member still inherits from the profile. One batched write
+  /// per squad (a single member doc — well under the 500-write limit).
+  Future<void> syncProfileGoalsToAllSquads(String uid, ProfileGoalSnapshot snapshot) async {
+    final squads = await getMySquadsOnce(uid);
+    for (final squad in squads) {
+      final ref = _memberRef(squad.id, uid);
+      final existing = await ref.get();
+      if (!existing.exists) continue;
+      final inherited = (existing.data()?['inheritedFromProfile'] as bool?) ?? true;
+      final update = <String, dynamic>{
+        'profileGoalSnapshot': snapshot.toMap(),
+        'healthGoalsUpdatedAt': FieldValue.serverTimestamp(),
+      };
+      if (inherited) update['goal'] = snapshot.toDailyGoal().toMap();
+      final batch = _db.batch();
+      batch.set(ref, update, SetOptions(merge: true));
+      await batch.commit();
+    }
+  }
 
   Future<void> updateSharingLevel(String squadId, String uid, SharingLevel level) =>
       _memberRef(squadId, uid).set({'sharingLevel': level.name}, SetOptions(merge: true));
