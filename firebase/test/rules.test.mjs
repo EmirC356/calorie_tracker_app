@@ -130,6 +130,20 @@ await check('owner CAN write own pending reminder',
 await check("outsider CANNOT read another's pending reminders",
   assertFails(getDoc(doc(outsider, 'users/m1/pendingReminders/g1_2026-06-09'))));
 
+// ── Social sprint: retro / activity feed / mass-nudge ─────────────────────────
+await check('owner CAN read own weekly retro',
+  assertSucceeds(getDoc(doc(member, 'users/m1/weeklyRetros/2026-W24'))));
+await check('client CANNOT write a weekly retro (functions only)',
+  assertFails(setDoc(doc(member, 'users/m1/weeklyRetros/2026-W24'), { payload: {} })));
+await check('member CAN read the activity feed',
+  assertSucceeds(getDoc(doc(member, 'squads/s1/activity/a1'))));
+await check('client CANNOT write the activity feed (functions only)',
+  assertFails(setDoc(doc(member, 'squads/s1/activity/a2'), { type: 'x' })));
+await check('member CAN add self to a ghost mass-nudge',
+  assertSucceeds(setDoc(doc(member, 'squads/s1/ghostChecks/2026-06-15/aggregateNudges/owner'), { nudgerUids: ['m1'], count: 1 })));
+await check('member CANNOT nudge without including self',
+  assertFails(setDoc(doc(member, 'squads/s1/ghostChecks/2026-06-15/aggregateNudges/owner'), { nudgerUids: ['x'], count: 1 })));
+
 await testEnv.cleanup();
 console.log(`\nALL ${n} RULES TESTS PASSED`);
-assert(n === 36);
+assert(n === 42);

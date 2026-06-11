@@ -63,6 +63,17 @@ service cloud.firestore {
       match /pendingReminders/{occId} {
         allow read, write: if isSignedIn() && uid() == userId;
       }
+
+      // ── Weekly retro (Sunday recap): written ONLY by Cloud Functions (admin
+      // SDK bypasses rules); readable by the owner. pendingRetroPush is an
+      // internal function queue — no client access.
+      match /weeklyRetros/{weekKey} {
+        allow read: if isSignedIn() && uid() == userId;
+        allow write: if false;
+      }
+      match /pendingRetroPush/{weekKey} {
+        allow read, write: if false;
+      }
     }
 
     // ── squadCodes/{code} ─────────────────────────────────────────────────────
@@ -164,6 +175,30 @@ service cloud.firestore {
           && request.resource.data.toUid != uid(); // no nudging yourself
         allow update: if false; // reactions are immutable
         allow delete: if isSignedIn() && resource.data.fromUid == uid();
+      }
+
+      // ── days/{date}/markers/{id}: function-only idempotency markers ──────────
+      // (e.g. full-squad-day fired). Members may read; only the admin SDK writes.
+      match /days/{date}/markers/{markerId} {
+        allow read: if isMemberOf(squadId);
+        allow write: if false;
+      }
+
+      // ── activity/{id}: unified squad event feed ─────────────────────────────
+      // Streak losses, full-squad days, group-goal hits — written by Cloud
+      // Functions (admin SDK); members read the last N for the home feed.
+      match /activity/{activityId} {
+        allow read: if isMemberOf(squadId);
+        allow write: if false;
+      }
+
+      // ── ghostChecks/{date}/aggregateNudges/{ghostedUid}: mass-nudge batching ─
+      // A member adds their own uid to nudgerUids; the coordinated push +
+      // sentToGhostedAt are written by the function (admin SDK).
+      match /ghostChecks/{date}/aggregateNudges/{ghostedUid} {
+        allow read: if isMemberOf(squadId);
+        allow create, update: if isMemberOf(squadId)
+          && uid() in request.resource.data.nudgerUids; // must include self
       }
 
       // ── suggestions/{id}: squadmate -> me goal proposals ────────────────────

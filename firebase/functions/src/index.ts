@@ -19,6 +19,16 @@ import {
 // Goals/Calendar functions (suggestion pushes, morning brief, reminders).
 export * from "./calendar";
 
+// Social/accountability functions (streak-loss + full-squad-day broadcasts,
+// ghost sweep + aggregate nudge, weekly retro). All push via sendSquadPush.
+export {
+  onDayFinalized,
+  scheduledGhostSweep,
+  onAggregateNudge,
+  scheduledSundayRetro,
+  scheduledDeferredRetroPush,
+} from "./social";
+
 export const onEntryStatusHit = onDocumentWritten(
   "squads/{squadId}/days/{date}/entries/{uid}",
   async (event) => {
