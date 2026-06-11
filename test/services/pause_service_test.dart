@@ -64,4 +64,14 @@ void main() {
     expect(m['pause']['active'], isFalse); // unchanged
     expect(await db.getPauseHistory(), isEmpty);
   });
+
+  test('resume ends the pause early and refunds the unused days', () async {
+    await pause.declarePause(
+        squadId: 's1', uid: 'u1', until: DateTime(2026, 6, 14), now: now); // 5 days, tally 5
+    await pause.resumePause(squadId: 's1', uid: 'u1', now: DateTime(2026, 6, 12, 9)); // used 3
+
+    final m = (await fs.doc('squads/s1/members/u1').get()).data()!;
+    expect(m['pause']['active'], isFalse);
+    expect(m['pause']['daysUsedThisYear'], 3); // 5 declared − 2 refunded
+  });
 }

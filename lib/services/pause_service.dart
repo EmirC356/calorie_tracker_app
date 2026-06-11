@@ -48,4 +48,28 @@ class PauseService {
       squadId: squadId, until: until, reason: reason, days: plan.days, declaredAt: theNow);
     return plan;
   }
+
+  /// Ends an active pause early. Deactivates it and refunds the unused days back
+  /// to the yearly tally (you only "spend" the days you were actually paused).
+  Future<void> resumePause({
+    required String squadId,
+    required String uid,
+    DateTime? now,
+  }) async {
+    final theNow = now ?? DateTime.now();
+    final member = await _squad.getMember(squadId, uid);
+    final cur = member?.pause;
+    if (cur == null || !cur.active) return;
+
+    var used = cur.windowDays;
+    if (cur.declaredAt != null) {
+      final elapsed = dateOnly(theNow).difference(dateOnly(cur.declaredAt!)).inDays + 1;
+      used = elapsed.clamp(0, cur.windowDays);
+    }
+    final refund = cur.windowDays - used;
+    final newTally = (cur.daysUsedThisYear - refund).clamp(0, SquadPause.maxDaysPerYear);
+
+    await _squad.setPause(squadId, uid,
+        cur.copyWith(active: false, daysUsedThisYear: newTally, windowDays: 0));
+  }
 }

@@ -190,6 +190,17 @@ class SquadSettingsScreen extends StatelessWidget {
           const SizedBox(height: 4),
           Text('${me.pause.daysUsedThisYear}/60 pause days used this year',
               style: const TextStyle(color: kTextDim, fontSize: 11)),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: () async {
+              final messenger = ScaffoldMessenger.of(context);
+              await PauseService(squad: service).resumePause(squadId: squadId, uid: myUid);
+              messenger.showSnackBar(const SnackBar(content: Text('Welcome back — your streak resumes 💪')));
+            },
+            style: OutlinedButton.styleFrom(foregroundColor: kNavy, side: const BorderSide(color: kNavy)),
+            icon: const Icon(Icons.play_arrow, size: 18),
+            label: const Text('RESUME NOW'),
+          ),
         ] else
           OutlinedButton.icon(
             onPressed: () => _startPause(context, service, squadId, myUid),
