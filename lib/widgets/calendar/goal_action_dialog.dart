@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'dart:math' as math;
 import '../../models/index.dart';
 import '../../providers/goal_provider.dart';
-import '../../theme/app_theme.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_motion.dart';
+import '../../theme/app_spacing.dart';
+import '../../theme/app_text_styles.dart';
 import '../../screens/calendar/goal_edit_screen.dart';
 import '../../screens/calendar/goal_create_screen.dart';
 import '../../screens/calendar/recurring_edit_choice_sheet.dart';
+import '../ui/ui.dart';
 import 'calendar_status.dart';
 import 'progress_ring.dart';
 
@@ -131,42 +136,47 @@ class _GoalActionDialog extends StatelessWidget {
     final width = math.min(MediaQuery.of(context).size.width * 0.85, 360.0);
 
     return Dialog(
-      backgroundColor: kSurface,
+      backgroundColor: AppColors.surface3,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: goal.color.withValues(alpha: 0.6)),
+        borderRadius: BorderRadius.circular(AppRadius.r16),
       ),
       child: SizedBox(
         width: width,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          padding: const EdgeInsets.symmetric(
+              horizontal: Spacing.s24, vertical: Spacing.s32),
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Text(goal.title,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: kText, fontSize: 20, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
+                textAlign: TextAlign.center, style: AppText.titleM),
+            const SizedBox(height: Spacing.s8),
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               Container(width: 10, height: 10, decoration: BoxDecoration(color: goal.color, shape: BoxShape.circle)),
-              const SizedBox(width: 6),
+              const SizedBox(width: Spacing.s4),
               Text('${goal.categoryLabel} · ${DateFormat('EEE, MMM d').format(date)}',
-                  style: const TextStyle(color: kTextDim, fontSize: 12)),
+                  style: AppText.bodyS.copyWith(color: AppColors.textSecondary)),
             ]),
-            const SizedBox(height: 12),
-            _statusPill(status),
+            const SizedBox(height: Spacing.s12),
+            Center(
+              child: StatusPill(
+                status: occurrencePillStatus(status),
+                label: occurrenceStatusLabel(status),
+              ),
+            ),
             if (goal.isTracked) _trackedProgress(context, provider),
-            const SizedBox(height: 20),
-            _btn('Edit', Icons.edit, kAmber, () => Navigator.pop(context, _ActionResult.edit)),
-            const SizedBox(height: 12),
-            _btn('Mark done', Icons.check_circle, const Color(0xFF4CC38A),
+            const SizedBox(height: Spacing.s20),
+            _btn('Edit', LucideIcons.pencil, AppColors.calendarAmber,
+                () => Navigator.pop(context, _ActionResult.edit)),
+            const SizedBox(height: Spacing.s12),
+            _btn('Mark done', LucideIcons.check, AppColors.statusHit,
                 () => _setStatus(context, OccurrenceStatus.done)),
-            const SizedBox(height: 12),
-            _btn('Mark failed', Icons.cancel, kNeonRed,
+            const SizedBox(height: Spacing.s12),
+            _btn('Mark failed', LucideIcons.x, AppColors.statusMissed,
                 () => _setStatus(context, OccurrenceStatus.failed)),
-            const SizedBox(height: 12),
-            _btn('Skip', Icons.remove_circle, kTextDim,
+            const SizedBox(height: Spacing.s12),
+            _btn('Skip', LucideIcons.minusCircle, AppColors.statusPaused,
                 () => _setStatus(context, OccurrenceStatus.skipped)),
-            const SizedBox(height: 12),
-            _btn('Delete', Icons.delete, kNeonRed,
+            const SizedBox(height: Spacing.s12),
+            _btn('Delete', LucideIcons.trash2, AppColors.statusMissed,
                 () => Navigator.pop(context, _ActionResult.delete), destructive: true),
           ]),
         ),
@@ -174,49 +184,32 @@ class _GoalActionDialog extends StatelessWidget {
     );
   }
 
-  Widget _statusPill(OccurrenceStatus status) {
-    final color = occurrenceStatusColor(status);
-    return Center(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.16),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color),
-        ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(occurrenceStatusIcon(status), color: color, size: 16),
-          const SizedBox(width: 6),
-          Text(occurrenceStatusLabel(status), style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 13)),
-        ]),
-      ),
-    );
-  }
-
   Widget _trackedProgress(BuildContext context, GoalProvider provider) {
     return Padding(
-      padding: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.only(top: Spacing.s16),
       child: FutureBuilder<GoalEvaluationResult>(
         future: provider.evaluate(goal, date),
         builder: (_, snap) {
           if (!snap.hasData) {
-            return const SizedBox(height: 44, child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: kAmber))));
+            return const ShimmerPlaceholder(height: 44, radius: AppRadius.r8);
           }
           final r = snap.data!;
           final pct = r.progressPercent ?? 0;
           final color = occurrenceStatusColor(r.status);
           return Row(children: [
             ProgressRing(percent: pct, color: color, centerLabel: '${pct.toStringAsFixed(0)}%'),
-            const SizedBox(width: 14),
+            const SizedBox(width: Spacing.s12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(goalTargetLabel(goal), style: neonLabel(goal.color, size: 13)),
-                const SizedBox(height: 4),
+                Text(goalTargetLabel(goal),
+                    style: AppText.tabular(
+                        AppText.bodyS.copyWith(color: goal.color))),
+                const SizedBox(height: Spacing.s4),
                 Text(
                   r.metricValue == null
                       ? (r.message ?? '—')
                       : '${r.metricValue!.toStringAsFixed(0)} / ${r.targetValue?.toStringAsFixed(0) ?? '—'}',
-                  style: const TextStyle(color: kText, fontSize: 14),
+                  style: AppText.tabular(AppText.bodyM),
                 ),
               ]),
             ),
@@ -226,15 +219,24 @@ class _GoalActionDialog extends StatelessWidget {
     );
   }
 
+  /// Outlined full-width action. Non-destructive actions get a 1px border at
+  /// 45% alpha; the destructive Delete gets a full 1.5px statusMissed border.
   Widget _btn(String label, IconData icon, Color color, VoidCallback onTap,
           {bool destructive = false}) =>
       OutlinedButton.icon(
         onPressed: onTap,
         icon: Icon(icon, size: 18, color: color),
-        label: Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w600)),
+        label: Text(label,
+            style: AppText.bodyM
+                .copyWith(color: color, fontWeight: FontWeight.w600)),
         style: OutlinedButton.styleFrom(
           minimumSize: const Size.fromHeight(48),
-          side: BorderSide(color: color.withValues(alpha: destructive ? 1.0 : 0.5)),
+          foregroundColor: color,
+          side: destructive
+              ? const BorderSide(
+                  color: AppColors.statusMissed,
+                  width: AppMotion.focusBorderWidth)
+              : BorderSide(color: color.withValues(alpha: 0.45)),
         ),
       );
 }

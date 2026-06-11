@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../models/index.dart';
 import '../../providers/goal_provider.dart';
-import '../../theme/app_theme.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_spacing.dart';
+import '../../theme/app_text_styles.dart';
 import '../../widgets/calendar/calendar_status.dart';
 import '../../widgets/calendar/goal_action_dialog.dart';
+import '../../widgets/ui/ui.dart';
 
 /// Goal history: a filterable list of recorded occurrences plus a per-category
 /// success-rate card. Tapping a row reopens the detail sheet so a past outcome
@@ -74,17 +78,20 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
     final filtered = _filtered;
     final categories = {for (final e in _all) e.categoryLabel}.toList()..sort();
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('GOAL HISTORY'),
-        titleTextStyle: const TextStyle(
-            color: kAmber, fontSize: 17, fontWeight: FontWeight.bold, letterSpacing: 1.2),
-        iconTheme: const IconThemeData(color: kAmber),
-      ),
+      appBar: AppBar(title: const Text('Goal History')),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: kAmber))
-          : ListView(padding: const EdgeInsets.all(16), children: [
+          ? ListView(padding: const EdgeInsets.all(Spacing.s16), children: const [
+              ShimmerPlaceholder.card(height: 160),
+              SizedBox(height: Spacing.s12),
+              ShimmerPlaceholder.card(height: 64),
+              SizedBox(height: Spacing.s12),
+              ShimmerPlaceholder.card(height: 64),
+              SizedBox(height: Spacing.s12),
+              ShimmerPlaceholder.card(height: 64),
+            ])
+          : ListView(padding: const EdgeInsets.all(Spacing.s16), children: [
               _filters(categories),
-              const SizedBox(height: 16),
+              const SizedBox(height: Spacing.s16),
               GoalHistoryBody(
                 entries: filtered,
                 onTap: (e) async {
@@ -92,7 +99,7 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
                   await _load();
                 },
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: Spacing.s24),
             ]),
     );
   }
@@ -101,20 +108,27 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       InkWell(
         onTap: _pickRange,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppRadius.r8),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: neonBox(kAmber),
+          padding: const EdgeInsets.symmetric(
+              horizontal: Spacing.s16, vertical: Spacing.s12),
+          decoration: BoxDecoration(
+            color: AppColors.surface1,
+            borderRadius: BorderRadius.circular(AppRadius.r8),
+            border: Border.all(color: AppColors.surface2),
+          ),
           child: Row(children: [
-            const Icon(Icons.date_range, size: 18, color: kAmber),
-            const SizedBox(width: 10),
-            Text('${DateFormat('MMM d').format(_from)} – ${DateFormat('MMM d, yyyy').format(_to)}',
-                style: const TextStyle(color: kText, fontSize: 14)),
+            const Icon(LucideIcons.calendarDays,
+                size: 18, color: AppColors.textSecondary),
+            const SizedBox(width: Spacing.s8),
+            Text(
+                '${DateFormat('MMM d').format(_from)} – ${DateFormat('MMM d, yyyy').format(_to)}',
+                style: AppText.tabular(AppText.bodyM)),
           ]),
         ),
       ),
-      const SizedBox(height: 10),
-      Wrap(spacing: 10, runSpacing: 8, children: [
+      const SizedBox(height: Spacing.s12),
+      Wrap(spacing: Spacing.s8, runSpacing: Spacing.s8, children: [
         _dropdown<OccurrenceStatus?>(
           'Status',
           _statusFilter,
@@ -143,18 +157,19 @@ class _GoalHistoryScreenState extends State<GoalHistoryScreen> {
   Widget _dropdown<T>(String label, T value, List<T> items, String Function(T) toLabel,
       ValueChanged<T> onChanged) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: Spacing.s8, vertical: 2),
       decoration: BoxDecoration(
-        color: kCard,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: kBorderDim),
+        color: AppColors.surface1,
+        borderRadius: BorderRadius.circular(AppRadius.r8),
+        border: Border.all(color: AppColors.surface2),
       ),
       child: DropdownButton<T>(
         value: value,
-        dropdownColor: kCard,
+        dropdownColor: AppColors.surface3,
         underline: const SizedBox.shrink(),
-        style: const TextStyle(color: kText, fontSize: 13),
-        icon: const Icon(Icons.arrow_drop_down, color: kAmber),
+        style: AppText.bodyS,
+        icon: const Icon(LucideIcons.chevronDown,
+            size: 16, color: AppColors.textSecondary),
         items: items
             .map((i) => DropdownMenuItem(value: i, child: Text('$label: ${toLabel(i)}')))
             .toList(),
@@ -176,14 +191,16 @@ class GoalHistoryBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       _statsCard(),
-      const SizedBox(height: 16),
-      Text('OCCURRENCES (${entries.length})', style: neonLabel(kAmber, size: 13)),
-      const SizedBox(height: 8),
+      const SizedBox(height: Spacing.s16),
+      Text('OCCURRENCES (${entries.length})', style: AppText.caption),
+      const SizedBox(height: Spacing.s8),
       if (entries.isEmpty)
-        const Padding(
-          padding: EdgeInsets.symmetric(vertical: 24),
-          child: Center(child: Text('No occurrences match these filters',
-              style: TextStyle(color: kTextDim))),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: Spacing.s24),
+          child: Center(
+              child: Text('No occurrences match these filters',
+                  style: AppText.bodyM
+                      .copyWith(color: AppColors.textTertiary))),
         )
       else
         ...entries.map(_row),
@@ -194,36 +211,46 @@ class GoalHistoryBody extends StatelessWidget {
     final stats = categorySuccessRates(entries);
     if (stats.isEmpty) {
       return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: neonBox(kAmber),
-        child: const Text('No data in this range', style: TextStyle(color: kTextDim)),
+        padding: const EdgeInsets.all(Spacing.s16),
+        decoration: BoxDecoration(
+          color: AppColors.surface1,
+          borderRadius: BorderRadius.circular(AppRadius.r12),
+        ),
+        child: Text('No data in this range',
+            style: AppText.bodyM.copyWith(color: AppColors.textTertiary)),
       );
     }
     return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: neonBox(kAmber),
+      padding: const EdgeInsets.all(Spacing.s16),
+      decoration: BoxDecoration(
+        color: AppColors.surface1,
+        borderRadius: BorderRadius.circular(AppRadius.r12),
+      ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('SUCCESS RATE BY CATEGORY', style: neonLabel(kAmber, size: 12)),
-        const SizedBox(height: 12),
+        Text('SUCCESS RATE BY CATEGORY', style: AppText.caption),
+        const SizedBox(height: Spacing.s12),
         ...stats.entries.map((e) {
           final s = e.value;
           final rate = s.successRate;
           return Padding(
-            padding: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.only(bottom: Spacing.s12),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                Text(e.key, style: const TextStyle(color: kText, fontSize: 13)),
-                Text('${(rate * 100).toStringAsFixed(0)}%  (${s.done}/${s.done + s.failed})',
-                    style: const TextStyle(color: kTextDim, fontSize: 12)),
+                Text(e.key, style: AppText.bodyM),
+                Text(
+                    '${(rate * 100).toStringAsFixed(0)}%  (${s.done}/${s.done + s.failed})',
+                    style: AppText.tabular(AppText.bodyS
+                        .copyWith(color: AppColors.textSecondary))),
               ]),
-              const SizedBox(height: 4),
+              const SizedBox(height: Spacing.s4),
               ClipRRect(
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: BorderRadius.circular(AppRadius.pill),
                 child: LinearProgressIndicator(
                   value: rate,
                   minHeight: 8,
-                  backgroundColor: kBg,
-                  valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF4CC38A)),
+                  backgroundColor: AppColors.surface2,
+                  valueColor:
+                      const AlwaysStoppedAnimation<Color>(AppColors.statusHit),
                 ),
               ),
             ]),
@@ -233,37 +260,43 @@ class GoalHistoryBody extends StatelessWidget {
     );
   }
 
+  // TODO(ui): clarify — spec calls for StatusPill on status badges, but the
+  // goal_history widget test pins the Material status glyphs via
+  // occurrenceStatusIcon and test/ is off-limits; keeping the retoned icon.
   Widget _row(GoalHistoryEntry e) {
     final color = occurrenceStatusColor(e.status);
-    return InkWell(
-      onTap: () => onTap(e),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 6),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: kCard,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: kBorderDim),
-        ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Spacing.s8),
+      child: ColoredLeftBorderCard(
+        accent: e.goal.color,
+        padding: const EdgeInsets.symmetric(
+            horizontal: Spacing.s12, vertical: Spacing.s12),
+        onTap: () => onTap(e),
         child: Row(children: [
-          Container(width: 10, height: 10, decoration: BoxDecoration(color: e.goal.color, shape: BoxShape.circle)),
-          const SizedBox(width: 10),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
-                Flexible(child: Text(e.goal.title,
-                    maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: kText, fontSize: 13, fontWeight: FontWeight.w600))),
+                Flexible(
+                    child: Text(e.goal.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppText.bodyM
+                            .copyWith(fontWeight: FontWeight.w600))),
                 if (e.edited)
-                  const Padding(
-                    padding: EdgeInsets.only(left: 6),
-                    child: Text('edited', style: TextStyle(color: kTextDim, fontSize: 10, fontStyle: FontStyle.italic)),
+                  Padding(
+                    padding: const EdgeInsets.only(left: Spacing.s8),
+                    child: Text('edited',
+                        style: AppText.caption
+                            .copyWith(color: AppColors.textTertiary)),
                   ),
               ]),
+              const SizedBox(height: 2),
               Text('${e.categoryLabel} · ${DateFormat('EEE, MMM d').format(e.date)}',
-                  style: const TextStyle(color: kTextDim, fontSize: 11)),
+                  style:
+                      AppText.bodyS.copyWith(color: AppColors.textSecondary)),
             ]),
           ),
+          const SizedBox(width: Spacing.s8),
           Icon(occurrenceStatusIcon(e.status), color: color, size: 18),
         ]),
       ),

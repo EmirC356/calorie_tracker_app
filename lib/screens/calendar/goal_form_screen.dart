@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import '../../models/index.dart';
 import '../../services/prefs.dart';
-import '../../theme/app_theme.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_motion.dart';
+import '../../theme/app_spacing.dart';
+import '../../theme/app_text_styles.dart';
+import '../../theme/app_theme.dart'
+    show kCatHealth, kCatStudy, kCatHome, kCatPersonal, kGoalPalette, goalCategoryColor;
+import '../../widgets/ui/shimmer_placeholder.dart';
 
 const int kTitleMaxLen = 80;
 const int kDescMaxLen = 500;
@@ -296,65 +303,82 @@ class _GoalFormScreenState extends State<GoalFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.appBarTitle.toUpperCase()),
-        titleTextStyle: const TextStyle(
-            color: kAmber, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.2),
-        iconTheme: const IconThemeData(color: kAmber),
+    // Calendar room: inputs focus in calendarAmber (the app-level theme
+    // defaults to the Health accent).
+    final theme = Theme.of(context);
+    final amberInputs = theme.copyWith(
+      inputDecorationTheme: theme.inputDecorationTheme.copyWith(
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadius.r8),
+          borderSide: const BorderSide(
+              color: AppColors.calendarAmber,
+              width: AppMotion.focusBorderWidth),
+        ),
       ),
-      body: ListView(padding: const EdgeInsets.all(16), children: [
-        // ── Simple zone: exactly title, color, recurrence ──────────────────────
-        _field('Title', TextField(
-          controller: _title,
-          maxLength: kTitleMaxLen,
-          style: const TextStyle(color: kText),
-          decoration: const InputDecoration(hintText: 'e.g. Stay under 2200 kcal'),
-        )),
-        _colorSection(),
-        _recurrenceSection(),
-        const SizedBox(height: 8),
-        _startDateField(),
-        // ── Advanced toggle (chevron, anchored bottom-right) ───────────────────
-        Align(
-          alignment: Alignment.centerRight,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(8),
-            onTap: () => setState(() => _advanced = !_advanced),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Text(_advanced ? 'Fewer options' : 'More options',
-                    style: const TextStyle(color: kAmber, fontSize: 12, fontWeight: FontWeight.w600)),
-                const SizedBox(width: 4),
-                AnimatedRotation(
-                  turns: _advanced ? 0.5 : 0.0,
-                  duration: const Duration(milliseconds: 200),
-                  child: const Icon(Icons.expand_more, color: kAmber),
-                ),
-              ]),
+    );
+    return Scaffold(
+      appBar: AppBar(title: Text(widget.appBarTitle)),
+      body: Theme(
+        data: amberInputs,
+        child: ListView(padding: const EdgeInsets.all(Spacing.s16), children: [
+          // ── Simple zone: exactly title, color, recurrence ──────────────────────
+          _field('Title', TextField(
+            controller: _title,
+            maxLength: kTitleMaxLen,
+            decoration: const InputDecoration(hintText: 'e.g. Stay under 2200 kcal'),
+          )),
+          _colorSection(),
+          _recurrenceSection(),
+          const SizedBox(height: Spacing.s8),
+          _startDateField(),
+          // ── Advanced toggle (chevron, anchored bottom-right) ───────────────────
+          Align(
+            alignment: Alignment.centerRight,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(AppRadius.r8),
+              onTap: () => setState(() => _advanced = !_advanced),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: Spacing.s8, vertical: Spacing.s8),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Text(_advanced ? 'Fewer options' : 'More options',
+                      style: AppText.bodyS
+                          .copyWith(color: AppColors.calendarAmber)),
+                  const SizedBox(width: Spacing.s4),
+                  AnimatedRotation(
+                    turns: _advanced ? 0.5 : 0.0,
+                    duration: AppMotion.enter,
+                    // Overshoot feel for the chevron flip (spring-adjacent;
+                    // never easeInOut per the canon).
+                    curve: Curves.easeOutBack,
+                    child: const Icon(LucideIcons.chevronDown,
+                        color: AppColors.calendarAmber, size: 18),
+                  ),
+                ]),
+              ),
             ),
           ),
-        ),
-        // ── Advanced zone (collapsible) ────────────────────────────────────────
-        AnimatedSize(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeInOut,
-          alignment: Alignment.topCenter,
-          child: _advanced ? _advancedSection() : const SizedBox(width: double.infinity),
-        ),
-        const SizedBox(height: 20),
-        ElevatedButton(
-          onPressed: _saving ? null : _save,
-          style: ElevatedButton.styleFrom(
-              backgroundColor: kAmber, foregroundColor: kBg,
-              padding: const EdgeInsets.symmetric(vertical: 14)),
-          child: _saving
-              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: kBg))
-              : Text(widget.submitLabel, style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2)),
-        ),
-        const SizedBox(height: 24),
-      ]),
+          // ── Advanced zone (collapsible) ────────────────────────────────────────
+          AnimatedSize(
+            duration: AppMotion.enter,
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: _advanced ? _advancedSection() : const SizedBox(width: double.infinity),
+          ),
+          const SizedBox(height: Spacing.s20),
+          OutlinedButton(
+            onPressed: _saving ? null : _save,
+            style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.calendarAmber,
+                side: const BorderSide(
+                    color: AppColors.calendarAmber, width: 1.5)),
+            child: _saving
+                ? const ShimmerPlaceholder.line(width: 96)
+                : Text(widget.submitLabel),
+          ),
+          const SizedBox(height: Spacing.s24),
+        ]),
+      ),
     );
   }
 
@@ -365,46 +389,46 @@ class _GoalFormScreenState extends State<GoalFormScreen> {
         controller: _desc,
         maxLength: kDescMaxLen,
         maxLines: 2,
-        style: const TextStyle(color: kText),
         decoration: const InputDecoration(hintText: 'Notes for yourself'),
       )),
       _categorySection(),
       _label('Priority'),
       _segmented<GoalPriority>(GoalPriority.values, _priority,
           (p) => p.name[0].toUpperCase() + p.name.substring(1), (p) => setState(() => _priority = p)),
-      const SizedBox(height: 16),
+      const SizedBox(height: Spacing.s16),
       _label('Goal type'),
       _segmented<GoalType>(GoalType.values, _type,
           (t) => t.name[0].toUpperCase() + t.name.substring(1), (t) => setState(() => _type = t)),
       if (_type == GoalType.tracked) _trackedSection(),
-      const SizedBox(height: 16),
+      const SizedBox(height: Spacing.s16),
       _timeSection(),
-      const SizedBox(height: 8),
+      const SizedBox(height: Spacing.s8),
       _endSection(),
-      const SizedBox(height: 8),
+      const SizedBox(height: Spacing.s8),
       _reminderSection(),
-      const SizedBox(height: 8),
+      const SizedBox(height: Spacing.s8),
       SwitchListTile(
         contentPadding: EdgeInsets.zero,
-        activeThumbColor: kAmber,
-        title: const Text('Include in morning brief', style: TextStyle(color: kText, fontSize: 14)),
-        subtitle: const Text('Show this goal in your 8:00 daily summary',
-            style: TextStyle(color: kTextDim, fontSize: 12)),
+        activeThumbColor: AppColors.calendarAmber,
+        title: Text('Include in morning brief', style: AppText.bodyL),
+        subtitle: Text('Show this goal in your 8:00 daily summary',
+            style: AppText.bodyM.copyWith(color: AppColors.textSecondary)),
         value: _morningBrief,
         onChanged: (v) => setState(() => _morningBrief = v),
       ),
       if (widget.showSquadVisible)
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
-          activeThumbColor: kAmber,
+          activeThumbColor: AppColors.calendarAmber,
           title: Row(children: [
-            const Text('Squad-visible', style: TextStyle(color: kText, fontSize: 14)),
-            const SizedBox(width: 6),
-            Tooltip(
+            Text('Squad-visible', style: AppText.bodyL),
+            const SizedBox(width: Spacing.s8),
+            const Tooltip(
               message: 'Squadmates you share a squad with will see this goal\'s '
                   'title, category and status on their Today view — not your '
                   'private notes.',
-              child: Icon(Icons.info_outline, size: 15, color: kTextDim),
+              child: Icon(LucideIcons.info,
+                  size: 15, color: AppColors.textSecondary),
             ),
           ]),
           value: _squadVisible,
@@ -423,8 +447,8 @@ class _GoalFormScreenState extends State<GoalFormScreen> {
       _label('Category'),
       DropdownButtonFormField<GoalCategory>(
         initialValue: _category,
-        dropdownColor: kCard,
-        style: const TextStyle(color: kText, fontSize: 14),
+        dropdownColor: AppColors.surface3,
+        style: AppText.bodyM,
         items: GoalCategory.values
             .map((c) => DropdownMenuItem(
                 value: c, child: Text(c.name[0].toUpperCase() + c.name.substring(1))))
@@ -440,22 +464,21 @@ class _GoalFormScreenState extends State<GoalFormScreen> {
       ),
       if (_category == GoalCategory.custom)
         Padding(
-          padding: const EdgeInsets.only(top: 8),
+          padding: const EdgeInsets.only(top: Spacing.s8),
           child: TextField(
             controller: _customLabel,
             maxLength: 24,
-            style: const TextStyle(color: kText),
             decoration: const InputDecoration(hintText: 'Custom category label'),
           ),
         ),
-      const SizedBox(height: 8),
+      const SizedBox(height: Spacing.s8),
     ]);
   }
 
   Widget _colorSection() {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       _label('Color'),
-      Wrap(spacing: 10, runSpacing: 10, children: [
+      Wrap(spacing: Spacing.s12, runSpacing: Spacing.s12, children: [
         for (final c in kGoalPalette)
           GestureDetector(
             // Picking a preset infers the (hidden) category from the color.
@@ -469,11 +492,14 @@ class _GoalFormScreenState extends State<GoalFormScreen> {
                 color: c,
                 shape: BoxShape.circle,
                 border: Border.all(
-                    color: _color.toARGB32() == c.toARGB32() ? kWhite : Colors.transparent,
+                    color: _color.toARGB32() == c.toARGB32()
+                        ? AppColors.textPrimary
+                        : Colors.transparent,
                     width: 2),
               ),
               child: _color.toARGB32() == c.toARGB32()
-                  ? const Icon(Icons.check, size: 16, color: kBg)
+                  ? const Icon(LucideIcons.check,
+                      size: 16, color: AppColors.surface0)
                   : null,
             ),
           ),
@@ -483,15 +509,23 @@ class _GoalFormScreenState extends State<GoalFormScreen> {
           child: Container(
             width: 30, height: 30,
             decoration: BoxDecoration(
-              color: _isCustomColor ? _color : kCard,
+              color: _isCustomColor ? _color : AppColors.surface2,
               shape: BoxShape.circle,
-              border: Border.all(color: _isCustomColor ? kWhite : kBorderDim, width: 2),
+              border: Border.all(
+                  color: _isCustomColor
+                      ? AppColors.textPrimary
+                      : AppColors.divider,
+                  width: 2),
             ),
-            child: Icon(Icons.colorize, size: 15, color: _isCustomColor ? kBg : kTextDim),
+            child: Icon(LucideIcons.pipette,
+                size: 15,
+                color: _isCustomColor
+                    ? AppColors.surface0
+                    : AppColors.textSecondary),
           ),
         ),
       ]),
-      const SizedBox(height: 16),
+      const SizedBox(height: Spacing.s16),
     ]);
   }
 
@@ -519,7 +553,6 @@ class _GoalFormScreenState extends State<GoalFormScreen> {
         content: TextField(
           controller: ctrl,
           autofocus: true,
-          style: const TextStyle(color: kText),
           decoration: const InputDecoration(hintText: '#RRGGBB'),
         ),
         actions: [
@@ -548,22 +581,20 @@ class _GoalFormScreenState extends State<GoalFormScreen> {
   }
 
   Widget _trackedSection() {
-    return Container(
-      margin: const EdgeInsets.only(top: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: neonBox(kAmber),
+    return Padding(
+      padding: const EdgeInsets.only(top: Spacing.s12),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _label('Metric'),
         DropdownButtonFormField<TrackedMetric>(
           initialValue: _metric,
-          dropdownColor: kCard,
-          style: const TextStyle(color: kText, fontSize: 14),
+          dropdownColor: AppColors.surface3,
+          style: AppText.bodyM,
           items: TrackedMetric.values
               .map((m) => DropdownMenuItem(value: m, child: Text(_metricLabel(m))))
               .toList(),
           onChanged: (m) => setState(() => _metric = m ?? _metric),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: Spacing.s12),
         Row(children: [
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -573,30 +604,30 @@ class _GoalFormScreenState extends State<GoalFormScreen> {
                   (c) => setState(() => _comparator = c)),
             ]),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: Spacing.s12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               _label('Target'),
               TextField(
                 controller: _target,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                style: const TextStyle(color: kText),
+                style: AppText.tabular(AppText.bodyM),
                 decoration: const InputDecoration(hintText: 'e.g. 2200'),
               ),
             ]),
           ),
         ]),
-        const SizedBox(height: 10),
+        const SizedBox(height: Spacing.s12),
         _label('Period'),
         _segmented<GoalPeriod>(GoalPeriod.values, _period,
             (p) => p.name[0].toUpperCase() + p.name.substring(1), (p) => setState(() => _period = p)),
         if (_metric == TrackedMetric.exerciseSessionCount) ...[
-          const SizedBox(height: 10),
+          const SizedBox(height: Spacing.s12),
           _label('Min session duration (min)'),
           TextField(
             controller: _minDur,
             keyboardType: TextInputType.number,
-            style: const TextStyle(color: kText),
+            style: AppText.tabular(AppText.bodyM),
             decoration: const InputDecoration(hintText: '20'),
           ),
         ],
@@ -608,7 +639,7 @@ class _GoalFormScreenState extends State<GoalFormScreen> {
   Widget _startDateField() {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       _label('Start date'),
-      _tappableValue(DateFormat('EEE, MMM d, yyyy').format(_startDate), Icons.calendar_today, () async {
+      _tappableValue(DateFormat('EEE, MMM d, yyyy').format(_startDate), LucideIcons.calendar, () async {
         final picked = await showDatePicker(
           context: context,
           initialDate: _startDate,
@@ -625,13 +656,13 @@ class _GoalFormScreenState extends State<GoalFormScreen> {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       SwitchListTile(
         contentPadding: EdgeInsets.zero,
-        activeThumbColor: kAmber,
-        title: const Text('Set a time', style: TextStyle(color: kText, fontSize: 14)),
+        activeThumbColor: AppColors.calendarAmber,
+        title: Text('Set a time', style: AppText.bodyL),
         value: _timeEnabled,
         onChanged: (v) => setState(() => _timeEnabled = v),
       ),
       if (_timeEnabled)
-        _tappableValue(_time.format(context), Icons.access_time, () async {
+        _tappableValue(_time.format(context), LucideIcons.clock, () async {
           final picked = await showTimePicker(context: context, initialTime: _time);
           if (picked != null) setState(() => _time = picked);
         }),
@@ -644,15 +675,15 @@ class _GoalFormScreenState extends State<GoalFormScreen> {
       _segmented<_RecType>(_RecType.values, _recType,
           (r) => r.name[0].toUpperCase() + r.name.substring(1), (r) => setState(() => _recType = r)),
       if (_recType == _RecType.weekly) ...[
-        const SizedBox(height: 10),
+        const SizedBox(height: Spacing.s12),
         Row(children: [
           _miniToggle('Specific days', !_weeklyCountMode, () => setState(() => _weeklyCountMode = false)),
-          const SizedBox(width: 8),
+          const SizedBox(width: Spacing.s8),
           _miniToggle('N / week', _weeklyCountMode, () => setState(() => _weeklyCountMode = true)),
         ]),
-        const SizedBox(height: 10),
+        const SizedBox(height: Spacing.s12),
         if (!_weeklyCountMode)
-          Wrap(spacing: 6, children: [
+          Wrap(spacing: Spacing.s8, children: [
             for (var d = DateTime.monday; d <= DateTime.sunday; d++)
               _dayToggle(d),
           ])
@@ -680,8 +711,8 @@ class _GoalFormScreenState extends State<GoalFormScreen> {
         }
       }, (m) => setState(() => _endMode = m)),
       if (_endMode == _EndMode.until) ...[
-        const SizedBox(height: 8),
-        _tappableValue(DateFormat('MMM d, yyyy').format(_until), Icons.event, () async {
+        const SizedBox(height: Spacing.s8),
+        _tappableValue(DateFormat('MMM d, yyyy').format(_until), LucideIcons.calendarDays, () async {
           final picked = await showDatePicker(
             context: context,
             initialDate: _until.isBefore(_startDate) ? _startDate : _until,
@@ -702,8 +733,8 @@ class _GoalFormScreenState extends State<GoalFormScreen> {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       _label('Reminder'),
       if (!_timeEnabled)
-        const Text('Set a time above to enable reminders',
-            style: TextStyle(color: kTextDim, fontSize: 12))
+        Text('Set a time above to enable reminders',
+            style: AppText.bodyS.copyWith(color: AppColors.textTertiary))
       else ...[
         _segmented<_ReminderMode>(_ReminderMode.values, _reminderMode, (m) {
           switch (m) {
@@ -716,11 +747,11 @@ class _GoalFormScreenState extends State<GoalFormScreen> {
           }
         }, (m) => setState(() => _reminderMode = m)),
         if (_reminderMode == _ReminderMode.custom) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: Spacing.s8),
           TextField(
             controller: _customReminder,
             keyboardType: TextInputType.number,
-            style: const TextStyle(color: kText),
+            style: AppText.tabular(AppText.bodyM),
             decoration: const InputDecoration(hintText: 'Minutes before', suffixText: 'min'),
           ),
         ],
@@ -732,12 +763,13 @@ class _GoalFormScreenState extends State<GoalFormScreen> {
 
   Widget _field(String label, Widget child) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [_label(label), child, const SizedBox(height: 6)],
+        children: [_label(label), child, const SizedBox(height: Spacing.s8)],
       );
 
   Widget _label(String t) => Padding(
-        padding: const EdgeInsets.only(bottom: 6, top: 4),
-        child: Text(t, style: neonLabel(kAmber, size: 12)),
+        padding:
+            const EdgeInsets.only(bottom: Spacing.s8, top: Spacing.s4),
+        child: Text(t.toUpperCase(), style: AppText.caption),
       );
 
   Widget _segmented<T>(List<T> values, T current, String Function(T) label, ValueChanged<T> onChanged) {
@@ -747,21 +779,31 @@ class _GoalFormScreenState extends State<GoalFormScreen> {
           Expanded(
             child: GestureDetector(
               onTap: () => onChanged(v),
-              child: Container(
-                margin: const EdgeInsets.only(right: 6),
-                padding: const EdgeInsets.symmetric(vertical: 9),
+              child: AnimatedContainer(
+                duration: AppMotion.enter,
+                curve: Curves.easeOutCubic,
+                margin: const EdgeInsets.only(right: Spacing.s8),
+                padding: const EdgeInsets.symmetric(vertical: Spacing.s8),
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: v == current ? kAmber.withValues(alpha: 0.2) : kCard,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: v == current ? kAmber : kBorderDim),
+                  color: AppColors.surface1,
+                  borderRadius: BorderRadius.circular(AppRadius.r8),
+                  border: Border.all(
+                    color: v == current
+                        ? AppColors.calendarAmber
+                        : AppColors.surface2,
+                    width: v == current ? AppMotion.focusBorderWidth : 1,
+                  ),
+                  boxShadow: v == current
+                      ? AppMotion.accentGlow(AppColors.calendarAmber)
+                      : null,
                 ),
                 child: Text(label(v),
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                        color: v == current ? kAmber : kTextDim,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600)),
+                    style: AppText.bodyS.copyWith(
+                        color: v == current
+                            ? AppColors.calendarAmber
+                            : AppColors.textSecondary)),
               ),
             ),
           ),
@@ -771,14 +813,27 @@ class _GoalFormScreenState extends State<GoalFormScreen> {
 
   Widget _miniToggle(String label, bool active, VoidCallback onTap) => GestureDetector(
         onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        child: AnimatedContainer(
+          duration: AppMotion.enter,
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(
+              horizontal: Spacing.s12, vertical: Spacing.s8),
           decoration: BoxDecoration(
-            color: active ? kAmber.withValues(alpha: 0.2) : kCard,
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: active ? kAmber : kBorderDim),
+            color: AppColors.surface1,
+            borderRadius: BorderRadius.circular(AppRadius.r8),
+            border: Border.all(
+              color: active ? AppColors.calendarAmber : AppColors.surface2,
+              width: active ? AppMotion.focusBorderWidth : 1,
+            ),
+            boxShadow: active
+                ? AppMotion.accentGlow(AppColors.calendarAmber)
+                : null,
           ),
-          child: Text(label, style: TextStyle(color: active ? kAmber : kTextDim, fontSize: 12)),
+          child: Text(label,
+              style: AppText.bodyS.copyWith(
+                  color: active
+                      ? AppColors.calendarAmber
+                      : AppColors.textSecondary)),
         ),
       );
 
@@ -793,43 +848,60 @@ class _GoalFormScreenState extends State<GoalFormScreen> {
           _weekdays.add(weekday);
         }
       }),
-      child: Container(
+      child: AnimatedContainer(
+        duration: AppMotion.enter,
+        curve: Curves.easeOutCubic,
         width: 34, height: 34,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: active ? kAmber.withValues(alpha: 0.25) : kCard,
+          color: AppColors.surface1,
           shape: BoxShape.circle,
-          border: Border.all(color: active ? kAmber : kBorderDim),
+          border: Border.all(
+            color: active ? AppColors.calendarAmber : AppColors.surface2,
+            width: active ? AppMotion.focusBorderWidth : 1,
+          ),
+          boxShadow:
+              active ? AppMotion.accentGlow(AppColors.calendarAmber) : null,
         ),
         child: Text(labels[weekday - 1],
-            style: TextStyle(color: active ? kAmber : kTextDim, fontWeight: FontWeight.bold)),
+            style: AppText.bodyS.copyWith(
+                color: active
+                    ? AppColors.calendarAmber
+                    : AppColors.textSecondary)),
       ),
     );
   }
 
   Widget _stepper(String label, int value, int min, int max, ValueChanged<int> onChanged) => Row(children: [
-        Expanded(child: Text(label, style: const TextStyle(color: kText, fontSize: 13))),
+        Expanded(child: Text(label, style: AppText.bodyM)),
         IconButton(
-          icon: const Icon(Icons.remove_circle_outline, color: kAmber),
+          icon: const Icon(LucideIcons.minusCircle,
+              color: AppColors.textSecondary),
           onPressed: value > min ? () => onChanged(value - 1) : null,
         ),
-        Text('$value', style: const TextStyle(color: kText, fontSize: 16, fontWeight: FontWeight.bold)),
+        Text('$value', style: AppText.tabular(AppText.titleM)),
         IconButton(
-          icon: const Icon(Icons.add_circle_outline, color: kAmber),
+          icon: const Icon(LucideIcons.plusCircle,
+              color: AppColors.textSecondary),
           onPressed: value < max ? () => onChanged(value + 1) : null,
         ),
       ]);
 
   Widget _tappableValue(String text, IconData icon, VoidCallback onTap) => InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppRadius.r8),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: neonBox(kAmber),
+          padding: const EdgeInsets.symmetric(
+              horizontal: Spacing.s16, vertical: Spacing.s12),
+          decoration: BoxDecoration(
+            color: AppColors.surface1,
+            borderRadius: BorderRadius.circular(AppRadius.r8),
+            border: Border.all(color: AppColors.surface2),
+          ),
           child: Row(children: [
-            Icon(icon, size: 18, color: kAmber),
-            const SizedBox(width: 10),
-            Text(text, style: const TextStyle(color: kText, fontSize: 14)),
+            Icon(icon, size: 18, color: AppColors.textSecondary),
+            const SizedBox(width: Spacing.s12),
+            Text(text, style: AppText.tabular(AppText.bodyM)),
           ]),
         ),
       );

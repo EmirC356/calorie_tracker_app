@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../models/index.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import '../../providers/goal_provider.dart';
-import '../../theme/app_theme.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_spacing.dart';
+import '../../theme/app_text_styles.dart';
 import '../../widgets/calendar/day_summary_chip.dart';
 import '../../widgets/calendar/goal_action_dialog.dart';
 import '../../widgets/calendar/calendar_status.dart';
@@ -96,17 +99,26 @@ class _CalendarWeekViewState extends State<CalendarWeekView> {
     return Column(children: [
       // Header strip: visible 3-day range + a Today snap-back button.
       Padding(
-        padding: const EdgeInsets.fromLTRB(16, 6, 8, 6),
+        padding: const EdgeInsets.fromLTRB(
+            Spacing.s16, Spacing.s8, Spacing.s8, Spacing.s8),
         child: Row(children: [
           Expanded(
             child: Text(_rangeLabel(_windowLeft),
-                style: const TextStyle(color: kText, fontSize: 14, fontWeight: FontWeight.w600)),
+                style: AppText.tabular(AppText.titleM)),
           ),
           // Always visible; greyed out + disabled while today is in view.
           TextButton.icon(
             onPressed: _todayVisible ? null : _goToToday,
-            icon: Icon(Icons.today, size: 16, color: _todayVisible ? kTextDim : kAmber),
-            label: Text('Today', style: TextStyle(color: _todayVisible ? kTextDim : kAmber)),
+            icon: Icon(LucideIcons.calendarCheck,
+                size: 16,
+                color: _todayVisible
+                    ? AppColors.textTertiary
+                    : AppColors.calendarAmber),
+            label: Text('Today',
+                style: AppText.bodyS.copyWith(
+                    color: _todayVisible
+                        ? AppColors.textTertiary
+                        : AppColors.calendarAmber)),
           ),
         ]),
       ),
@@ -138,74 +150,99 @@ class _CalendarWeekViewState extends State<CalendarWeekView> {
     final act = _activity[ymd(day)];
     final isToday = dateOnly(day) == dateOnly(DateTime.now());
 
+    final empty = occ.isEmpty && act == null;
+
+    // TODO(ui): clarify the "now" line — columns are stacked lists with no
+    // hour axis, so a time-positioned line needs a layout change (out of
+    // scope for the visual-only pass).
     return Padding(
-      padding: const EdgeInsets.all(3),
-      child: Container(
-        decoration: BoxDecoration(
-          color: isToday ? kAmber.withValues(alpha: 0.07) : kCard,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: isToday ? kAmber : kBorderDim),
+      padding: const EdgeInsets.all(Spacing.s4 / 2),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        // Day header: caption weekday over a displayM tabular day-of-month;
+        // today carries a 2px calendarAmber underline (design/system.md).
+        InkWell(
+          onTap: () => widget.onTapDay(day),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: Spacing.s8),
+            child: Column(children: [
+              Text(DateFormat('EEE').format(day).toUpperCase(),
+                  style: AppText.caption.copyWith(
+                      color: isToday
+                          ? AppColors.calendarAmber
+                          : AppColors.textSecondary)),
+              Text('${day.day}', style: AppText.tabular(AppText.displayM)),
+              const SizedBox(height: Spacing.s4),
+              Container(
+                width: Spacing.s24,
+                height: 2,
+                color: isToday
+                    ? AppColors.calendarAmber
+                    : Colors.transparent,
+              ),
+            ]),
+          ),
         ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          InkWell(
-            onTap: () => widget.onTapDay(day),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Column(children: [
-                Text(DateFormat('EEE').format(day),
-                    style: TextStyle(color: isToday ? kAmber : kTextDim, fontSize: 12)),
-                Text('${day.day}',
-                    style: TextStyle(
-                        color: isToday ? kAmber : kText,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold)),
-              ]),
-            ),
-          ),
-          const Divider(height: 1, color: kBorderDim),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(4),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                for (final o in occ)
-                  _weekGoalChip(o.goal, o.row?.status ?? OccurrenceStatus.open, day),
-                if (act != null) ...DaySummaryChip.forActivity(act),
-              ]),
-            ),
-          ),
-        ]),
-      ),
+        const Divider(height: 1, color: AppColors.surface2),
+        Expanded(
+          child: empty
+              // Empty days: a single muted dot, no text.
+              ? Center(
+                  child: Container(
+                    width: 6,
+                    height: 6,
+                    decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.textTertiary),
+                  ),
+                )
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.all(Spacing.s4),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (final o in occ)
+                          _weekGoalChip(o.goal,
+                              o.row?.status ?? OccurrenceStatus.open, day),
+                        if (act != null) ...DaySummaryChip.forActivity(act),
+                      ]),
+                ),
+        ),
+      ]),
     );
   }
 
-  /// Goal chip sized for a narrow column: full width, ≥ 64dp tall.
+  /// Goal capsule sized for a narrow column: surface1 with a 4px left border
+  /// in the goal's category color, ≥ 64dp tall.
   Widget _weekGoalChip(Goal goal, OccurrenceStatus status, DateTime day) {
     final color = occurrenceStatusColor(status);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.only(bottom: Spacing.s4),
       child: InkWell(
         onTap: () => showGoalActionDialog(context, goal: goal, date: day),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppRadius.r8),
         child: Container(
           constraints: const BoxConstraints(minHeight: 64),
-          padding: const EdgeInsets.all(8),
+          clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
-            color: goal.color.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: goal.color.withValues(alpha: 0.55)),
+            color: AppColors.surface1,
+            borderRadius: BorderRadius.circular(AppRadius.r8),
           ),
+          foregroundDecoration: BoxDecoration(
+            border: Border(left: BorderSide(color: goal.color, width: 4)),
+          ),
+          padding: const EdgeInsets.fromLTRB(
+              Spacing.s12, Spacing.s8, Spacing.s8, Spacing.s8),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
             Row(children: [
               Container(width: 8, height: 8, decoration: BoxDecoration(color: goalPriorityColor(goal.priority), shape: BoxShape.circle)),
               const Spacer(),
               Icon(occurrenceStatusIcon(status), size: 14, color: color),
             ]),
-            const SizedBox(height: 4),
+            const SizedBox(height: Spacing.s4),
             Text(goal.title,
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                    color: kText,
+                style: AppText.bodyS.copyWith(
                     fontSize: 11,
                     decoration: status == OccurrenceStatus.done ? TextDecoration.lineThrough : null,
                     decorationColor: color)),

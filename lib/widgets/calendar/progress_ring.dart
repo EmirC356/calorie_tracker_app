@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_theme.dart';
+import '../../theme/app_text_styles.dart';
+import '../ui/ui.dart';
 
 /// A compact circular progress ring with an optional center label. Used for
-/// tracked-goal progress on the day view and detail sheet.
+/// tracked-goal progress on the day view and detail dialog.
+///
+/// Delegates to the design-system [AnimatedRing] (surface2 track, spring
+/// fill); [color] comes from the occurrence status or goal category.
 class ProgressRing extends StatelessWidget {
   final double percent; // 0..100
   final Color color;
@@ -21,26 +25,22 @@ class ProgressRing extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final value = (percent / 100).clamp(0.0, 1.0);
-    return SizedBox(
-      width: size,
-      height: size,
-      child: Stack(alignment: Alignment.center, children: [
-        SizedBox(
-          width: size,
-          height: size,
-          child: CircularProgressIndicator(
-            value: value,
-            strokeWidth: stroke,
-            backgroundColor: kBorderDim,
-            valueColor: AlwaysStoppedAnimation<Color>(color),
-          ),
-        ),
-        if (centerLabel != null)
-          Text(centerLabel!,
-              style: TextStyle(
-                  color: color, fontSize: size * 0.26, fontWeight: FontWeight.bold)),
-      ]),
+    final value = (percent / 100).clamp(0.0, 1.0).toDouble();
+    return AnimatedRing(
+      progress: value,
+      accent: color,
+      size: size,
+      strokeWidth: stroke,
+      child: centerLabel == null
+          ? null
+          : Text(
+              centerLabel!,
+              style: AppText.tabular(AppText.bodyS.copyWith(
+                color: color,
+                fontSize: size * 0.26,
+                fontWeight: FontWeight.w600,
+              )),
+            ),
     );
   }
 }

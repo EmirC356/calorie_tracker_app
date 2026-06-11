@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/index.dart';
 import '../../providers/goal_provider.dart';
-import '../../theme/app_theme.dart';
-import '../../widgets/calendar/goal_chip.dart';
-import '../../widgets/calendar/day_summary_chip.dart';
-import '../../widgets/calendar/goal_action_dialog.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_spacing.dart';
+import '../../theme/app_text_styles.dart';
 
-/// Month grid (weeks start Monday). Each cell shows the day number, up to 3
-/// compact goal chips (with a "+N" overflow), and up to 2 activity summary
-/// chips. Tapping a day opens the Day view.
+/// Month grid (weeks start Monday). Cells are minimal per the canon: a bodyL
+/// day number, up to 3 colored dots for categories with goals that day, and
+/// the activity summary collapsed to a small meal count. Today gets a 12%
+/// calendarAmber tint. Tapping a day opens the Day view.
 class CalendarMonthView extends StatelessWidget {
   final DateTime month; // any date within the month
   final Map<String, DayActivity> activity;
@@ -39,12 +39,10 @@ class CalendarMonthView extends StatelessWidget {
       Row(children: [
         for (final l in _weekdayLabels)
           Expanded(
-            child: Center(
-              child: Text(l, style: const TextStyle(color: kTextDim, fontSize: 11, fontWeight: FontWeight.bold)),
-            ),
+            child: Center(child: Text(l, style: AppText.caption)),
           ),
       ]),
-      const SizedBox(height: 4),
+      const SizedBox(height: Spacing.s4),
       Expanded(
         child: Column(
           children: [
@@ -72,41 +70,50 @@ class CalendarMonthView extends StatelessWidget {
     final occ = provider.occurrencesOn(day);
     final act = activity[ymd(day)];
 
+    // Up to 3 distinct goal colors as dots — categories present that day.
+    final dotColors = <Color>[];
+    for (final o in occ) {
+      if (!dotColors.contains(o.goal.color)) dotColors.add(o.goal.color);
+      if (dotColors.length == 3) break;
+    }
+
     return GestureDetector(
       onTap: () => onTapDay(day),
       child: Container(
         margin: const EdgeInsets.all(1.5),
-        padding: const EdgeInsets.all(3),
+        padding: const EdgeInsets.all(Spacing.s4),
         decoration: BoxDecoration(
-          color: isToday ? kAmber.withValues(alpha: 0.10) : kCard,
-          borderRadius: BorderRadius.circular(5),
-          border: Border.all(color: isToday ? kAmber : kBorderDim),
+          color: isToday
+              ? AppColors.calendarAmber.withValues(alpha: 0.12)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(AppRadius.r8),
         ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        child: Column(children: [
           Text('${day.day}',
-              style: TextStyle(
+              style: AppText.tabular(AppText.bodyL.copyWith(
+                  fontSize: 14,
                   color: isToday
-                      ? kAmber
-                      : (inMonth ? kText : kTextDim.withValues(alpha: 0.4)),
-                  fontSize: 11,
-                  fontWeight: isToday ? FontWeight.bold : FontWeight.normal)),
-          Expanded(
-            child: ClipRect(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                for (final o in occ.take(3))
-                  GoalChip(
-                    goal: o.goal,
-                    status: o.row?.status ?? OccurrenceStatus.open,
-                    compact: true,
-                    onTap: () => showGoalActionDialog(context, goal: o.goal, date: day),
-                  ),
-                if (occ.length > 3)
-                  Text('+${occ.length - 3}',
-                      style: const TextStyle(color: kTextDim, fontSize: 9)),
-                if (act != null) ...DaySummaryChip.forActivity(act).take(2),
-              ]),
-            ),
-          ),
+                      ? AppColors.calendarAmber
+                      : (inMonth
+                          ? AppColors.textPrimary
+                          : AppColors.textDisabled)))),
+          const SizedBox(height: Spacing.s4),
+          if (dotColors.isNotEmpty)
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              for (final c in dotColors)
+                Container(
+                  width: 5,
+                  height: 5,
+                  margin: const EdgeInsets.symmetric(horizontal: 1),
+                  decoration:
+                      BoxDecoration(shape: BoxShape.circle, color: c),
+                ),
+            ]),
+          const Spacer(),
+          if (act != null && act.mealCount > 0)
+            Text('${act.mealCount}',
+                style: AppText.tabular(AppText.caption
+                    .copyWith(fontSize: 9, color: AppColors.textTertiary))),
         ]),
       ),
     );

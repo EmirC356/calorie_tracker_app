@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_theme.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_spacing.dart';
+import '../../theme/app_text_styles.dart';
 
 /// Scope chosen when editing or deleting a recurring goal.
 enum RecurringEditScope { onlyThis, thisAndFuture, allInSeries }
@@ -10,33 +13,39 @@ Future<RecurringEditScope?> showRecurringEditChoice(BuildContext context,
     {required String verb}) {
   return showModalBottomSheet<RecurringEditScope>(
     context: context,
-    backgroundColor: kSurface,
+    backgroundColor: AppColors.surface3,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      side: BorderSide(color: kAmber, width: 1),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.r16)),
     ),
     builder: (_) => SafeArea(
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
+          padding: const EdgeInsets.fromLTRB(
+              Spacing.s20, Spacing.s20, Spacing.s20, Spacing.s8),
           child: Align(
             alignment: Alignment.centerLeft,
-            child: Text('${verb[0].toUpperCase()}${verb.substring(1)} recurring goal',
-                style: neonLabel(kAmber, size: 15)),
+            child: Text(
+                '${verb[0].toUpperCase()}${verb.substring(1)} recurring goal'
+                    .toUpperCase(),
+                style: AppText.caption),
           ),
         ),
-        _tile(context, 'Only this occurrence', Icons.looks_one, RecurringEditScope.onlyThis),
-        _tile(context, 'This and future occurrences', Icons.fast_forward, RecurringEditScope.thisAndFuture),
-        _tile(context, 'All occurrences in the series', Icons.all_inclusive, RecurringEditScope.allInSeries),
-        const SizedBox(height: 8),
+        _tile(context, 'Only this occurrence', LucideIcons.circleDot,
+            RecurringEditScope.onlyThis),
+        _tile(context, 'This and future occurrences', LucideIcons.fastForward,
+            RecurringEditScope.thisAndFuture),
+        _tile(context, 'All occurrences in the series', LucideIcons.infinity,
+            RecurringEditScope.allInSeries),
+        const SizedBox(height: Spacing.s8),
       ]),
     ),
   );
 }
 
-Widget _tile(BuildContext context, String label, IconData icon, RecurringEditScope scope) =>
+Widget _tile(BuildContext context, String label, IconData icon,
+        RecurringEditScope scope) =>
     ListTile(
-      leading: Icon(icon, color: kAmber),
-      title: Text(label, style: const TextStyle(color: kText, fontSize: 14)),
+      leading: Icon(icon, size: 20, color: AppColors.textSecondary),
+      title: Text(label, style: AppText.bodyM),
       onTap: () => Navigator.pop(context, scope),
     );

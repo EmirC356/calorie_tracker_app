@@ -3,8 +3,13 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/index.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import '../../providers/goal_provider.dart';
-import '../../theme/app_theme.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_motion.dart';
+import '../../theme/app_spacing.dart';
+import '../../theme/app_text_styles.dart';
+import '../../widgets/ui/colored_left_border_card.dart';
 import 'calendar_month_view.dart';
 import 'calendar_week_view.dart';
 import 'calendar_day_view.dart';
@@ -132,22 +137,20 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final provider = context.watch<GoalProvider>();
     return Scaffold(
       appBar: AppBar(
-        title: Text(_title),
-        titleTextStyle: const TextStyle(
-            color: kAmber, fontSize: 17, fontWeight: FontWeight.bold, letterSpacing: 1.2),
-        iconTheme: const IconThemeData(color: kAmber),
+        title: Text(_title, style: AppText.titleM),
         actions: [
           IconButton(
             tooltip: 'Today',
-            icon: const Icon(Icons.today),
+            icon: const Icon(LucideIcons.calendarCheck,
+                size: 20, color: AppColors.textSecondary),
             onPressed: () {
               setState(() => _focused = dateOnly(DateTime.now()));
               _loadActivity();
             },
           ),
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert, color: kAmber),
-            color: kCard,
+            icon: const Icon(LucideIcons.moreVertical,
+                size: 18, color: AppColors.textSecondary),
             onSelected: (v) async {
               if (v == 'history') {
                 await Navigator.push(context,
@@ -156,16 +159,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
               }
             },
             itemBuilder: (_) => const [
-              PopupMenuItem(value: 'history', child: Text('History', style: TextStyle(color: kText))),
+              PopupMenuItem(value: 'history', child: Text('History')),
             ],
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: kAmber,
-        foregroundColor: kBg,
+        backgroundColor: AppColors.calendarAmber,
+        foregroundColor: AppColors.surface0,
         onPressed: _createGoal,
-        child: const Icon(Icons.add),
+        child: const Icon(LucideIcons.plus),
       ),
       body: Column(children: [
         _modeBar(),
@@ -176,7 +179,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
         Expanded(
           child: _mode == CalendarViewMode.week
               ? _body()
-              : RefreshIndicator(color: kAmber, onRefresh: _refresh, child: _body()),
+              : RefreshIndicator(
+                  color: AppColors.calendarAmber,
+                  onRefresh: _refresh,
+                  child: _body()),
         ),
       ]),
     );
@@ -211,26 +217,37 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   Widget _modeBar() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      padding: const EdgeInsets.fromLTRB(
+          Spacing.s12, Spacing.s8, Spacing.s12, Spacing.s4),
       child: Row(children: [
         for (final m in CalendarViewMode.values)
           Expanded(
             child: GestureDetector(
               onTap: () => _setMode(m),
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                padding: const EdgeInsets.symmetric(vertical: 8),
+              child: AnimatedContainer(
+                duration: AppMotion.enter,
+                curve: Curves.easeOutCubic,
+                margin: const EdgeInsets.symmetric(horizontal: Spacing.s4 / 2),
+                padding: const EdgeInsets.symmetric(vertical: Spacing.s8),
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: m == _mode ? kAmber.withValues(alpha: 0.2) : kCard,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: m == _mode ? kAmber : kBorderDim),
+                  color: AppColors.surface1,
+                  borderRadius: BorderRadius.circular(AppRadius.r8),
+                  border: Border.all(
+                    color: m == _mode
+                        ? AppColors.calendarAmber
+                        : AppColors.surface2,
+                    width: m == _mode ? AppMotion.focusBorderWidth : 1,
+                  ),
+                  boxShadow: m == _mode
+                      ? AppMotion.accentGlow(AppColors.calendarAmber)
+                      : null,
                 ),
                 child: Text(m.name[0].toUpperCase() + m.name.substring(1),
-                    style: TextStyle(
-                        color: m == _mode ? kAmber : kTextDim,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600)),
+                    style: AppText.bodyS.copyWith(
+                        color: m == _mode
+                            ? AppColors.calendarAmber
+                            : AppColors.textSecondary)),
               ),
             ),
           ),
@@ -240,43 +257,55 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   Widget _navBar() {
     return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-      IconButton(icon: const Icon(Icons.chevron_left, color: kAmber), onPressed: () => _shift(-1)),
-      Text(_title, style: const TextStyle(color: kText, fontSize: 13)),
-      IconButton(icon: const Icon(Icons.chevron_right, color: kAmber), onPressed: () => _shift(1)),
+      IconButton(
+          icon: const Icon(LucideIcons.chevronLeft,
+              color: AppColors.textSecondary),
+          onPressed: () => _shift(-1)),
+      Text(_title, style: AppText.bodyS),
+      IconButton(
+          icon: const Icon(LucideIcons.chevronRight,
+              color: AppColors.textSecondary),
+          onPressed: () => _shift(1)),
     ]);
   }
 
   Widget _emptyHint() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(12, 4, 12, 4),
-      padding: const EdgeInsets.all(14),
-      decoration: neonBox(kAmber),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Icon(Icons.flag_outlined, color: kAmber.withValues(alpha: 0.9)),
-          const SizedBox(width: 10),
-          const Expanded(
-            child: Text('No goals yet — plan your first one to start tracking streaks.',
-                style: TextStyle(color: kText, fontSize: 13)),
-          ),
-        ]),
-        const SizedBox(height: 10),
-        Row(children: [
-          Expanded(
-            child: ElevatedButton(
-              onPressed: _createGoal,
-              style: ElevatedButton.styleFrom(backgroundColor: kAmber, foregroundColor: kBg),
-              child: const Text('Create your first goal'),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+          Spacing.s12, Spacing.s4, Spacing.s12, Spacing.s4),
+      child: ColoredLeftBorderCard(
+        accent: AppColors.calendarAmber,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const Icon(LucideIcons.flag,
+                color: AppColors.textSecondary, size: 18),
+            const SizedBox(width: Spacing.s12),
+            Expanded(
+              child: Text(
+                  'No goals yet — plan your first one to start tracking streaks.',
+                  style: AppText.bodyS),
             ),
-          ),
-          const SizedBox(width: 10),
-          OutlinedButton(
-            onPressed: _showExamples,
-            style: OutlinedButton.styleFrom(foregroundColor: kAmber, side: const BorderSide(color: kAmber)),
-            child: const Text('See examples'),
-          ),
+          ]),
+          const SizedBox(height: Spacing.s12),
+          Row(children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: _createGoal,
+                style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.calendarAmber,
+                    side: const BorderSide(
+                        color: AppColors.calendarAmber, width: 1.5)),
+                child: const Text('Create your first goal'),
+              ),
+            ),
+            const SizedBox(width: Spacing.s12),
+            OutlinedButton(
+              onPressed: _showExamples,
+              child: const Text('See examples'),
+            ),
+          ]),
         ]),
-      ]),
+      ),
     );
   }
 
@@ -284,26 +313,24 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final examples = goalExamples(DateTime.now());
     await showModalBottomSheet(
       context: context,
-      backgroundColor: kSurface,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-        side: BorderSide(color: kAmber, width: 1),
-      ),
       builder: (sheetCtx) => SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(Spacing.s16),
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('EXAMPLE GOALS', style: neonLabel(kAmber, size: 13)),
-            const SizedBox(height: 4),
-            const Text('Tap one to pre-fill the create form.', style: TextStyle(color: kTextDim, fontSize: 12)),
-            const SizedBox(height: 12),
+            Text('EXAMPLE GOALS', style: AppText.caption),
+            const SizedBox(height: Spacing.s4),
+            Text('Tap one to pre-fill the create form.',
+                style:
+                    AppText.bodyM.copyWith(color: AppColors.textSecondary)),
+            const SizedBox(height: Spacing.s12),
             ...examples.map((g) => ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: Container(width: 14, height: 14, decoration: BoxDecoration(color: g.color, borderRadius: BorderRadius.circular(4))),
-                  title: Text(g.title, style: const TextStyle(color: kText, fontSize: 14)),
-                  subtitle: Text(g.categoryLabel, style: const TextStyle(color: kTextDim, fontSize: 11)),
-                  trailing: const Icon(Icons.add, color: kAmber, size: 18),
+                  title: Text(g.title, style: AppText.bodyL),
+                  subtitle: Text(g.categoryLabel, style: AppText.caption),
+                  trailing: const Icon(LucideIcons.plus,
+                      color: AppColors.calendarAmber, size: 18),
                   onTap: () async {
                     Navigator.pop(sheetCtx);
                     await Navigator.push(context,

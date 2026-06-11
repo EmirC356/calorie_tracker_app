@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import '../../models/index.dart';
-import '../../theme/app_theme.dart';
+import '../../theme/app_colors.dart';
+import '../ui/ui.dart' show PillStatus;
 
 /// Status → icon/color/label, shared across goal chips, the detail sheet, and
 /// the history list so the Calendar reads consistently.
+// TODO(ui): clarify — widget tests (day_goal_row/goal_chip/goal_history/
+// squadmate_goals) pin these Material glyphs (Icons.check_circle, …), and
+// test/ is off-limits in this phase, so the lucide migration for status icons
+// is deferred until the tests can be updated.
 IconData occurrenceStatusIcon(OccurrenceStatus s) {
   switch (s) {
     case OccurrenceStatus.done:
@@ -20,13 +25,13 @@ IconData occurrenceStatusIcon(OccurrenceStatus s) {
 Color occurrenceStatusColor(OccurrenceStatus s) {
   switch (s) {
     case OccurrenceStatus.done:
-      return const Color(0xFF4CC38A); // green
+      return AppColors.statusHit;
     case OccurrenceStatus.failed:
-      return kNeonRed;
+      return AppColors.statusMissed;
     case OccurrenceStatus.skipped:
-      return kTextDim;
+      return AppColors.statusPaused;
     case OccurrenceStatus.open:
-      return kAmber;
+      return AppColors.statusInProgress;
   }
 }
 
@@ -43,14 +48,29 @@ String occurrenceStatusLabel(OccurrenceStatus s) {
   }
 }
 
+/// Maps an occurrence status onto the design-system [PillStatus] so calendar
+/// status badges render through the shared StatusPill primitive.
+PillStatus occurrencePillStatus(OccurrenceStatus s) {
+  switch (s) {
+    case OccurrenceStatus.done:
+      return PillStatus.hit;
+    case OccurrenceStatus.failed:
+      return PillStatus.missed;
+    case OccurrenceStatus.skipped:
+      return PillStatus.paused;
+    case OccurrenceStatus.open:
+      return PillStatus.inProgress;
+  }
+}
+
 Color goalPriorityColor(GoalPriority p) {
   switch (p) {
     case GoalPriority.high:
-      return kNeonRed;
+      return AppColors.statusMissed;
     case GoalPriority.medium:
-      return kAmber;
+      return AppColors.calendarAmber;
     case GoalPriority.low:
-      return kTextDim;
+      return AppColors.textTertiary;
   }
 }
 
