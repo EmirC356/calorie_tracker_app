@@ -252,6 +252,27 @@ class SquadService {
   Future<void> setPause(String squadId, String uid, SquadPause pause) =>
       _memberRef(squadId, uid).set({'pause': pause.toMap()}, SetOptions(merge: true));
 
+  /// Stamps `lastActivityAt` and clears any `ghostedSince` — called by the
+  /// snapshot on a today push so the ghost-sweep Cloud Function can detect
+  /// 72h-silent members and a returning member un-ghosts immediately.
+  Future<void> markActivity(String squadId, String uid) =>
+      _memberRef(squadId, uid).set(
+          {'lastActivityAt': FieldValue.serverTimestamp(), 'ghostedSince': null},
+          SetOptions(merge: true));
+
+  /// Per-squad outgoing "broadcast MY streak losses" toggle (sender opt-out;
+  /// the broken-streak Cloud Function honours it).
+  Future<void> setBroadcastStreakLoss(String squadId, String uid, bool enabled) =>
+      _memberRef(squadId, uid).set({'broadcastStreakLoss': enabled}, SetOptions(merge: true));
+
+  /// Adds the tapper's uid to a ghosted member's mass-nudge bundle (the
+  /// `onAggregateNudge` function coordinates a single push to the ghosted user).
+  Future<void> checkInOnGhost(String squadId, String dateKey, String ghostedUid, String myUid) =>
+      _squads.doc(squadId).collection('ghostChecks').doc(dateKey)
+          .collection('aggregateNudges').doc(ghostedUid)
+          .set({'nudgerUids': FieldValue.arrayUnion([myUid]), 'count': FieldValue.increment(1)},
+              SetOptions(merge: true));
+
   // ── Group goals ─────────────────────────────────────────────────────────────
 
   CollectionReference<Map<String, dynamic>> _groupGoals(String squadId) =>

@@ -27,6 +27,8 @@ export {
   onAggregateNudge,
   scheduledSundayRetro,
   scheduledDeferredRetroPush,
+  onCommentCreated,
+  onGroupGoalHit,
 } from "./social";
 
 export const onEntryStatusHit = onDocumentWritten(

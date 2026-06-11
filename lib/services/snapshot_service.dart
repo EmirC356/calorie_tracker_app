@@ -133,6 +133,13 @@ class SnapshotService {
         if (!await t.apply(ctx, entry)) break; // a transformer can finalize early
       }
       await _squadService.writeDayEntry(squadId: squad.id, dateKey: key, uid: uid, data: entry);
+      // Ghost detection: a today push counts as activity (stamps lastActivityAt,
+      // un-ghosts). Best-effort so it never blocks the entry write.
+      if (key == dateKey(theNow)) {
+        try {
+          await _squadService.markActivity(squad.id, uid);
+        } catch (_) {/* best-effort */}
+      }
     }
 
     // Goal visibility rides the same triggers; only run it for the "today"

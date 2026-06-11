@@ -150,6 +150,30 @@ void main() {
     await db.close();
   });
 
+  test('a today push marks squad activity (lastActivityAt + clears ghostedSince)', () async {
+    final fs = FakeFirebaseFirestore();
+    final db = DatabaseService(overridePath: inMemoryDatabasePath);
+    final ss = SquadService(firestore: fs);
+
+    await fs.doc('squads/s1').set({
+      'name': 'S', 'ownerUid': 'u1', 'memberUids': ['u1'],
+      'inviteCode': '123456', 'createdAt': Timestamp.fromDate(DateTime(2026, 1, 1)),
+    });
+    await fs.doc('squads/s1/members/u1').set({
+      'sharingLevel': 'status', 'displayName': 'A',
+      'ghostedSince': Timestamp.fromDate(DateTime(2026, 6, 1)), // was ghosted
+    });
+
+    final now = DateTime(2026, 6, 9, 12);
+    await SnapshotService(db: db, squadService: ss).pushForUser(uid: 'u1', date: now, now: now);
+
+    final m = (await fs.doc('squads/s1/members/u1').get()).data()!;
+    expect(m['lastActivityAt'], isNotNull);
+    expect(m['ghostedSince'], isNull); // un-ghosted on activity
+
+    await db.close();
+  });
+
   test('group goal accumulates a member contribution idempotently + on edit', () async {
     final fs = FakeFirebaseFirestore();
     final db = DatabaseService(overridePath: inMemoryDatabasePath);

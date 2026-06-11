@@ -372,6 +372,7 @@ async function buildRetroForSquad(
   squadId: string,
   uid: string,
   dateKeys: string[],
+  weekKey: string,
 ): Promise<RetroPayload["squads"][number]> {
   const squad = await db.doc(`squads/${squadId}`).get();
   const name = (squad.get("name") as string | undefined) ?? "Squad";
@@ -415,9 +416,15 @@ async function buildRetroForSquad(
     if (pause?.active === true) {
       pauses.push({uid: md.id, displayName: nameOf.get(md.id)!, until: pause.until ?? ""});
     }
-    const goal = md.get("goal") as {intention?: string} | undefined;
-    if (goal?.intention) {
-      intentions.push({uid: md.id, displayName: nameOf.get(md.id)!, text: goal.intention});
+  }
+
+  // Weekly intentions live in their own subcollection
+  // (squads/{}/intentions/{weekKey}/members/{uid}), NOT on the member doc.
+  const intentSnap = await db.collection(`squads/${squadId}/intentions/${weekKey}/members`).get();
+  for (const it of intentSnap.docs) {
+    const text = (it.get("text") as string | undefined) ?? "";
+    if (text) {
+      intentions.push({uid: it.id, displayName: nameOf.get(it.id) ?? "Squadmate", text});
     }
   }
 
@@ -511,7 +518,7 @@ export const scheduledSundayRetro = onSchedule("every 15 minutes", async () => {
     const dateKeys = weekDateKeys(now, tz);
     const squadsSnap = await db.collection("squads").where("memberUids", "array-contains", uid).get();
     const squadPayloads = await Promise.all(
-      squadsSnap.docs.map((s) => buildRetroForSquad(s.id, uid, dateKeys).catch(() => null)),
+      squadsSnap.docs.map((s) => buildRetroForSquad(s.id, uid, dateKeys, weekKey).catch(() => null)),
     );
     const squads = squadPayloads.filter((s): s is RetroPayload["squads"][number] => s !== null);
 
@@ -594,3 +601,75 @@ export const scheduledDeferredRetroPush = onSchedule("every 15 minutes", async (
     }
   }
 });
+
+// ───────────────────────────── onCommentCreated ─────────────────────────────
+
+/**
+ * Pushes a new comment to its recipient, THROTTLED to at most one push per 30
+ * min per (recipient, sender) — the budget-critical collapse so 5 comments don't
+ * become 5 pushes. Subsequent comments inside the window are silently batched
+ * (the recipient sees them in-app). Self-comments never push.
+ */
+export const onCommentCreated = onDocumentCreated(
+  "squads/{squadId}/days/{date}/comments/{commentId}",
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+    const {squadId, date} = event.params as {squadId: string; date: string};
+    const c = snap.data() as {fromUid?: string; fromName?: string; toUid?: string; text?: string};
+    if (!c.fromUid || !c.toUid || c.fromUid === c.toUid) return; // no self-comment push
+
+    const throttleRef = db.doc(
+      `squads/${squadId}/days/${date}/commentPushThrottle/${c.toUid}_${c.fromUid}`,
+    );
+    const now = new Date();
+    const allow = await db.runTransaction(async (tx) => {
+      const t = await tx.get(throttleRef);
+      const last = t.get("lastPushAt") as admin.firestore.Timestamp | undefined;
+      if (last && now.getTime() - last.toMillis() < 30 * 60 * 1000) return false; // batched
+      tx.set(throttleRef, {lastPushAt: FieldValue.serverTimestamp()}, {merge: true});
+      return true;
+    });
+    if (!allow) return;
+
+    const fromName = c.fromName ?? "A squadmate";
+    const body = (c.text ?? "").slice(0, 60);
+    await sendSquadPush(
+      squadId,
+      [c.toUid],
+      {title: `${fromName} commented`, body: `${fromName} commented on your ${date}: "${body}"`},
+      {pref: "squadAttributed", now},
+    );
+  },
+);
+
+// ───────────────────────────── onGroupGoalHit ───────────────────────────────
+
+/** Celebrates a group goal the first time its currentValue crosses target. */
+export const onGroupGoalHit = onDocumentWritten(
+  "squads/{squadId}/groupGoals/{goalId}",
+  async (event) => {
+    const before = event.data?.before;
+    const after = event.data?.after;
+    if (!after?.exists) return;
+    const hadHit = before?.exists && before.get("hitAt") != null;
+    if (hadHit || after.get("hitAt") == null) return; // only the first hit transition
+
+    const {squadId} = event.params as {squadId: string};
+    const title = (after.get("title") as string | undefined) ?? "a group goal";
+    const squad = await db.doc(`squads/${squadId}`).get();
+    const members = (squad.get("memberUids") as string[] | undefined) ?? [];
+
+    await db.collection(`squads/${squadId}/activity`).add({
+      type: "groupGoalHit",
+      payload: {title},
+      createdAt: FieldValue.serverTimestamp(),
+    });
+    await sendSquadPush(
+      squadId,
+      members,
+      {title: "Group goal hit 🎯", body: `🎯 You hit '${title}' as a squad`},
+      {pref: "squadAttributed"},
+    );
+  },
+);
