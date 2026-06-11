@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../models/index.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../providers/goal_provider.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/app_motion.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_text_styles.dart';
 import '../../widgets/calendar/day_summary_chip.dart';
@@ -137,9 +139,23 @@ class _CalendarWeekViewState extends State<CalendarWeekView> {
     // LayoutBuilder sizes each column to exactly one third of the page width.
     return LayoutBuilder(builder: (context, constraints) {
       final colW = constraints.maxWidth / 3;
-      return Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [for (final d in days) SizedBox(width: colW, child: _column(d))],
+      // Columns stagger in left-to-right on page build (60ms apart).
+      return AnimationLimiter(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: AnimationConfiguration.toStaggeredList(
+            duration: AppMotion.enter,
+            delay: AppMotion.staggerStep,
+            childAnimationBuilder: (w) => SlideAnimation(
+              verticalOffset: 24,
+              curve: Curves.easeOutCubic,
+              child: FadeInAnimation(child: w),
+            ),
+            children: [
+              for (final d in days) SizedBox(width: colW, child: _column(d))
+            ],
+          ),
+        ),
       );
     });
   }

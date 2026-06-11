@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -255,6 +256,7 @@ class _GoalFormScreenState extends State<GoalFormScreen> {
   }
 
   Future<void> _save() async {
+    HapticFeedback.lightImpact();
     final err = _validate();
     if (err != null) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));

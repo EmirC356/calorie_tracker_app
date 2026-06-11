@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -167,11 +168,15 @@ class _GoalActionDialog extends StatelessWidget {
             _btn('Edit', LucideIcons.pencil, AppColors.calendarAmber,
                 () => Navigator.pop(context, _ActionResult.edit)),
             const SizedBox(height: Spacing.s12),
-            _btn('Mark done', LucideIcons.check, AppColors.statusHit,
-                () => _setStatus(context, OccurrenceStatus.done)),
+            _btn('Mark done', LucideIcons.check, AppColors.statusHit, () {
+              HapticFeedback.mediumImpact(); // goal-hit moment
+              _setStatus(context, OccurrenceStatus.done);
+            }),
             const SizedBox(height: Spacing.s12),
-            _btn('Mark failed', LucideIcons.x, AppColors.statusMissed,
-                () => _setStatus(context, OccurrenceStatus.failed)),
+            _btn('Mark failed', LucideIcons.x, AppColors.statusMissed, () {
+              HapticFeedback.heavyImpact(); // missed flow
+              _setStatus(context, OccurrenceStatus.failed);
+            }),
             const SizedBox(height: Spacing.s12),
             _btn('Skip', LucideIcons.minusCircle, AppColors.statusPaused,
                 () => _setStatus(context, OccurrenceStatus.skipped)),

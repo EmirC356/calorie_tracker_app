@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../data/food_database.dart';
 import '../models/index.dart';
@@ -111,6 +112,7 @@ class _MealPrepScreenState extends State<MealPrepScreen> {
   bool get _isEmpty => _proteins.isEmpty && _carbs.isEmpty && _veggies.isEmpty;
 
   void _savePrep() {
+    HapticFeedback.lightImpact();
     if (_nameCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Enter a name for this meal prep')),

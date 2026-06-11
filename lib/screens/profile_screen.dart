@@ -69,6 +69,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
 
   Future<void> _save() async {
+    HapticFeedback.lightImpact();
     final profile = _currentProfile();
     if (!profile.isComplete) {
       ScaffoldMessenger.of(context).showSnackBar(

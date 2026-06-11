@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 
@@ -58,7 +59,19 @@ class DashboardScreen extends StatelessWidget {
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(Spacing.s16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Staggered reveal on enter: hero ring → cards → trends → actions.
+        child: AnimationLimiter(
+          child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: AnimationConfiguration.toStaggeredList(
+            duration: AppMotion.enter,
+            delay: AppMotion.staggerStep,
+            childAnimationBuilder: (w) => SlideAnimation(
+              verticalOffset: 24,
+              curve: Curves.easeOutCubic,
+              child: FadeInAnimation(child: w),
+            ),
+            children: [
           Consumer4<MealProvider, ExerciseProvider, ProfileProvider, WeightProvider>(
             builder: (_, meals, exercises, profileP, weightP, __) {
               final cal = meals.todaysTotalCalories;
@@ -184,7 +197,9 @@ class DashboardScreen extends StatelessWidget {
                     LucideIcons.history,
                     () => _push(context, const ExerciseLogsScreen()), accent)),
           ]),
-        ]),
+            ],
+          )),
+        ),
       ),
     );
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:provider/provider.dart';
 import '../../models/squad_member.dart';
 import '../../models/squad_day_entry.dart';
@@ -9,6 +10,7 @@ import '../../providers/squad_provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../services/snapshot_service.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/app_motion.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_text_styles.dart';
 import '../../widgets/ui/colored_left_border_card.dart';
@@ -117,32 +119,46 @@ class _SquadTodayTabState extends State<SquadTodayTab> {
                         const EdgeInsets.symmetric(vertical: Spacing.s16),
                     child: SizedBox(
                       height: 300,
-                      child: PageView.builder(
-                        controller: PageController(viewportFraction: 0.85),
-                        padEnds: false,
-                        itemCount: members.length,
-                        itemBuilder: (_, i) {
-                          final m = members[i];
-                          final entry = entries[m.uid];
-                          return Padding(
-                            padding: const EdgeInsets.only(
-                                left: Spacing.s16, right: Spacing.s4),
-                            child: MemberCard(
-                              member: m,
-                              entry: entry,
-                              isMe: m.uid == myUid,
-                              receivedEmoji: emojiByUid[m.uid],
-                              onTap: () => Navigator.push(
-                                  context,
-                                  HeroTransitionScaffold.route(
-                                      MemberDayDetailScreen(
-                                          member: m,
-                                          entry: entry,
-                                          squadId: widget.squadId,
-                                          dateKey: _dateKey))),
-                            ),
-                          );
-                        },
+                      child: AnimationLimiter(
+                        child: PageView.builder(
+                          controller: PageController(viewportFraction: 0.85),
+                          padEnds: false,
+                          itemCount: members.length,
+                          itemBuilder: (_, i) {
+                            final m = members[i];
+                            final entry = entries[m.uid];
+                            return AnimationConfiguration.staggeredList(
+                              position: i,
+                              duration: AppMotion.enter,
+                              delay: AppMotion.staggerStep,
+                              child: SlideAnimation(
+                                horizontalOffset: 48,
+                                curve: Curves.easeOutCubic,
+                                child: FadeInAnimation(
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(
+                                        left: Spacing.s16,
+                                        right: Spacing.s4),
+                                    child: MemberCard(
+                                      member: m,
+                                      entry: entry,
+                                      isMe: m.uid == myUid,
+                                      receivedEmoji: emojiByUid[m.uid],
+                                      onTap: () => Navigator.push(
+                                          context,
+                                          HeroTransitionScaffold.route(
+                                              MemberDayDetailScreen(
+                                                  member: m,
+                                                  entry: entry,
+                                                  squadId: widget.squadId,
+                                                  dateKey: _dateKey))),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ),

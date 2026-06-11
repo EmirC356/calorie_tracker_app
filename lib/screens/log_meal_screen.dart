@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../data/food_database.dart';
 import '../models/index.dart';
@@ -192,6 +193,7 @@ class _LogMealScreenState extends State<LogMealScreen> {
   }
 
   void _logMeal() {
+    HapticFeedback.lightImpact();
     final String name;
     final NutrientInfo nutrients;
 
