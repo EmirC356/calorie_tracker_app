@@ -26,6 +26,7 @@ class BackupService {
     DatabaseService.tablesWeightEntries,
     DatabaseService.tablesWaterEntries,
     DatabaseService.tablesPauseHistory,
+    DatabaseService.tablesCheckins,
   ];
 
   Future<Map<String, dynamic>> exportToMap() async {

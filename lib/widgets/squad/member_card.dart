@@ -7,6 +7,7 @@ import '../../theme/app_theme.dart';
 import 'goal_summary.dart';
 import 'progress_ring.dart';
 import 'squad_status.dart';
+import 'checkin.dart';
 
 /// A member's Today card: avatar, name, goal, progress ring, status badge.
 class MemberCard extends StatelessWidget {
@@ -47,6 +48,13 @@ class MemberCard extends StatelessWidget {
                   maxLines: 1, overflow: TextOverflow.ellipsis,
                   style: const TextStyle(color: kText, fontWeight: FontWeight.bold, fontSize: 13)),
             ),
+            if (entry?.checkin != null) ...[
+              Container(
+                width: 9, height: 9,
+                decoration: BoxDecoration(shape: BoxShape.circle, color: checkinColor(entry!.checkin)),
+              ),
+              const SizedBox(width: 4),
+            ],
             if (receivedEmoji != null)
               Text(receivedEmoji!.glyph, style: const TextStyle(fontSize: 16)),
           ]),

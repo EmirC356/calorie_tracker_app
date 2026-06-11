@@ -6,7 +6,7 @@ import '../models/index.dart';
 
 class DatabaseService {
   static const String _dbName = 'calorie_tracker.db';
-  static const int _dbVersion = 8;
+  static const int _dbVersion = 9;
 
   /// Current local schema version (for backup metadata).
   static int get currentSchemaVersion => _dbVersion;
@@ -20,6 +20,7 @@ class DatabaseService {
   static const String tablesGoalSuggestions = 'goal_suggestions';
   static const String tablesWaterEntries = 'water_entries';
   static const String tablesPauseHistory = 'pause_history';
+  static const String tablesCheckins = 'checkins';
 
   /// Optional override for the database file path. When null (production) the
   /// default app database path is used. Tests inject a temp/in-memory path.
@@ -65,6 +66,7 @@ class DatabaseService {
     await _createGoalSuggestionsTable(db);
     await _createWaterEntriesTable(db);
     await _createPauseHistoryTable(db);
+    await _createCheckinsTable(db);
   }
 
   /// Migration convention
@@ -119,6 +121,10 @@ class DatabaseService {
       // Additive nullable columns — no row rewrite.
       await db.execute('ALTER TABLE $tablesMeals ADD COLUMN makeup_for_date TEXT');
       await db.execute('ALTER TABLE $tablesExercises ADD COLUMN makeup_for_date TEXT');
+    }
+    if (oldVersion < 9) {
+      // Daily check-in mirror — additive.
+      await _createCheckinsTable(db);
     }
   }
 
@@ -283,6 +289,34 @@ class DatabaseService {
         'CREATE INDEX idx_occurrences_status ON $tablesGoalOccurrences(status)');
     await db.execute(
         'CREATE INDEX idx_occurrences_goal ON $tablesGoalOccurrences(goal_id)');
+  }
+
+  Future<void> _createCheckinsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE $tablesCheckins (
+        date TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    ''');
+  }
+
+  /// Sets the one-tap daily check-in for [dateKey] (YYYY-MM-DD): one of
+  /// 'onIt' | 'offTrack' | 'cheatDay'. Mirrored to every squad by the snapshot.
+  Future<void> setCheckin(String dateKey, String value) async {
+    final database = await db;
+    await database.insert(
+      tablesCheckins,
+      {'date': dateKey, 'value': value, 'updated_at': DateTime.now().toUtc().toIso8601String()},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<String?> getCheckin(String dateKey) async {
+    final database = await db;
+    final rows = await database.query(tablesCheckins,
+        columns: ['value'], where: 'date = ?', whereArgs: [dateKey], limit: 1);
+    return rows.isEmpty ? null : rows.first['value'] as String?;
   }
 
   Future<void> _createPauseHistoryTable(Database db) async {

@@ -9,6 +9,7 @@ import '../../providers/squad_provider.dart';
 import '../../services/snapshot_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/squad/member_card.dart';
+import '../../widgets/squad/checkin.dart';
 import 'member_day_detail_screen.dart';
 
 /// Today tab: a grid of member cards (avatar, goal, progress ring, status).
@@ -33,6 +34,30 @@ class _SquadTodayTabState extends State<SquadTodayTab> {
     });
   }
 
+  Widget _checkinBar(BuildContext context, String? mine) {
+    final label = mine == null
+        ? null
+        : kCheckinOptions.firstWhere((o) => o.$1 == mine, orElse: () => ('', '', mine, kNavy)).$3;
+    return InkWell(
+      onTap: () => showCheckinSheet(context),
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: neonBox(mine != null ? checkinColor(mine) : kNavy),
+        child: Row(children: [
+          Text(mine != null ? checkinEmoji(mine) : '👋', style: const TextStyle(fontSize: 18)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              mine != null ? 'Today: $label — tap to change' : "How's today going? Tap to check in",
+              style: const TextStyle(color: kText, fontSize: 13)),
+          ),
+          const Icon(Icons.chevron_right, color: kTextDim, size: 18),
+        ]),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final service = context.read<SquadProvider>().service;
@@ -53,26 +78,31 @@ class _SquadTodayTabState extends State<SquadTodayTab> {
               stream: service.watchReactions(widget.squadId, _dateKey),
               builder: (context, rSnap) {
                 final emojiByUid = latestEmojiByRecipient(rSnap.data ?? const <SquadReaction>[]);
-                return GridView.builder(
-                  padding: const EdgeInsets.all(16),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.82,
+                return Column(children: [
+                  _checkinBar(context, entries[myUid]?.checkin),
+                  Expanded(
+                    child: GridView.builder(
+                      padding: const EdgeInsets.all(16),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.82,
+                      ),
+                      itemCount: members.length,
+                      itemBuilder: (_, i) {
+                        final m = members[i];
+                        final entry = entries[m.uid];
+                        return MemberCard(
+                          member: m,
+                          entry: entry,
+                          isMe: m.uid == myUid,
+                          receivedEmoji: emojiByUid[m.uid],
+                          onTap: () => Navigator.push(context, MaterialPageRoute(
+                              builder: (_) => MemberDayDetailScreen(
+                                  member: m, entry: entry, squadId: widget.squadId, dateKey: _dateKey))),
+                        );
+                      },
+                    ),
                   ),
-                  itemCount: members.length,
-                  itemBuilder: (_, i) {
-                    final m = members[i];
-                    final entry = entries[m.uid];
-                    return MemberCard(
-                      member: m,
-                      entry: entry,
-                      isMe: m.uid == myUid,
-                      receivedEmoji: emojiByUid[m.uid],
-                      onTap: () => Navigator.push(context, MaterialPageRoute(
-                          builder: (_) => MemberDayDetailScreen(
-                              member: m, entry: entry, squadId: widget.squadId, dateKey: _dateKey))),
-                    );
-                  },
-                );
+                ]);
               },
             );
           },

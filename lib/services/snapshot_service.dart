@@ -50,7 +50,7 @@ class SnapshotService {
     // Pause is the first gate: a paused day finalizes as `paused` and skips the
     // rest of the pipeline. Make-up runs after status to redeem a missed day.
     this.transformers = transformers ??
-        const [PauseTransformer(), StatusTransformer(), MakeupTransformer()];
+        const [PauseTransformer(), StatusTransformer(), MakeupTransformer(), CheckinTransformer()];
   }
 
   /// Local-timezone date key (a meal logged at 1am Tuesday counts as Tuesday).
@@ -394,6 +394,19 @@ class MakeupTransformer extends SnapshotTransformer {
     if (status == GoalStatus.hit) {
       entry['redeemed'] = true; // rescued — streak survives at 0.5
     }
+    return true;
+  }
+}
+
+/// Mirrors the user's one-tap daily check-in (onIt/offTrack/cheatDay) onto the
+/// day entry so it survives every snapshot re-push. Always squad-visible.
+class CheckinTransformer extends SnapshotTransformer {
+  const CheckinTransformer();
+
+  @override
+  Future<bool> apply(SnapshotContext ctx, Map<String, dynamic> entry) async {
+    final v = await ctx.db.getCheckin(ctx.dateKey);
+    if (v != null) entry['checkin'] = v;
     return true;
   }
 }

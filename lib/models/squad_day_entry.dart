@@ -41,6 +41,7 @@ class SquadDayEntry {
   final bool paused; // a paused (vacation) day — status falls back to inProgress
   final bool redeemed; // a missed day rescued by a make-up (counts 0.5)
   final String? makeupForDate; // set on a make-up day's entry → the day it recovers
+  final String? checkin; // one-tap daily check-in: onIt | offTrack | cheatDay
   final double? consumed; // totals+
   final double? burned;
   final int? exerciseMinutes;
@@ -54,6 +55,7 @@ class SquadDayEntry {
     this.paused = false,
     this.redeemed = false,
     this.makeupForDate,
+    this.checkin,
     this.consumed,
     this.burned,
     this.exerciseMinutes,
@@ -75,6 +77,7 @@ class SquadDayEntry {
       paused: paused,
       redeemed: (m['redeemed'] as bool?) ?? false,
       makeupForDate: m['makeupForDate'] as String?,
+      checkin: m['checkin'] as String?,
       consumed: (m['consumed'] as num?)?.toDouble(),
       burned: (m['burned'] as num?)?.toDouble(),
       exerciseMinutes: (m['exerciseMinutes'] as num?)?.toInt(),
