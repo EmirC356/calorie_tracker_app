@@ -11,6 +11,7 @@ import '../models/squad_comment.dart';
 import '../models/squad_activity.dart';
 import '../models/squad_goal.dart';
 import '../models/squad_day_entry.dart';
+import '../models/date_helpers.dart';
 import '../models/squad_reaction.dart';
 import '../models/goal_visible.dart';
 import '../models/squad_goal_suggestion.dart';
@@ -291,6 +292,31 @@ class SquadService {
   Future<SquadDayEntry?> getDayEntry(String squadId, String dateKey, String uid) async {
     final d = await _squads.doc(squadId).collection('days').doc(dateKey).collection('entries').doc(uid).get();
     return d.exists ? SquadDayEntry.fromMap(uid, d.data()!) : null;
+  }
+
+  /// Missed squad days from the last [windowDays] (excluding today) the user
+  /// could still rescue with a make-up — feeds the "count this as a make-up?"
+  /// prompt. A day qualifies if it finalized `missed`, wasn't already redeemed,
+  /// and the member wasn't paused.
+  Future<List<({String squadId, String squadName, String date})>> findMakeupCandidates(
+    String uid, {
+    DateTime? now,
+    int windowDays = 2,
+  }) async {
+    final today = dateOnly(now ?? DateTime.now());
+    final squads = await getMySquadsOnce(uid);
+    final out = <({String squadId, String squadName, String date})>[];
+    for (final squad in squads) {
+      for (var i = 1; i <= windowDays; i++) {
+        final key = ymd(today.subtract(Duration(days: i)));
+        final entry = await getDayEntry(squad.id, key, uid);
+        if (entry == null) continue;
+        if (entry.status == GoalStatus.missed && !entry.redeemed && !entry.paused) {
+          out.add((squadId: squad.id, squadName: squad.name, date: key));
+        }
+      }
+    }
+    return out;
   }
 
   /// Transactionally applies [delta] to a member's contribution + currentValue,

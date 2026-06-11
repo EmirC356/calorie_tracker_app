@@ -673,3 +673,52 @@ export const onGroupGoalHit = onDocumentWritten(
     );
   },
 );
+
+// ──────────────────────────── onMemberPauseChanged ──────────────────────────
+
+/**
+ * Announces a pause / return to the rest of the squad ("Selin paused til Jun 22"
+ * / "Selin is back"), once per transition. Guarded by a `lastPauseAnnounce`
+ * marker so the frequent member-doc writes (lastActivityAt heartbeats) never
+ * re-announce — those don't change pause.active, so they early-return anyway.
+ */
+export const onMemberPauseChanged = onDocumentWritten(
+  "squads/{squadId}/members/{uid}",
+  async (event) => {
+    const after = event.data?.after;
+    if (!after?.exists) return;
+    const before = event.data?.before;
+    const wasPaused = (before?.get("pause") as {active?: boolean} | undefined)?.active === true;
+    const pause = after.get("pause") as {active?: boolean; until?: string} | undefined;
+    const isPaused = pause?.active === true;
+    if (wasPaused === isPaused) return; // no pause/return transition
+
+    const {squadId, uid} = event.params as {squadId: string; uid: string};
+    const marker = isPaused ? `paused_${pause?.until ?? ""}` : "returned";
+    const ref = db.doc(`squads/${squadId}/members/${uid}`);
+    const fresh = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      if (snap.get("lastPauseAnnounce") === marker) return false; // already announced
+      tx.set(ref, {lastPauseAnnounce: marker}, {merge: true});
+      return true;
+    });
+    if (!fresh) return;
+
+    const squad = await db.doc(`squads/${squadId}`).get();
+    if (!squad.exists) return;
+    const members = (squad.get("memberUids") as string[] | undefined) ?? [];
+    const others = members.filter((m) => m !== uid);
+    const displayName = (after.get("displayName") as string | undefined) ?? "A squadmate";
+
+    await db.collection(`squads/${squadId}/activity`).add({
+      type: isPaused ? "pause" : "return",
+      payload: {uid, displayName, until: pause?.until ?? ""},
+      createdAt: FieldValue.serverTimestamp(),
+    });
+    if (others.length === 0) return;
+    const body = isPaused ?
+      `${displayName} paused${pause?.until ? ` til ${pause.until}` : ""} 🌴` :
+      `${displayName} is back 💪`;
+    await sendSquadPush(squadId, others, {title: "Squad update", body}, {pref: "squadAttributed"});
+  },
+);

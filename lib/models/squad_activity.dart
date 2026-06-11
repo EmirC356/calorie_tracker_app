@@ -27,6 +27,11 @@ class SquadActivity {
         return '🔥 Full squad day — everyone hit on ${p['date'] ?? ''}';
       case 'groupGoalHit':
         return "🎯 Squad hit '${p['title'] ?? 'a group goal'}'";
+      case 'pause':
+        final until = (p['until'] as String?) ?? '';
+        return "${p['displayName'] ?? 'A squadmate'} paused${until.isEmpty ? '' : ' til $until'}";
+      case 'return':
+        return '${p['displayName'] ?? 'A squadmate'} is back';
       default:
         return p['text'] as String? ?? 'Squad activity';
     }
@@ -36,6 +41,8 @@ class SquadActivity {
         'streakLoss' => '💔',
         'fullSquadDay' => '🔥',
         'groupGoalHit' => '🎯',
+        'pause' => '🌴',
+        'return' => '💪',
         _ => '•',
       };
 }

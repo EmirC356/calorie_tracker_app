@@ -29,6 +29,7 @@ export {
   scheduledDeferredRetroPush,
   onCommentCreated,
   onGroupGoalHit,
+  onMemberPauseChanged,
 } from "./social";
 
 export const onEntryStatusHit = onDocumentWritten(
