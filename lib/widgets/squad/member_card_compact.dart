@@ -12,17 +12,14 @@ import 'goal_summary.dart';
 import 'squad_status.dart';
 import 'presence_indicator.dart';
 
-/// Compact (~140dp) member card for the Today carousel: avatar + presence on
-/// the left, name/goal/status in the middle, a small inline progress ring on
-/// the right, and an embedded reaction row along the bottom. Tapping the body
-/// (not the reaction pills) opens the member detail.
+/// Compact member card for the Today list: avatar + presence on the left,
+/// name/goal/status in the middle, a small inline progress ring on the right.
+/// Tapping it opens the member detail (where reactions live).
 class MemberCardCompact extends StatelessWidget {
   final SquadMember member;
   final SquadDayEntry? entry;
   final bool isMe;
   final ReactionEmoji? receivedEmoji;
-  final Map<ReactionEmoji, int> reactionCounts;
-  final void Function(ReactionEmoji emoji)? onReact; // null on your own card
   final VoidCallback onTap;
   const MemberCardCompact({
     super.key,
@@ -31,8 +28,6 @@ class MemberCardCompact extends StatelessWidget {
     required this.isMe,
     required this.onTap,
     this.receivedEmoji,
-    this.reactionCounts = const {},
-    this.onReact,
   });
 
   @override
@@ -48,26 +43,22 @@ class MemberCardCompact extends StatelessWidget {
       color: AppColors.surface1,
       borderRadius: BorderRadius.circular(AppRadius.r12),
       clipBehavior: Clip.antiAlias,
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        InkWell(
-          onTap: () {
-            HapticFeedback.lightImpact();
-            onTap();
-          },
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(Spacing.s16, Spacing.s12, Spacing.s16, Spacing.s8),
-            child: Row(children: [
-              _avatar(paused),
-              const SizedBox(width: Spacing.s12),
-              Expanded(child: _identity(goal, paused, noGoals, status)),
-              const SizedBox(width: Spacing.s8),
-              if (!paused && !noGoals && progress != null) _ring(progress, accent),
-            ]),
-          ),
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          onTap();
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(Spacing.s16),
+          child: Row(children: [
+            _avatar(paused),
+            const SizedBox(width: Spacing.s12),
+            Expanded(child: _identity(goal, paused, noGoals, status)),
+            const SizedBox(width: Spacing.s8),
+            if (!paused && !noGoals && progress != null) _ring(progress, accent),
+          ]),
         ),
-        const Divider(height: 1, color: AppColors.surface2),
-        _reactionRow(),
-      ]),
+      ),
     );
   }
 
@@ -138,47 +129,6 @@ class MemberCardCompact extends StatelessWidget {
         size: 48,
         child: Text('${(progress * 100).round()}%',
             style: AppText.tabular(AppText.bodyS.copyWith(color: accent))),
-      );
-
-  Widget _reactionRow() {
-    final disabled = onReact == null;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: Spacing.s12, vertical: Spacing.s8),
-      child: Row(children: [
-        for (final e in ReactionEmoji.values) ...[
-          _pill(e, reactionCounts[e] ?? 0, disabled),
-          const SizedBox(width: Spacing.s8),
-        ],
-      ]),
-    );
-  }
-
-  Widget _pill(ReactionEmoji e, int count, bool disabled) => Material(
-        color: AppColors.surface2,
-        borderRadius: BorderRadius.circular(AppRadius.pill),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: disabled
-              ? null
-              : () {
-                  HapticFeedback.lightImpact();
-                  onReact!(e);
-                },
-          child: Opacity(
-            opacity: disabled ? 0.35 : 1,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: Spacing.s12, vertical: Spacing.s4),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Text(e.glyph, style: const TextStyle(fontSize: 15)),
-                if (count > 0) ...[
-                  const SizedBox(width: Spacing.s4),
-                  Text('$count',
-                      style: AppText.tabular(AppText.caption.copyWith(color: AppColors.textSecondary))),
-                ],
-              ]),
-            ),
-          ),
-        ),
       );
 
   static String _shortDate(DateTime d) {

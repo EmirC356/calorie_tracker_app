@@ -22,22 +22,20 @@ void main() {
   }
 
   group('MemberCardCompact', () {
-    testWidgets('hit member → Hit pill + 3 reaction pills with count', (tester) async {
+    testWidgets('hit member → name + Hit pill, no reaction pills', (tester) async {
       await pumpCard(tester, MemberCardCompact(
         member: const SquadMember(
             uid: 'a', displayName: 'Ana',
             goal: SquadGoal(calorieMode: CalorieMode.cap, calorieTarget: 2000)),
         entry: const SquadDayEntry(uid: 'a', status: GoalStatus.hit),
         isMe: false,
-        reactionCounts: const {ReactionEmoji.fire: 2},
-        onReact: (_) {},
         onTap: () {},
       ));
       expect(find.text('Ana'), findsOneWidget);
       expect(find.text('Hit'), findsOneWidget);
-      expect(find.text('🔥'), findsWidgets);
-      expect(find.text('💪'), findsWidgets);
-      expect(find.text('2'), findsOneWidget); // fire count
+      // Reactions moved to the member detail — no pills on the card.
+      expect(find.text('🔥'), findsNothing);
+      expect(find.text('💪'), findsNothing);
     });
 
     testWidgets('paused member → Paused pill', (tester) async {
@@ -47,25 +45,22 @@ void main() {
             goal: SquadGoal(calorieMode: CalorieMode.cap, calorieTarget: 2000)),
         entry: const SquadDayEntry(uid: 'a', status: GoalStatus.inProgress, paused: true),
         isMe: false,
-        onReact: (_) {},
         onTap: () {},
       ));
       expect(find.text('Paused'), findsOneWidget);
     });
 
-    testWidgets('own card disables reactions but still shows the glyphs', (tester) async {
+    testWidgets('own card shows (you) + Missed pill', (tester) async {
       await pumpCard(tester, MemberCardCompact(
         member: const SquadMember(
             uid: 'me', displayName: 'Me',
             goal: SquadGoal(calorieMode: CalorieMode.cap, calorieTarget: 2000)),
         entry: const SquadDayEntry(uid: 'me', status: GoalStatus.missed),
         isMe: true,
-        onReact: null, // own card
         onTap: () {},
       ));
       expect(find.text('Me (you)'), findsOneWidget);
       expect(find.text('Missed'), findsOneWidget);
-      expect(find.text('👏'), findsWidgets); // pills render even when disabled
     });
   });
 

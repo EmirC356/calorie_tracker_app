@@ -14,7 +14,17 @@ class PhotoThumbnail extends StatefulWidget {
   final Photo photo;
   final double size;
   final VoidCallback? onTap;
-  const PhotoThumbnail({super.key, required this.photo, this.size = 64, this.onTap});
+
+  /// Image-only (no avatar / goal dot / pending border) — for the camera-FAB
+  /// preview badge.
+  final bool bare;
+  const PhotoThumbnail({
+    super.key,
+    required this.photo,
+    this.size = 64,
+    this.onTap,
+    this.bare = false,
+  });
 
   @override
   State<PhotoThumbnail> createState() => _PhotoThumbnailState();
@@ -59,33 +69,37 @@ class _PhotoThumbnailState extends State<PhotoThumbnail> {
         decoration: BoxDecoration(
           color: AppColors.surface2,
           borderRadius: BorderRadius.circular(AppRadius.r12),
-          border: pending ? Border.all(color: AppColors.calendarAmber, width: 1.5) : null,
+          border: (pending && !widget.bare)
+              ? Border.all(color: AppColors.calendarAmber, width: 1.5)
+              : null,
         ),
         clipBehavior: Clip.antiAlias,
         child: Stack(fit: StackFit.expand, children: [
           _image(p),
-          // Uploader avatar, bottom-right.
-          Positioned(
-            bottom: 2, right: 2,
-            child: Container(
-              decoration: BoxDecoration(
-                  shape: BoxShape.circle, border: Border.all(color: AppColors.surface0, width: 1)),
-              child: MemberAvatar(
-                photoURL: p.uploadedByPhotoURL.isNotEmpty ? p.uploadedByPhotoURL : null,
-                displayName: p.uploadedByName.isNotEmpty ? p.uploadedByName : 'You',
-                size: 20,
-              ),
-            ),
-          ),
-          // Goal-category dot, top-right.
-          if (p.goalRef != null)
+          if (!widget.bare) ...[
+            // Uploader avatar, bottom-right.
             Positioned(
-              top: 4, right: 4,
+              bottom: 2, right: 2,
               child: Container(
-                width: 8, height: 8,
-                decoration: BoxDecoration(shape: BoxShape.circle, color: Color(p.goalRef!.colorArgb)),
+                decoration: BoxDecoration(
+                    shape: BoxShape.circle, border: Border.all(color: AppColors.surface0, width: 1)),
+                child: MemberAvatar(
+                  photoURL: p.uploadedByPhotoURL.isNotEmpty ? p.uploadedByPhotoURL : null,
+                  displayName: p.uploadedByName.isNotEmpty ? p.uploadedByName : 'You',
+                  size: 20,
+                ),
               ),
             ),
+            // Goal-category dot, top-right.
+            if (p.goalRef != null)
+              Positioned(
+                top: 4, right: 4,
+                child: Container(
+                  width: 8, height: 8,
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: Color(p.goalRef!.colorArgb)),
+                ),
+              ),
+          ],
         ]),
       ),
     );

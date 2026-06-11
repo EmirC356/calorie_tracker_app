@@ -24,7 +24,7 @@ void main() {
         resolveUrl: (p) async => 'https://example.test/$p',
       );
 
-  Future<void> pumpStrip(WidgetTester tester, FakeFirebaseFirestore fs, int count) async {
+  Future<void> pumpFab(WidgetTester tester, FakeFirebaseFirestore fs, int count) async {
     await fs.doc('squads/s1').set({'name': 'S', 'ownerUid': 'me', 'memberUids': ['me'], 'inviteCode': '123456'});
     for (var i = 0; i < count; i++) {
       await fs.doc('squads/s1/photos/p$i').set({
@@ -41,31 +41,22 @@ void main() {
         googleSignIn: GoogleSignIn());
     await tester.pumpWidget(MultiProvider(
       providers: [ChangeNotifierProvider(create: (_) => PhotoProvider(service: service, authService: authService))],
-      child: const MaterialApp(home: Scaffold(body: PhotoStrip(squadId: 's1'))),
+      child: const MaterialApp(home: Scaffold(floatingActionButton: CameraFab(squadId: 's1'))),
     ));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
   }
 
-  testWidgets('0 photos → empty camera CTA, no thumbnails', (tester) async {
-    await pumpStrip(tester, FakeFirebaseFirestore(), 0);
-    expect(find.text('Share a moment with your squad'), findsOneWidget);
+  testWidgets('CameraFab with no photos → camera button only, no preview', (tester) async {
+    await pumpFab(tester, FakeFirebaseFirestore(), 0);
+    expect(find.byType(FloatingActionButton), findsOneWidget);
     expect(find.byType(PhotoThumbnail), findsNothing);
   });
 
-  testWidgets('1 photo → camera tile + 1 thumbnail', (tester) async {
-    await pumpStrip(tester, FakeFirebaseFirestore(), 1);
-    expect(find.byType(PhotoThumbnail), findsOneWidget);
-  });
-
-  testWidgets('8 photos → 8 thumbnails', (tester) async {
-    await pumpStrip(tester, FakeFirebaseFirestore(), 8);
-    expect(find.byType(PhotoThumbnail), findsNWidgets(8));
-  });
-
-  testWidgets('15 photos → capped at 8 thumbnails', (tester) async {
-    await pumpStrip(tester, FakeFirebaseFirestore(), 15);
-    expect(find.byType(PhotoThumbnail), findsNWidgets(8));
+  testWidgets('CameraFab with photos → shows the latest-photo preview badge', (tester) async {
+    await pumpFab(tester, FakeFirebaseFirestore(), 3);
+    expect(find.byType(FloatingActionButton), findsOneWidget);
+    expect(find.byType(PhotoThumbnail), findsOneWidget); // a single preview, not a strip
   });
 
   testWidgets('undo snackbar counts down and Undo soft-deletes the photo', (tester) async {
@@ -88,17 +79,17 @@ void main() {
       ),
     ));
     await tester.tap(find.text('go'));
-    await tester.pump(); // schedule the snackbar
-    await tester.pump(const Duration(milliseconds: 400)); // entrance settles (still "60s")
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
     expect(find.textContaining('Sent — undo'), findsOneWidget);
     expect(find.text('Undo'), findsOneWidget);
 
     await tester.tap(find.text('Undo'));
-    await tester.pump(); // run onPressed
-    await tester.pump(const Duration(milliseconds: 100)); // undoPhoto completes
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
     final doc = await fs.doc('squads/s1/photos/p1').get();
     expect(doc.data()!['deletedAt'], isNotNull);
 
-    await tester.pumpWidget(const SizedBox()); // dispose snackbar timers
+    await tester.pumpWidget(const SizedBox());
   });
 }

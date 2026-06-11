@@ -17,7 +17,6 @@ import '../../widgets/squad/member_card_compact.dart';
 import '../../widgets/squad/intentions_strip.dart';
 import '../../widgets/squad/group_goals_strip.dart';
 import '../../widgets/squad/activity_feed_strip.dart';
-import '../../widgets/squad/photo_strip.dart';
 import 'member_day_detail_screen.dart';
 
 /// Today tab: activity + intentions strips, a compact check-in chip, a vertical
@@ -48,7 +47,6 @@ class _SquadTodayTabState extends State<SquadTodayTab> {
     final service = context.read<SquadProvider>().service;
     final auth = context.read<AuthProvider>();
     final myUid = auth.firebaseUser?.uid;
-    final myName = auth.appUser?.displayName ?? 'Athlete';
 
     return StreamBuilder<List<SquadMember>>(
       stream: service.watchMembers(widget.squadId),
@@ -72,12 +70,10 @@ class _SquadTodayTabState extends State<SquadTodayTab> {
               builder: (context, rSnap) {
                 final reactions = rSnap.data ?? const <SquadReaction>[];
                 final emojiByUid = latestEmojiByRecipient(reactions);
-                final counts = _countsByUid(reactions);
                 return ListView(
                   padding: const EdgeInsets.only(bottom: Spacing.s24),
                   children: [
                     ActivityFeedStrip(squadId: widget.squadId),
-                    PhotoStrip(squadId: widget.squadId),
                     if (myUid != null) IntentionsStrip(squadId: widget.squadId, myUid: myUid),
                     const SizedBox(height: Spacing.s8),
                     for (final m in members)
@@ -88,10 +84,6 @@ class _SquadTodayTabState extends State<SquadTodayTab> {
                           entry: entries[m.uid],
                           isMe: m.uid == myUid,
                           receivedEmoji: emojiByUid[m.uid],
-                          reactionCounts: counts[m.uid] ?? const {},
-                          onReact: (m.uid == myUid || myUid == null)
-                              ? null
-                              : (e) => _react(context, m, e, myUid, myName),
                           onTap: () => Navigator.push(
                               context,
                               HeroTransitionScaffold.route(MemberDayDetailScreen(
@@ -113,30 +105,6 @@ class _SquadTodayTabState extends State<SquadTodayTab> {
     );
   }
 
-  Map<String, Map<ReactionEmoji, int>> _countsByUid(List<SquadReaction> reactions) {
-    final out = <String, Map<ReactionEmoji, int>>{};
-    for (final r in reactions) {
-      final m = out.putIfAbsent(r.toUid, () => <ReactionEmoji, int>{});
-      m[r.emoji] = (m[r.emoji] ?? 0) + 1;
-    }
-    return out;
-  }
-
-  void _react(BuildContext context, SquadMember m, ReactionEmoji e, String myUid, String myName) {
-    final sp = context.read<SquadProvider>();
-    final remaining = sp.nudgeCooldownRemaining(widget.squadId, m.uid);
-    final messenger = ScaffoldMessenger.of(context);
-    if (remaining > Duration.zero) {
-      messenger.showSnackBar(
-          SnackBar(content: Text('Nudge ${m.displayName} again in ${remaining.inSeconds}s')));
-      return;
-    }
-    sp.markNudged(widget.squadId, m.uid);
-    sp.service.addReaction(
-        squadId: widget.squadId, dateKey: _dateKey,
-        fromUid: myUid, fromName: myName, toUid: m.uid, emoji: e);
-    messenger.showSnackBar(SnackBar(content: Text('${e.glyph} sent to ${m.displayName}')));
-  }
 
   Widget _endCta(BuildContext context, List<SquadMember> members, String? myUid) {
     final ghosted = members.where((m) => m.ghostedSince != null && m.uid != myUid).toList();

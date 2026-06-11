@@ -72,17 +72,18 @@ class _UndoCountdownState extends State<_UndoCountdown> {
   Widget build(BuildContext context) => Text('Sent — undo (${_n}s)', style: AppText.bodyM);
 }
 
-/// Horizontal strip on the Today tab: a +Camera tile then the last 8 visible
-/// photos (newest first). Empty state is a full-width camera CTA.
-class PhotoStrip extends StatefulWidget {
+/// Instagram-instant-style camera FAB: the blue camera button with a small
+/// preview of the squad's most-recent photo tucked onto its top-right corner.
+/// Tapping the button opens the camera; tapping the preview opens that photo.
+class CameraFab extends StatefulWidget {
   final String squadId;
-  const PhotoStrip({super.key, required this.squadId});
+  const CameraFab({super.key, required this.squadId});
 
   @override
-  State<PhotoStrip> createState() => _PhotoStripState();
+  State<CameraFab> createState() => _CameraFabState();
 }
 
-class _PhotoStripState extends State<PhotoStrip> {
+class _CameraFabState extends State<CameraFab> {
   @override
   void initState() {
     super.initState();
@@ -93,66 +94,40 @@ class _PhotoStripState extends State<PhotoStrip> {
 
   @override
   Widget build(BuildContext context) {
-    final photos = context.watch<PhotoProvider>().recentPhotos.take(8).toList();
-    if (photos.isEmpty) return _empty(context);
+    final photos = context.watch<PhotoProvider>().recentPhotos;
+    final latest = photos.isNotEmpty ? photos.first : null;
     return SizedBox(
-      height: 80,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(Spacing.s16, Spacing.s8, Spacing.s16, 0),
-        physics: const BouncingScrollPhysics(),
-        children: [
-          _cameraTile(context),
-          const SizedBox(width: Spacing.s8),
-          for (final p in photos) ...[
-            PhotoThumbnail(photo: p, onTap: () => _open(context, p)),
-            const SizedBox(width: Spacing.s8),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _cameraTile(BuildContext context) => GestureDetector(
-        onTap: () => launchProofCamera(context, widget.squadId),
-        child: Container(
-          width: 64, height: 64,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppRadius.r12),
-            border: Border.all(color: AppColors.squadBlue, width: 1.5),
+      width: 64,
+      height: 64,
+      child: Stack(clipBehavior: Clip.none, children: [
+        Positioned(
+          right: 0, bottom: 0,
+          child: FloatingActionButton(
+            heroTag: 'proof-camera-fab',
+            backgroundColor: AppColors.squadBlue,
+            foregroundColor: AppColors.surface0,
+            onPressed: () => launchProofCamera(context, widget.squadId),
+            child: const Icon(LucideIcons.camera),
           ),
-          child: const Icon(LucideIcons.camera, color: AppColors.squadBlue, size: 22),
         ),
-      );
-
-  Widget _empty(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(Spacing.s16, Spacing.s8, Spacing.s16, 0),
-        child: GestureDetector(
-          onTap: () => launchProofCamera(context, widget.squadId),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: Spacing.s16),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppRadius.r12),
-              border: Border.all(color: AppColors.squadBlue, width: 1.5),
+        if (latest != null)
+          Positioned(
+            top: 0, right: 0,
+            child: GestureDetector(
+              onTap: () => Navigator.push(context, MaterialPageRoute<void>(
+                  fullscreenDialog: true, builder: (_) => _FullPhotoView(photo: latest))),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(AppRadius.r8),
+                  border: Border.all(color: AppColors.surface0, width: 2),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: PhotoThumbnail(photo: latest, size: 30, bare: true),
+              ),
             ),
-            child: Column(children: [
-              const Icon(LucideIcons.camera, color: AppColors.squadBlue, size: 24),
-              const SizedBox(height: Spacing.s8),
-              Text('Share a moment with your squad',
-                  style: AppText.bodyM.copyWith(color: AppColors.textSecondary)),
-            ]),
           ),
-        ),
-      );
-
-  // Interim full-screen viewer for Task 3 — Task 4 replaces this with the full
-  // PhotoDetailScreen (reactions, zoom, reactor sheet).
-  void _open(BuildContext context, Photo photo) {
-    Navigator.push(context, MaterialPageRoute<void>(
-      fullscreenDialog: true,
-      builder: (_) => _FullPhotoView(photo: photo),
-    ));
+      ]),
+    );
   }
 }
 
