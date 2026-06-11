@@ -43,6 +43,10 @@ class PhotoService {
 
   String get _uid => _auth.currentUser?.uid ?? '';
 
+  /// A fresh photo id, so the optimistic placeholder and the eventual doc share
+  /// the same id (for reconciliation).
+  String newPhotoId(String squadId) => _photos(squadId).doc().id;
+
   Future<Uint8List> compressForUpload(Uint8List rawBytes) =>
       img.compressJpeg(rawBytes, maxDim: 1920, quality: 80);
 

@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// A goal occurrence a proof photo is attached to (denormalized onto the photo
@@ -65,6 +66,10 @@ class Photo {
   /// Firestore listener.
   final bool optimistic;
 
+  /// Captured bytes held only for an optimistic placeholder so the strip can
+  /// render the image instantly before upload completes. Never serialized.
+  final Uint8List? localBytes;
+
   const Photo({
     required this.id,
     required this.uploadedByUid,
@@ -82,6 +87,7 @@ class Photo {
     this.reactionCounts = const {'fire': 0, 'flex': 0, 'clap': 0},
     this.deletedAt,
     this.optimistic = false,
+    this.localBytes,
   });
 
   bool get isPending => !published && deletedAt == null;

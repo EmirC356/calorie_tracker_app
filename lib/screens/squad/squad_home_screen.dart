@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import '../../models/squad.dart';
 import '../../models/squad_day_entry.dart';
@@ -10,6 +11,7 @@ import '../../theme/app_text_styles.dart';
 import 'squad_settings_screen.dart';
 import 'squad_today_tab.dart';
 import 'squad_board_tab.dart';
+import 'camera_screen.dart';
 
 /// A single squad with three tabs. Today (Phase 4) and Leaderboard (Phase 6)
 /// are placeholders for now; Settings (Phase 3) is live.
@@ -73,6 +75,14 @@ class SquadHomeScreen extends StatelessWidget {
           SquadBoardTab(squadId: squadId),
           SquadSettingsScreen(squadId: squadId),
         ]),
+        // Proof — quick camera entry (the Today strip's +Camera tile, Task 3,
+        // is the primary one; this is the always-reachable shortcut).
+        floatingActionButton: FloatingActionButton(
+          backgroundColor: AppColors.squadBlue,
+          foregroundColor: AppColors.surface0,
+          onPressed: () => Navigator.push(context, CameraScreen.route(squadId: squadId)),
+          child: const Icon(LucideIcons.camera),
+        ),
       ),
     );
   }
