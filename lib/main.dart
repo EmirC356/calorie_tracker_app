@@ -15,7 +15,7 @@ import 'providers/auth_provider.dart';
 import 'providers/squad_provider.dart';
 import 'providers/snapshot_provider.dart';
 import 'providers/goal_provider.dart';
-import 'screens/home_screen.dart';
+import 'screens/auth_gate.dart';
 import 'services/ai_service.dart';
 import 'services/streak_warning_service.dart';
 import 'services/prefs.dart';
@@ -97,7 +97,7 @@ class MyApp extends StatelessWidget {
         title: 'Lanabuzer',
         theme: buildAppTheme(),
         scaffoldMessengerKey: rootMessengerKey, // foreground push -> in-app banner
-        home: const HomeScreen(),
+        home: const AuthGate(),
         debugShowCheckedModeBanner: false,
       ),
     );

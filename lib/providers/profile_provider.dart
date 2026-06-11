@@ -7,9 +7,14 @@ import '../services/prefs.dart';
 /// Holds the persisted [UserProfile] and exposes it to the widget tree.
 class ProfileProvider extends ChangeNotifier {
   UserProfile? _profile;
+  bool _loaded = false;
 
   UserProfile? get profile => _profile;
   bool get hasProfile => _profile?.isComplete ?? false;
+
+  /// True once [load] has read SharedPreferences — lets the auth gate tell
+  /// "no profile yet" (needs onboarding) apart from "not loaded yet".
+  bool get loaded => _loaded;
 
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -17,6 +22,7 @@ class ProfileProvider extends ChangeNotifier {
     if (raw != null && raw.isNotEmpty) {
       _profile = UserProfile.fromJson(jsonDecode(raw) as Map<String, dynamic>);
     }
+    _loaded = true;
     notifyListeners();
   }
 
