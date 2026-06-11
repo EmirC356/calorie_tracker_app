@@ -4,7 +4,9 @@ import 'package:provider/provider.dart';
 import '../../models/squad_member.dart';
 import '../../models/squad_day_entry.dart';
 import '../../models/squad_reaction.dart';
+import '../../models/squad_goal.dart';
 import '../../models/goal_visible.dart';
+import '../../models/date_helpers.dart';
 import '../../providers/auth_provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../providers/squad_provider.dart';
@@ -14,6 +16,7 @@ import '../../theme/app_text_styles.dart';
 import '../../widgets/ui/member_avatar.dart';
 import '../../widgets/ui/status_pill.dart';
 import '../../widgets/squad/goal_summary.dart';
+import '../../widgets/squad/goal_row.dart';
 import '../../widgets/squad/squad_status.dart';
 import '../../widgets/squad/reaction_bar.dart';
 import '../../widgets/squad/squadmate_goals.dart';
@@ -57,7 +60,7 @@ class MemberDayDetailScreen extends StatelessWidget {
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(member.displayName, style: AppText.titleL),
             const SizedBox(height: Spacing.s4),
-            GoalSummary(goal: member.goal),
+            GoalSummary(goal: member.effectiveGoal),
           ])),
         ]),
         const SizedBox(height: Spacing.s16),
@@ -102,14 +105,69 @@ class MemberDayDetailScreen extends StatelessWidget {
         if (goals.isEmpty && snap.connectionState == ConnectionState.waiting) {
           return const SizedBox.shrink();
         }
+        final today = ymd(dateOnly(DateTime.now()));
+        // Calendar goal occurrences shared for today.
+        final todays = goals.where((g) => g.date == today).toList();
+        final primary = _primaryGoalTitles();
+        final dayPill = _dayPillStatus();
+        final hasAny = primary.isNotEmpty || todays.isNotEmpty;
         return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          SquadmateGoalsToday(goals: goals),
-          const SizedBox(height: 16),
-          SquadmateGoalStats(goals: goals),
+          if (!hasAny)
+            Text('No goals shared today',
+                style: AppText.bodyM.copyWith(color: AppColors.textTertiary))
+          else ...[
+            Text("TODAY'S GOALS", style: AppText.caption),
+            const SizedBox(height: Spacing.s8),
+            // Primary effective goal(s) first — the profile/override goal.
+            for (final t in primary) GoalRow(title: t, status: dayPill),
+            // Then squad-visible Calendar goal occurrences.
+            for (final g in todays)
+              GoalRow(
+                title: g.goalTitle,
+                subtitle: g.metricSummary,
+                dotColor: Color(g.colorArgb),
+                status: _calendarPill(g.status),
+              ),
+          ],
+          if (goals.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            SquadmateGoalStats(goals: goals),
+          ],
         ]);
       },
     );
   }
+
+  /// Rich titles for the member's primary effective goal (profile snapshot when
+  /// inherited, else the explicit squad goal).
+  List<String> _primaryGoalTitles() {
+    final out = <String>[];
+    if (member.inheritedFromProfile && !member.profileGoalSnapshot.isEmpty) {
+      final s = member.profileGoalSnapshot;
+      if (s.calorieSummary != null) out.add(s.calorieSummary!);
+      if (s.exerciseSummary != null) out.add(s.exerciseSummary!);
+    } else {
+      final g = member.goal;
+      if (g.calorieActive) {
+        out.add('${g.calorieMode == CalorieMode.cap ? '≤' : '≥'} ${g.calorieTarget} kcal/day');
+      }
+      if (g.exerciseMinutesMin != null) out.add('≥ ${g.exerciseMinutesMin} min exercise/day');
+      if (g.caloriesBurnedMin != null) out.add('≥ ${g.caloriesBurnedMin} kcal burned/day');
+    }
+    return out;
+  }
+
+  PillStatus? _dayPillStatus() {
+    if (entry == null) return null;
+    if (entry!.paused) return PillStatus.paused;
+    return pillStatusFor(entry!.status);
+  }
+
+  PillStatus _calendarPill(String occurrenceStatus) => switch (occurrenceStatus) {
+        'done' => PillStatus.hit,
+        'missed' => PillStatus.missed,
+        _ => PillStatus.inProgress,
+      };
 
   /// "Suggest a goal" entry point (squadmates only — not yourself).
   Widget _suggestButton(BuildContext context) {
