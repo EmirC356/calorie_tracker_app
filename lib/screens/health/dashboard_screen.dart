@@ -17,7 +17,6 @@ import '../exercise_logging_screen.dart';
 import '../exercise_logs_screen.dart';
 import '../log_meal_screen.dart';
 import '../meal_logs_screen.dart';
-import '../meal_prep_screen.dart';
 import '../profile_screen.dart';
 import '../settings_screen.dart';
 
@@ -42,10 +41,6 @@ class DashboardScreen extends StatelessWidget {
         caption: 'Health',
         accent: accent,
         actions: [
-          IconButton(
-              icon: const Icon(LucideIcons.package, size: 20),
-              tooltip: 'Meal Prep',
-              onPressed: () => _push(context, const MealPrepScreen())),
           IconButton(
               icon: const Icon(LucideIcons.user, size: 20),
               tooltip: 'Profile & Goals',
@@ -80,7 +75,11 @@ class DashboardScreen extends StatelessWidget {
               final profile = profileP.profile;
               final weight = weightP.latest?.weight ?? profile?.fallbackWeightKg;
               final hasTargets = profileP.hasProfile && weight != null && weight > 0;
-              final calTarget = hasTargets ? profile!.calorieTarget(weight) : null;
+              // The hero reflects the user's MANUALLY SET calorie goal (the cap/
+              // floor they entered in Profile), not the TDEE suggestion. Falls
+              // back to the suggestion only when no goal is set.
+              final calTarget = profile?.calorieGoalTarget ??
+                  (hasTargets ? profile!.calorieTarget(weight) : null);
               final proTarget = hasTargets ? profile!.proteinTargetGrams(weight) : null;
               final ringProgress = (calTarget != null && calTarget > 0)
                   ? (cal / calTarget).clamp(0.0, 1.0)
@@ -144,9 +143,10 @@ class DashboardScreen extends StatelessWidget {
             builder: (_, meals, profileP, weightP, __) {
               final profile = profileP.profile;
               final weight = weightP.latest?.weight ?? profile?.fallbackWeightKg;
-              final goal = (profileP.hasProfile && weight != null && weight > 0)
-                  ? profile!.calorieTarget(weight)
-                  : null;
+              final goal = profile?.calorieGoalTarget ??
+                  ((profileP.hasProfile && weight != null && weight > 0)
+                      ? profile!.calorieTarget(weight)
+                      : null);
               return Column(children: [
                 CollapsibleChartSection(
                   title: 'CALORIES — LAST 14 DAYS',

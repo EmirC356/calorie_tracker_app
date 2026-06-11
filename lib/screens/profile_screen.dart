@@ -31,7 +31,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late final TextEditingController _calTarget;
   int? _weeklySessions; // null = exercise goal off
   int _minMinutes = 20;
-  String? _birthday; // preserved across saves (date-picker UI lands in Task 6)
+  String? _birthday;
+  bool _showCalorie = false; // the two collapsible goal sections
+  bool _showExercise = false;
 
   static const _activityLabels = {
     ActivityLevel.sedentary: 'Sedentary (little/no exercise)',
@@ -59,6 +61,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _weeklySessions = p.weeklyExerciseSessions;
     _minMinutes = p.minSessionMinutes;
     _birthday = p.birthday;
+    _showCalorie = p.calorieGoalMode != CalorieMode.none;
+    _showExercise = p.weeklyExerciseSessions != null;
   }
 
   @override
@@ -138,43 +142,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _numField(_weight, 'Current weight (kg) — fallback if none logged'),
           const SizedBox(height: Spacing.s20),
           _birthdayField(),
-          const SizedBox(height: Spacing.s20),
-          Text('SEX', style: AppText.caption),
-          const SizedBox(height: Spacing.s8),
-          _segmented<Sex>(
-            values: Sex.values,
-            current: _sex,
-            label: (s) => s == Sex.male ? 'MALE' : 'FEMALE',
-            onChanged: (s) => setState(() => _sex = s),
-          ),
-          const SizedBox(height: Spacing.s20),
-          Text('ACTIVITY LEVEL', style: AppText.caption),
-          const SizedBox(height: Spacing.s8),
-          DropdownButtonFormField<ActivityLevel>(
-            initialValue: _activity,
-            isExpanded: true,
-            dropdownColor: AppColors.surface3,
-            style: AppText.bodyM,
-            decoration: const InputDecoration(isDense: true),
-            items: ActivityLevel.values
-                .map((a) => DropdownMenuItem(
-                    value: a, child: Text(_activityLabels[a]!, overflow: TextOverflow.ellipsis)))
-                .toList(),
-            onChanged: (a) => setState(() => _activity = a ?? _activity),
-          ),
-          const SizedBox(height: Spacing.s20),
-          Text('GOAL', style: AppText.caption),
-          const SizedBox(height: Spacing.s8),
-          _segmented<DietGoal>(
-            values: DietGoal.values,
-            current: _goal,
-            label: (g) => g.name.toUpperCase(),
-            onChanged: (g) => setState(() => _goal = g),
-          ),
-          const SizedBox(height: Spacing.s20),
-          _preview(),
           const SizedBox(height: Spacing.s24),
-          _healthGoals(),
+          Text('HEALTH GOALS', style: AppText.caption),
+          const SizedBox(height: Spacing.s4),
+          Text('Set the goals you want to hit — these become your squad goal.',
+              style: AppText.bodyM.copyWith(color: AppColors.textSecondary)),
+          const SizedBox(height: Spacing.s12),
+          _sectionButton(
+            'Track Daily Calorie',
+            Icons.local_fire_department,
+            expanded: _showCalorie,
+            active: _calMode != CalorieMode.none,
+            onTap: () => setState(() => _showCalorie = !_showCalorie),
+          ),
+          if (_showCalorie) _calorieSection(),
+          const SizedBox(height: Spacing.s12),
+          _sectionButton(
+            'Track Weekly Exercise Sessions',
+            Icons.fitness_center,
+            expanded: _showExercise,
+            active: _weeklySessions != null,
+            onTap: () => setState(() => _showExercise = !_showExercise),
+          ),
+          if (_showExercise) _exerciseSection(),
           const SizedBox(height: Spacing.s24),
           OutlinedButton(
             onPressed: _save,
@@ -256,65 +246,133 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Widget _healthGoals() {
+  /// Collapsible goal-section header button.
+  Widget _sectionButton(String title, IconData icon,
+      {required bool expanded, required bool active, required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppRadius.r8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: Spacing.s12, vertical: Spacing.s12),
+        decoration: BoxDecoration(
+          color: AppColors.surface1,
+          borderRadius: BorderRadius.circular(AppRadius.r8),
+          border: Border.all(
+              color: active ? AppColors.healthRed : AppColors.surface2,
+              width: active ? 1.5 : 1),
+        ),
+        child: Row(children: [
+          Icon(icon, size: 18, color: active ? AppColors.healthRed : AppColors.textSecondary),
+          const SizedBox(width: Spacing.s12),
+          Expanded(child: Text(title, style: AppText.bodyL)),
+          if (active) ...[
+            const Icon(Icons.check_circle, size: 16, color: AppColors.healthRed),
+            const SizedBox(width: Spacing.s8),
+          ],
+          Icon(expanded ? Icons.expand_less : Icons.expand_more, color: AppColors.textSecondary),
+        ]),
+      ),
+    );
+  }
+
+  /// Calorie goal: the sex/activity/direction inputs that drive the TDEE
+  /// *suggestion* (just a hint), then the actual goal the user enters.
+  Widget _calorieSection() {
     final weight = _effectiveWeight;
     final profile = _currentProfile();
     final suggestion = (weight != null && weight > 0 && profile.isComplete)
         ? profile.calorieTarget(weight).round()
         : null;
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Text('HEALTH GOALS', style: AppText.caption),
-      const SizedBox(height: Spacing.s4),
-      Text('Becomes your primary squad goal — no Calendar entry needed.',
-          style: AppText.bodyM.copyWith(color: AppColors.textSecondary)),
-      const SizedBox(height: Spacing.s16),
-      Text('CALORIE GOAL', style: AppText.caption),
-      const SizedBox(height: Spacing.s8),
-      _segmented<CalorieMode>(
-        values: const [CalorieMode.none, CalorieMode.cap, CalorieMode.floor],
-        current: _calMode,
-        label: (m) => switch (m) {
-          CalorieMode.none => 'NONE',
-          CalorieMode.cap => 'CAP ≤',
-          CalorieMode.floor => 'FLOOR ≥',
-        },
-        onChanged: (m) => setState(() {
-          _calMode = m;
-          if (m != CalorieMode.none && _calTarget.text.isEmpty && suggestion != null) {
-            _calTarget.text = suggestion.toString();
-          }
-        }),
-      ),
-      if (_calMode != CalorieMode.none) ...[
-        const SizedBox(height: Spacing.s12),
-        _numField(_calTarget, 'Target (kcal/day)'),
-        if (suggestion != null) ...[
-          const SizedBox(height: Spacing.s8),
-          GestureDetector(
-            onTap: () => setState(() => _calTarget.text = suggestion.toString()),
-            child: Text('Suggested: $suggestion kcal/day  ·  tap to use',
-                style: AppText.caption.copyWith(color: AppColors.healthRed)),
-          ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(Spacing.s4, Spacing.s12, Spacing.s4, 0),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text('SEX', style: AppText.caption),
+        const SizedBox(height: Spacing.s8),
+        _segmented<Sex>(
+          values: Sex.values, current: _sex,
+          label: (s) => s == Sex.male ? 'MALE' : 'FEMALE',
+          onChanged: (s) => setState(() => _sex = s),
+        ),
+        const SizedBox(height: Spacing.s16),
+        Text('ACTIVITY LEVEL', style: AppText.caption),
+        const SizedBox(height: Spacing.s8),
+        DropdownButtonFormField<ActivityLevel>(
+          initialValue: _activity,
+          isExpanded: true,
+          dropdownColor: AppColors.surface3,
+          style: AppText.bodyM,
+          decoration: const InputDecoration(isDense: true),
+          items: ActivityLevel.values
+              .map((a) => DropdownMenuItem(
+                  value: a, child: Text(_activityLabels[a]!, overflow: TextOverflow.ellipsis)))
+              .toList(),
+          onChanged: (a) => setState(() => _activity = a ?? _activity),
+        ),
+        const SizedBox(height: Spacing.s16),
+        Text('GOAL DIRECTION', style: AppText.caption),
+        const SizedBox(height: Spacing.s8),
+        _segmented<DietGoal>(
+          values: DietGoal.values, current: _goal,
+          label: (g) => g.name.toUpperCase(),
+          onChanged: (g) => setState(() => _goal = g),
+        ),
+        const SizedBox(height: Spacing.s16),
+        _preview(), // YOUR TARGETS — suggestions only, not the goal
+        const SizedBox(height: Spacing.s16),
+        Text('YOUR CALORIE GOAL', style: AppText.caption),
+        const SizedBox(height: Spacing.s8),
+        _segmented<CalorieMode>(
+          values: const [CalorieMode.none, CalorieMode.cap, CalorieMode.floor],
+          current: _calMode,
+          label: (m) => switch (m) {
+            CalorieMode.none => 'NONE',
+            CalorieMode.cap => 'CAP ≤',
+            CalorieMode.floor => 'FLOOR ≥',
+          },
+          onChanged: (m) => setState(() {
+            _calMode = m;
+            if (m != CalorieMode.none && _calTarget.text.isEmpty && suggestion != null) {
+              _calTarget.text = suggestion.toString();
+            }
+          }),
+        ),
+        if (_calMode != CalorieMode.none) ...[
+          const SizedBox(height: Spacing.s12),
+          _numField(_calTarget, 'Goal target (kcal/day)'),
+          if (suggestion != null) ...[
+            const SizedBox(height: Spacing.s8),
+            GestureDetector(
+              onTap: () => setState(() => _calTarget.text = suggestion.toString()),
+              child: Text('Suggested: $suggestion kcal/day  ·  tap to use',
+                  style: AppText.caption.copyWith(color: AppColors.healthRed)),
+            ),
+          ],
         ],
-      ],
-      const SizedBox(height: Spacing.s16),
-      Text('EXERCISE GOAL', style: AppText.caption),
-      SwitchListTile(
-        contentPadding: EdgeInsets.zero,
-        activeThumbColor: AppColors.healthRed,
-        title: Text('Track weekly exercise sessions', style: AppText.bodyL),
-        subtitle: Text('A session counts when you log an exercise ≥ $_minMinutes min',
-            style: AppText.bodyM.copyWith(color: AppColors.textSecondary)),
-        value: _weeklySessions != null,
-        onChanged: (on) => setState(() => _weeklySessions = on ? (_weeklySessions ?? 3) : null),
-      ),
-      if (_weeklySessions != null) ...[
-        _stepperRow('Sessions per week', _weeklySessions!, 1, 14,
-            (v) => setState(() => _weeklySessions = v)),
-        _stepperRow('Min minutes per session', _minMinutes, 5, 180,
-            (v) => setState(() => _minMinutes = v), step: 5),
-      ],
-    ]);
+      ]),
+    );
+  }
+
+  Widget _exerciseSection() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(Spacing.s4, Spacing.s8, Spacing.s4, 0),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          activeThumbColor: AppColors.healthRed,
+          title: Text('Enable weekly exercise goal', style: AppText.bodyL),
+          subtitle: Text('A session counts when you log an exercise ≥ $_minMinutes min',
+              style: AppText.bodyM.copyWith(color: AppColors.textSecondary)),
+          value: _weeklySessions != null,
+          onChanged: (on) => setState(() => _weeklySessions = on ? (_weeklySessions ?? 3) : null),
+        ),
+        if (_weeklySessions != null) ...[
+          _stepperRow('Sessions per week', _weeklySessions!, 1, 14,
+              (v) => setState(() => _weeklySessions = v)),
+          _stepperRow('Min minutes per session', _minMinutes, 5, 180,
+              (v) => setState(() => _minMinutes = v), step: 5),
+        ],
+      ]),
+    );
   }
 
   Widget _stepperRow(String label, int value, int min, int max, ValueChanged<int> onChanged,
