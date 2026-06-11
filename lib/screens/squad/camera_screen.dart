@@ -159,10 +159,11 @@ class _CameraScreenState extends State<CameraScreen> {
     final service = photoP.service;
     final squadId = _squadId;
     final goalRef = _goalRef;
+    String? id;
     try {
       final file = await _controller!.takePicture();
       final raw = await file.readAsBytes();
-      final id = service.newPhotoId(squadId);
+      id = service.newPhotoId(squadId);
 
       // Optimistic placeholder renders instantly from the captured bytes.
       photoP.addOptimisticPhoto(Photo(
@@ -176,25 +177,18 @@ class _CameraScreenState extends State<CameraScreen> {
         goalRef: goalRef,
       ));
 
-      // Compress + upload off the critical path; reconciled by the listener.
-      // ignore: discarded_futures
-      () async {
-        try {
-          final bytes = await service.compressForUpload(raw);
-          await service.uploadPhoto(
-            squadId: squadId, bytes: bytes, goalRef: goalRef, photoId: id,
-            uploaderName: auth.appUser?.displayName, uploaderPhotoURL: auth.appUser?.photoURL,
-          );
-        } catch (_) {
-          photoP.removeOptimisticPhoto(id);
-        }
-      }();
-
+      // Await the upload so failures surface (instead of vanishing).
+      final bytes = await service.compressForUpload(raw);
+      await service.uploadPhoto(
+        squadId: squadId, bytes: bytes, goalRef: goalRef, photoId: id,
+        uploaderName: auth.appUser?.displayName, uploaderPhotoURL: auth.appUser?.photoURL,
+      );
       navigator.pop(PhotoSent(photoId: id, squadId: squadId, goalRef: goalRef));
     } catch (e) {
+      if (id != null) photoP.removeOptimisticPhoto(id);
       if (mounted) setState(() => _capturing = false);
-      messenger.showSnackBar(
-          const SnackBar(content: Text("Couldn't take the photo — try again")));
+      messenger.showSnackBar(SnackBar(
+          content: Text('Upload failed: $e'), duration: const Duration(seconds: 6)));
     }
   }
 
