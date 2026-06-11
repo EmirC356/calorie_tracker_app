@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../models/squad.dart';
 import '../../models/squad_member.dart';
 import '../../models/squad_pause.dart';
@@ -14,12 +15,12 @@ import '../../services/pause_service.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'squad_notifications_screen.dart';
 import '../../theme/app_colors.dart';
-import '../../theme/app_motion.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_text_styles.dart';
 import '../../widgets/ui/member_avatar.dart';
 import '../../widgets/ui/shimmer_placeholder.dart';
 import '../../widgets/squad/goal_summary.dart';
+import '../../widgets/squad/presence_indicator.dart';
 import 'goal_editor_screen.dart';
 
 /// The "Settings" tab of a squad: my goal, my sharing level, invite, members,
@@ -54,9 +55,8 @@ class SquadSettingsScreen extends StatelessWidget {
                           .copyWith(color: AppColors.textSecondary)));
         }
         final isOwner = squad.isOwner(myUid);
+        // The squad name + member count live in the AppBar subtitle now.
         return ListView(padding: const EdgeInsets.all(Spacing.s16), children: [
-          _header(context, service, squad, isOwner),
-          const SizedBox(height: Spacing.s16),
           _inviteCard(context, service, squad, isOwner),
           const SizedBox(height: Spacing.s24),
           _myGoalAndSharing(context, service, squad, myUid),
@@ -64,16 +64,25 @@ class SquadSettingsScreen extends StatelessWidget {
           _membersSection(context, service, squad, myUid, isOwner),
           if (isOwner) ...[
             const SizedBox(height: Spacing.s16),
-            OutlinedButton.icon(
-              onPressed: () => _createGroupGoalDialog(context, service, squad.id, myUid),
-              style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.squadBlue,
-                  side: const BorderSide(
-                      color: AppColors.squadBlue, width: 1.5),
-                  minimumSize: const Size.fromHeight(46)),
-              icon: const Icon(LucideIcons.flag, size: 18),
-              label: const Text('New group goal'),
-            ),
+            Row(children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _createGroupGoalDialog(context, service, squad.id, myUid),
+                  style: _ownerBtn(),
+                  icon: const Icon(LucideIcons.flag, size: 18),
+                  label: const Text('Group goal'),
+                ),
+              ),
+              const SizedBox(width: Spacing.s12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _renameDialog(context, service, squad),
+                  style: _ownerBtn(),
+                  icon: const Icon(LucideIcons.pencil, size: 18),
+                  label: const Text('Rename'),
+                ),
+              ),
+            ]),
           ],
           const SizedBox(height: Spacing.s24),
           _dangerZone(context, service, squad, myUid, isOwner),
@@ -82,27 +91,11 @@ class SquadSettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _header(BuildContext context, SquadService service, Squad squad, bool isOwner) {
-    return Row(children: [
-      Expanded(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(squad.name, style: AppText.titleL),
-          const SizedBox(height: Spacing.s4),
-          Text(
-              '${squad.memberCount}/${Squad.maxMembers} members${isOwner ? '  •  you own this' : ''}',
-              style: AppText.tabular(
-                  AppText.bodyS.copyWith(color: AppColors.textSecondary))),
-        ]),
-      ),
-      if (isOwner)
-        IconButton(
-          icon: const Icon(LucideIcons.pencil,
-              color: AppColors.textSecondary, size: 18),
-          tooltip: 'Rename squad',
-          onPressed: () => _renameDialog(context, service, squad),
-        ),
-    ]);
-  }
+  ButtonStyle _ownerBtn() => OutlinedButton.styleFrom(
+        foregroundColor: AppColors.squadBlue,
+        side: const BorderSide(color: AppColors.squadBlue, width: 1.5),
+        minimumSize: const Size.fromHeight(46),
+      );
 
   Widget _inviteCard(BuildContext context, SquadService service, Squad squad, bool isOwner) {
     final expired = squad.inviteExpired;
@@ -124,31 +117,39 @@ class SquadSettingsScreen extends StatelessWidget {
       Row(children: [
         Expanded(child: OutlinedButton.icon(
           onPressed: () {
-            Clipboard.setData(ClipboardData(text: 'Join my squad "${squad.name}" — code ${squad.inviteCode}'));
+            Clipboard.setData(ClipboardData(text: _inviteText(squad)));
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invite copied')));
           },
-          style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.squadBlue,
-              side: const BorderSide(color: AppColors.squadBlue, width: 1.5)),
+          style: _ownerBtn(),
           icon: const Icon(LucideIcons.copy, size: 18),
           label: const Text('Copy'),
         )),
-        if (isOwner) ...[
-          const SizedBox(width: Spacing.s12),
-          Expanded(child: OutlinedButton.icon(
+        const SizedBox(width: Spacing.s12),
+        Expanded(child: OutlinedButton.icon(
+          onPressed: () => Share.share(_inviteText(squad), subject: 'Join my squad'),
+          style: _ownerBtn(),
+          icon: const Icon(LucideIcons.share2, size: 18),
+          label: const Text('Share'),
+        )),
+      ]),
+      if (isOwner) ...[
+        const SizedBox(height: Spacing.s12),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
             onPressed: () async {
               await service.regenerateInviteCode(squad.id);
-              if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('New code generated')));
+              if (context.mounted) {
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(const SnackBar(content: Text('New code generated')));
+              }
             },
-            style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.squadBlue,
-                side:
-                    const BorderSide(color: AppColors.squadBlue, width: 1.5)),
+            style: _ownerBtn(),
             icon: const Icon(LucideIcons.refreshCw, size: 18),
-            label: const Text('New code'),
-          )),
-        ],
-      ]),
+            label: const Text('Regenerate code'),
+          ),
+        ),
+      ],
     ]);
   }
 
@@ -257,12 +258,25 @@ class SquadSettingsScreen extends StatelessWidget {
   Widget _pauseCard(BuildContext context, SquadService service, String squadId, String myUid, SquadMember me) {
     final paused = me.pause.isCurrentlyPaused(DateTime.now());
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('PAUSE / VACATION', style: AppText.caption),
-      const SizedBox(height: Spacing.s4),
-      Text(
-          "Freeze your streak and skip ghost/streak alerts while you're off. "
-          'Max 21 days at a time, 60 days a year.',
-          style: AppText.bodyM.copyWith(color: AppColors.textSecondary)),
+      Row(children: [
+        Text('PAUSE / VACATION', style: AppText.caption),
+        const SizedBox(width: Spacing.s4),
+        InkWell(
+          onTap: () => showDialog<void>(
+            context: context,
+            builder: (_) => AlertDialog(
+              title: const Text('Pause / vacation'),
+              content: const Text(
+                  "Freeze your streak and skip ghost/streak alerts while you're off. "
+                  'Max 21 days at a time, 60 days a year.'),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(context), child: const Text('Got it')),
+              ],
+            ),
+          ),
+          child: const Icon(LucideIcons.info, size: 14, color: AppColors.textTertiary),
+        ),
+      ]),
       const SizedBox(height: Spacing.s12),
       if (paused) ...[
         Row(children: [
@@ -347,6 +361,9 @@ class SquadSettingsScreen extends StatelessWidget {
     return '${months[d.month - 1]} ${d.day}';
   }
 
+  static String _inviteText(Squad squad) =>
+      'Join my squad "${squad.name}" on Lanabuzer — code ${squad.inviteCode}';
+
   Future<void> _createGroupGoalDialog(BuildContext context, SquadService service, String squadId, String ownerUid) async {
     final titleCtrl = TextEditingController();
     final targetCtrl = TextEditingController();
@@ -398,49 +415,27 @@ class SquadSettingsScreen extends StatelessWidget {
     messenger.showSnackBar(const SnackBar(content: Text('Group goal created 🎯')));
   }
 
+  /// Material 3 segmented control (keeps keyboard/focus + screen-reader
+  /// semantics that hand-rolled pills would lose).
   Widget _sharingToggle(BuildContext context, SquadService service, String squadId, String myUid, SharingLevel current) {
-    const labels = {
-      SharingLevel.status: 'Status only',
-      SharingLevel.totals: 'Status + totals',
-      SharingLevel.full: 'Everything',
-    };
-    return Column(
-      children: SharingLevel.values.map((lvl) {
-        final sel = lvl == current;
-        return GestureDetector(
-          onTap: () => service.updateSharingLevel(squadId, myUid, lvl),
-          child: AnimatedContainer(
-            duration: AppMotion.enter,
-            curve: Curves.easeOutCubic,
-            margin: const EdgeInsets.only(bottom: Spacing.s8),
-            padding: const EdgeInsets.symmetric(
-                horizontal: Spacing.s12, vertical: Spacing.s12),
-            decoration: BoxDecoration(
-              color: AppColors.surface1,
-              borderRadius: BorderRadius.circular(AppRadius.r8),
-              border: Border.all(
-                color: sel ? AppColors.squadBlue : AppColors.surface2,
-                width: sel ? AppMotion.focusBorderWidth : 1,
-              ),
-              boxShadow:
-                  sel ? AppMotion.accentGlow(AppColors.squadBlue) : null,
-            ),
-            child: Row(children: [
-              Icon(sel ? LucideIcons.checkCircle2 : LucideIcons.circle,
-                  color: sel
-                      ? AppColors.squadBlue
-                      : AppColors.textTertiary,
-                  size: 18),
-              const SizedBox(width: Spacing.s12),
-              Text(labels[lvl]!,
-                  style: AppText.bodyS.copyWith(
-                      color: sel
-                          ? AppColors.textPrimary
-                          : AppColors.textSecondary)),
-            ]),
-          ),
-        );
-      }).toList(),
+    return SizedBox(
+      width: double.infinity,
+      child: SegmentedButton<SharingLevel>(
+        segments: const [
+          ButtonSegment(value: SharingLevel.status, label: Text('Status')),
+          ButtonSegment(value: SharingLevel.totals, label: Text('Totals')),
+          ButtonSegment(value: SharingLevel.full, label: Text('Everything')),
+        ],
+        selected: {current},
+        showSelectedIcon: false,
+        onSelectionChanged: (sel) => service.updateSharingLevel(squadId, myUid, sel.first),
+        style: SegmentedButton.styleFrom(
+          selectedForegroundColor: AppColors.surface0,
+          selectedBackgroundColor: AppColors.squadBlue,
+          foregroundColor: AppColors.textSecondary,
+          side: const BorderSide(color: AppColors.surface2),
+        ),
+      ),
     );
   }
 
@@ -461,53 +456,79 @@ class SquadSettingsScreen extends StatelessWidget {
   Widget _memberRow(BuildContext context, SquadService service, Squad squad, SquadMember m, String myUid, bool isOwner) {
     final isMe = m.uid == myUid;
     final isThisOwner = squad.isOwner(m.uid);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: Spacing.s8),
-      child: Row(children: [
-        MemberAvatar(
-          photoURL:
-              (m.photoURL?.isNotEmpty ?? false) ? m.photoURL : null,
-          displayName: m.displayName,
-          size: 36,
-        ),
-        const SizedBox(width: Spacing.s12),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Flexible(child: Text(m.displayName, style: AppText.titleM, overflow: TextOverflow.ellipsis)),
-            if (isThisOwner)
-              const Padding(
-                  padding: EdgeInsets.only(left: Spacing.s8),
-                  child: Icon(LucideIcons.crown,
-                      color: AppColors.squadBlue, size: 14)),
-            if (isMe)
-              Padding(
-                  padding: const EdgeInsets.only(left: Spacing.s8),
-                  child: Text('you', style: AppText.caption)),
-          ]),
-          GoalSummary(goal: m.goal, fontSize: 11),
-        ])),
-        if (isOwner && !isMe)
-          PopupMenuButton<String>(
-            icon: const Icon(LucideIcons.moreVertical,
-                color: AppColors.textSecondary, size: 18),
-            onSelected: (v) async {
-              if (v == 'kick') {
-                final ok = await _confirm(context, 'Remove ${m.displayName}?', 'They\'ll be removed from this squad.');
-                if (ok) await service.kickMember(squad.id, m.uid);
-              } else if (v == 'transfer') {
-                final ok = await _confirm(context, 'Make ${m.displayName} the owner?', 'You\'ll no longer own this squad.');
-                if (ok) await service.transferOwnership(squad.id, m.uid);
-              }
-            },
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'transfer', child: Text('Make owner')),
-              PopupMenuItem(
-                  value: 'kick',
-                  child: Text('Remove',
-                      style: TextStyle(color: AppColors.statusMissed))),
-            ],
+    final canManage = isOwner && !isMe;
+    return InkWell(
+      onLongPress: canManage ? () => _ownerActions(context, service, squad, m) : null,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: Spacing.s8),
+        child: Row(children: [
+          MemberAvatar(
+            photoURL: (m.photoURL?.isNotEmpty ?? false) ? m.photoURL : null,
+            displayName: m.displayName,
+            lastActiveDate: m.lastActivityAt,
+            size: 36,
           ),
-      ]),
+          const SizedBox(width: Spacing.s12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Flexible(child: Text(m.displayName, style: AppText.titleM, overflow: TextOverflow.ellipsis)),
+              if (isThisOwner)
+                const Padding(
+                    padding: EdgeInsets.only(left: Spacing.s8),
+                    child: Icon(LucideIcons.crown, color: AppColors.squadBlue, size: 14)),
+              if (isMe)
+                Padding(
+                    padding: const EdgeInsets.only(left: Spacing.s8),
+                    child: Text('you', style: AppText.caption)),
+            ]),
+            const SizedBox(height: Spacing.s4),
+            // Recency, not goal text — see who's actually showing up.
+            PresenceIndicator(lastActive: m.lastActivityAt),
+          ])),
+          if (canManage)
+            const Icon(LucideIcons.moreVertical, color: AppColors.textTertiary, size: 16),
+        ]),
+      ),
+    );
+  }
+
+  /// Owner long-press menu: transfer ownership or remove a member.
+  void _ownerActions(BuildContext context, SquadService service, Squad squad, SquadMember m) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surface1,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.r16))),
+      builder: (sheet) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Padding(
+            padding: const EdgeInsets.all(Spacing.s16),
+            child: Text(m.displayName, style: AppText.titleM),
+          ),
+          ListTile(
+            leading: const Icon(LucideIcons.crown, color: AppColors.squadBlue),
+            title: Text('Make owner', style: AppText.bodyL),
+            onTap: () async {
+              Navigator.pop(sheet);
+              final ok = await _confirm(context, 'Make ${m.displayName} the owner?',
+                  "You'll no longer own this squad.");
+              if (ok) await service.transferOwnership(squad.id, m.uid);
+            },
+          ),
+          ListTile(
+            leading: const Icon(LucideIcons.userMinus, color: AppColors.statusMissed),
+            title: Text('Remove from squad',
+                style: AppText.bodyL.copyWith(color: AppColors.statusMissed)),
+            onTap: () async {
+              Navigator.pop(sheet);
+              final ok = await _confirm(context, 'Remove ${m.displayName}?',
+                  "They'll be removed from this squad.");
+              if (ok) await service.kickMember(squad.id, m.uid);
+            },
+          ),
+          const SizedBox(height: Spacing.s8),
+        ]),
+      ),
     );
   }
 
