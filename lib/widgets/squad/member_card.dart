@@ -1,15 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../models/squad_member.dart';
 import '../../models/squad_day_entry.dart';
 import '../../models/squad_goal.dart';
 import '../../models/squad_reaction.dart';
-import '../../theme/app_theme.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_spacing.dart';
+import '../../theme/app_text_styles.dart';
+import '../../widgets/ui/ui.dart';
 import 'goal_summary.dart';
-import 'progress_ring.dart';
 import 'squad_status.dart';
 import 'checkin.dart';
 
-/// A member's Today card: avatar, name, goal, progress ring, status badge.
+/// A member's Today card, sized for the horizontal snap carousel (~85% of the
+/// screen width): MemberAvatar, name in titleL, goal summary, AnimatedRing in
+/// the status color, StatusPill below. Depth comes from the surface ladder —
+/// no borders, no glows (design/system.md).
 class MemberCard extends StatelessWidget {
   final SquadMember member;
   final SquadDayEntry? entry;
@@ -27,105 +33,90 @@ class MemberCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (entry?.paused ?? false) return _pausedCard(context);
+    final paused = entry?.paused ?? false;
     final status = entry?.status ?? GoalStatus.inProgress;
-    final color = entry == null ? kBorderDim : statusColor(status);
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: neonBox(color),
-        child: Column(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Row(children: [
-            CircleAvatar(
-              radius: 16, backgroundColor: kSurface,
-              backgroundImage: (member.photoURL?.isNotEmpty ?? false) ? NetworkImage(member.photoURL!) : null,
-              child: (member.photoURL?.isEmpty ?? true) ? const Icon(Icons.person, color: kNavy, size: 16) : null,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(isMe ? '${member.displayName} (you)' : member.displayName,
-                  maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: kText, fontWeight: FontWeight.bold, fontSize: 13)),
-            ),
-            if (entry?.checkin != null) ...[
-              Container(
-                width: 9, height: 9,
-                decoration: BoxDecoration(shape: BoxShape.circle, color: checkinColor(entry!.checkin)),
-              ),
-              const SizedBox(width: 4),
+    final accent = entry == null ? AppColors.textTertiary : statusColor(status);
+
+    return Material(
+      color: AppColors.surface1,
+      borderRadius: BorderRadius.circular(AppRadius.r12),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          onTap();
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(Spacing.s16),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _identityRow(),
+              if (paused)
+                const Text('🌴', style: TextStyle(fontSize: 48))
+              else
+                AnimatedRing(
+                  progress: progressFor(member.goal, entry) ?? 0,
+                  accent: accent,
+                  size: 116,
+                  child: Icon(statusIcon(status), color: accent, size: 28),
+                ),
+              if (paused)
+                StatusPill(
+                  status: PillStatus.paused,
+                  label: member.pause.until != null
+                      ? 'Paused til ${_shortDate(member.pause.until!)}'
+                      : 'Paused',
+                )
+              else
+                StatusPill(
+                  status: pillStatusFor(status),
+                  // No entry yet today — keep the "no data" signal visible.
+                  label: entry == null ? 'No data' : null,
+                ),
             ],
-            if (receivedEmoji != null)
-              Text(receivedEmoji!.glyph, style: const TextStyle(fontSize: 16)),
-          ]),
-          const SizedBox(height: 8),
-          ProgressRing(
-            value: progressFor(member.goal, entry),
-            color: color,
-            size: 54,
-            center: Icon(statusIcon(status), color: color, size: 20),
           ),
-          const SizedBox(height: 8),
-          GoalSummary(goal: member.goal, fontSize: 10, color: kNavy),
-          const SizedBox(height: 6),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.16),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: color.withValues(alpha: 0.6)),
-            ),
-            child: Text(entry == null ? 'NO DATA' : statusLabel(status),
-                style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
-          ),
-        ]),
+        ),
       ),
     );
   }
 
-  /// Paused/vacation card: the progress ring + status are replaced with a 🌴
-  /// chip; no nudge/reaction affordance (handled by the caller hiding it).
-  Widget _pausedCard(BuildContext context) {
-    const muted = Color(0xFF4CC38A); // calm teal-green for "on vacation"
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: neonBox(muted),
-        child: Column(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Row(children: [
-            CircleAvatar(
-              radius: 16, backgroundColor: kSurface,
-              backgroundImage: (member.photoURL?.isNotEmpty ?? false) ? NetworkImage(member.photoURL!) : null,
-              child: (member.photoURL?.isEmpty ?? true) ? const Icon(Icons.person, color: kNavy, size: 16) : null,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(isMe ? '${member.displayName} (you)' : member.displayName,
-                  maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: kText, fontWeight: FontWeight.bold, fontSize: 13)),
-            ),
-          ]),
-          const SizedBox(height: 6),
-          const Text('🌴', style: TextStyle(fontSize: 34)),
-          const SizedBox(height: 6),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: muted.withValues(alpha: 0.16),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: muted.withValues(alpha: 0.6)),
-            ),
-            child: Text(
-              member.pause.until != null
-                  ? 'PAUSED TIL ${_shortDate(member.pause.until!)}'
-                  : 'PAUSED',
-              style: const TextStyle(color: muted, fontSize: 10, fontWeight: FontWeight.bold),
-            ),
+  Widget _identityRow() {
+    return Row(children: [
+      Hero(
+        tag: 'squad-member-${member.uid}',
+        child: MemberAvatar(
+          photoURL: member.photoURL,
+          displayName: member.displayName,
+          paused: entry?.paused ?? false,
+          size: 56,
+        ),
+      ),
+      const SizedBox(width: Spacing.s12),
+      Expanded(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(
+            isMe ? '${member.displayName} (you)' : member.displayName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppText.titleL,
           ),
+          const SizedBox(height: Spacing.s4),
+          GoalSummary(goal: member.goal, fontSize: 14),
         ]),
       ),
-    );
+      if (entry?.checkin != null) ...[
+        Container(
+          width: 9,
+          height: 9,
+          decoration: BoxDecoration(
+              shape: BoxShape.circle, color: checkinColor(entry!.checkin)),
+        ),
+        const SizedBox(width: Spacing.s4),
+      ],
+      if (receivedEmoji != null)
+        Text(receivedEmoji!.glyph, style: const TextStyle(fontSize: 18)),
+    ]);
   }
 
   static String _shortDate(DateTime d) {

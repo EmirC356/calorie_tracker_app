@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../models/squad_goal.dart';
-import '../../theme/app_theme.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_motion.dart';
+import '../../theme/app_spacing.dart';
+import '../../theme/app_text_styles.dart';
 
 /// Edits a per-squad [SquadGoal]. Pops with the new goal, or null if cancelled.
 /// At least one sub-goal must be active to save.
@@ -61,43 +64,39 @@ class _GoalEditorScreenState extends State<GoalEditorScreen> {
   Widget build(BuildContext context) {
     final preview = _build();
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('MY GOAL'),
-        titleTextStyle: const TextStyle(color: kNavy, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.4),
-        iconTheme: const IconThemeData(color: kNavy),
-      ),
+      appBar: AppBar(title: const Text('My Goal')),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(Spacing.s16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text('CALORIES', style: neonLabel(kNavy, size: 12)),
-          const SizedBox(height: 8),
+          Text('CALORIES', style: AppText.caption),
+          const SizedBox(height: Spacing.s8),
           _modeToggle(),
           if (_mode != CalorieMode.none) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: Spacing.s12),
             _numField(_calTarget, _mode == CalorieMode.cap ? 'Daily cap (kcal)' : 'Daily floor (kcal)'),
           ],
-          const SizedBox(height: 20),
-          Text('EXERCISE', style: neonLabel(kNavy, size: 12)),
-          const SizedBox(height: 8),
+          const SizedBox(height: Spacing.s20),
+          Text('EXERCISE', style: AppText.caption),
+          const SizedBox(height: Spacing.s8),
           _numField(_exMin, 'Min minutes / day (optional)'),
-          const SizedBox(height: 10),
+          const SizedBox(height: Spacing.s12),
           _numField(_burnedMin, 'Min calories burned / day (optional)'),
-          const SizedBox(height: 24),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: neonBox(preview.isValid ? kNavy : kBorderDim),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('PREVIEW', style: neonLabel(preview.isValid ? kNavy : kTextDim, size: 11)),
-              const SizedBox(height: 6),
-              Text(preview.summary, style: const TextStyle(color: kText, fontSize: 15, fontWeight: FontWeight.w600)),
-            ]),
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton(
+          const SizedBox(height: Spacing.s24),
+          Text('PREVIEW', style: AppText.caption),
+          const SizedBox(height: Spacing.s8),
+          Text(preview.summary,
+              style: AppText.titleM.copyWith(
+                  color: preview.isValid
+                      ? AppColors.textPrimary
+                      : AppColors.textTertiary)),
+          const SizedBox(height: Spacing.s20),
+          OutlinedButton(
             onPressed: _save,
-            style: ElevatedButton.styleFrom(backgroundColor: kNavy, foregroundColor: kWhite,
-                padding: const EdgeInsets.symmetric(vertical: 14)),
-            child: const Text('SAVE GOAL', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+            style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.squadBlue,
+                side: const BorderSide(
+                    color: AppColors.squadBlue, width: 1.5)),
+            child: const Text('Save goal'),
           ),
         ]),
       ),
@@ -105,15 +104,13 @@ class _GoalEditorScreenState extends State<GoalEditorScreen> {
   }
 
   Widget _modeToggle() {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(color: kSurface, borderRadius: BorderRadius.circular(10), border: Border.all(color: kBorderDim)),
-      child: Row(children: [
-        _modeTab('OFF', CalorieMode.none),
-        _modeTab('CAP (≤)', CalorieMode.cap),
-        _modeTab('FLOOR (≥)', CalorieMode.floor),
-      ]),
-    );
+    return Row(children: [
+      _modeTab('OFF', CalorieMode.none),
+      const SizedBox(width: Spacing.s8),
+      _modeTab('CAP (≤)', CalorieMode.cap),
+      const SizedBox(width: Spacing.s8),
+      _modeTab('FLOOR (≥)', CalorieMode.floor),
+    ]);
   }
 
   Widget _modeTab(String label, CalorieMode m) {
@@ -121,11 +118,26 @@ class _GoalEditorScreenState extends State<GoalEditorScreen> {
     return Expanded(
       child: GestureDetector(
         onTap: () => setState(() => _mode = m),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(color: sel ? kNavy : Colors.transparent, borderRadius: BorderRadius.circular(8)),
-          child: Text(label, textAlign: TextAlign.center,
-              style: TextStyle(color: sel ? kBg : kNavy, fontWeight: FontWeight.bold, fontSize: 12)),
+        child: AnimatedContainer(
+          duration: AppMotion.enter,
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(vertical: Spacing.s8),
+          decoration: BoxDecoration(
+            color: AppColors.surface1,
+            borderRadius: BorderRadius.circular(AppRadius.r8),
+            border: Border.all(
+              color: sel ? AppColors.squadBlue : AppColors.surface2,
+              width: sel ? AppMotion.focusBorderWidth : 1,
+            ),
+            boxShadow:
+                sel ? AppMotion.accentGlow(AppColors.squadBlue) : null,
+          ),
+          child: Text(label,
+              textAlign: TextAlign.center,
+              style: AppText.bodyS.copyWith(
+                  color: sel
+                      ? AppColors.squadBlue
+                      : AppColors.textSecondary)),
         ),
       ),
     );
@@ -135,7 +147,7 @@ class _GoalEditorScreenState extends State<GoalEditorScreen> {
         controller: c,
         keyboardType: TextInputType.number,
         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        style: const TextStyle(color: kText),
+        style: AppText.tabular(AppText.bodyM),
         onChanged: (_) => setState(() {}),
         decoration: InputDecoration(labelText: label),
       );

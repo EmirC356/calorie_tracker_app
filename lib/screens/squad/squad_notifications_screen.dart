@@ -3,7 +3,9 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/squad_provider.dart';
 import '../../services/squad_service.dart';
-import '../../theme/app_theme.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_spacing.dart';
+import '../../theme/app_text_styles.dart';
 
 /// Per-user "Squad notifications" master switches + quiet hours, written to
 /// users/{uid}/notificationPrefs/master (every Cloud Function consults it).
@@ -23,10 +25,14 @@ class SquadNotificationsScreen extends StatelessWidget {
     final service = context.read<SquadProvider>().service;
     final uid = context.read<AuthProvider>().firebaseUser?.uid;
     if (uid == null) {
-      return const Scaffold(body: Center(child: Text('Sign in to manage notifications', style: TextStyle(color: kTextDim))));
+      return Scaffold(
+          body: Center(
+              child: Text('Sign in to manage notifications',
+                  style: AppText.bodyM
+                      .copyWith(color: AppColors.textSecondary))));
     }
     return Scaffold(
-      appBar: AppBar(title: const Text('SQUAD NOTIFICATIONS')),
+      appBar: AppBar(title: const Text('Squad Notifications')),
       body: StreamBuilder<Map<String, dynamic>>(
         stream: service.watchNotificationPrefs(uid),
         builder: (context, snap) {
@@ -34,28 +40,30 @@ class SquadNotificationsScreen extends StatelessWidget {
           bool on(String k) => (p[k] as bool?) ?? true;
           final qStart = (p['quietHoursStart'] as String?) ?? '23:00';
           final qEnd = (p['quietHoursEnd'] as String?) ?? '07:00';
-          return ListView(padding: const EdgeInsets.all(16), children: [
-            for (final (key, title, sub) in _toggles)
-              Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                decoration: neonBox(kBorderDim),
-                child: SwitchListTile(
-                  activeThumbColor: kNavy,
-                  title: Text(title, style: const TextStyle(color: kText, fontSize: 15)),
-                  subtitle: Text(sub, style: const TextStyle(color: kTextDim, fontSize: 11)),
-                  value: on(key),
-                  onChanged: (v) => service.setNotificationPref(uid, key, v),
-                ),
+          return ListView(padding: const EdgeInsets.all(Spacing.s16), children: [
+            for (final (key, title, sub) in _toggles) ...[
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                activeThumbColor: AppColors.squadBlue,
+                title: Text(title, style: AppText.bodyL),
+                subtitle: Text(sub,
+                    style: AppText.bodyM
+                        .copyWith(color: AppColors.textSecondary)),
+                value: on(key),
+                onChanged: (v) => service.setNotificationPref(uid, key, v),
               ),
-            const SizedBox(height: 12),
-            Text('QUIET HOURS', style: neonLabel(kNavy, size: 12)),
-            const SizedBox(height: 4),
-            const Text('No squad pushes during this window (dropped, not queued).',
-                style: TextStyle(color: kTextDim, fontSize: 11)),
-            const SizedBox(height: 8),
+              const Divider(color: AppColors.surface2),
+            ],
+            const SizedBox(height: Spacing.s12),
+            Text('QUIET HOURS', style: AppText.caption),
+            const SizedBox(height: Spacing.s4),
+            Text('No squad pushes during this window (dropped, not queued).',
+                style:
+                    AppText.bodyM.copyWith(color: AppColors.textSecondary)),
+            const SizedBox(height: Spacing.s8),
             Row(children: [
               Expanded(child: _timeRow(context, service, uid, 'Start', 'quietHoursStart', qStart)),
-              const SizedBox(width: 12),
+              const SizedBox(width: Spacing.s12),
               Expanded(child: _timeRow(context, service, uid, 'End', 'quietHoursEnd', qEnd)),
             ]),
           ]);
@@ -78,7 +86,9 @@ class SquadNotificationsScreen extends StatelessWidget {
           await service.setNotificationPref(uid, key, '$hh:$mm');
         }
       },
-      style: OutlinedButton.styleFrom(foregroundColor: kNavy, side: const BorderSide(color: kNavy)),
+      style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.squadBlue,
+          side: const BorderSide(color: AppColors.squadBlue, width: 1.5)),
       child: Text('$label: $value'),
     );
   }

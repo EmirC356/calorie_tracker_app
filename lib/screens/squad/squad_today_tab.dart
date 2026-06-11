@@ -6,8 +6,14 @@ import '../../models/squad_reaction.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/snapshot_provider.dart';
 import '../../providers/squad_provider.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import '../../services/snapshot_service.dart';
-import '../../theme/app_theme.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_spacing.dart';
+import '../../theme/app_text_styles.dart';
+import '../../widgets/ui/colored_left_border_card.dart';
+import '../../widgets/ui/hero_transition_scaffold.dart';
+import '../../widgets/ui/shimmer_placeholder.dart';
 import '../../widgets/squad/member_card.dart';
 import '../../widgets/squad/checkin.dart';
 import '../../widgets/squad/intention_banner.dart';
@@ -40,22 +46,32 @@ class _SquadTodayTabState extends State<SquadTodayTab> {
   Widget _checkinBar(BuildContext context, String? mine) {
     final label = mine == null
         ? null
-        : kCheckinOptions.firstWhere((o) => o.$1 == mine, orElse: () => ('', '', mine, kNavy)).$3;
-    return InkWell(
-      onTap: () => showCheckinSheet(context),
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: neonBox(mine != null ? checkinColor(mine) : kNavy),
+        : kCheckinOptions
+            .firstWhere((o) => o.$1 == mine,
+                orElse: () => ('', '', mine, AppColors.squadBlue))
+            .$3;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+          Spacing.s16, Spacing.s12, Spacing.s16, 0),
+      child: ColoredLeftBorderCard(
+        accent: mine != null ? checkinColor(mine) : AppColors.squadBlue,
+        padding: const EdgeInsets.symmetric(
+            horizontal: Spacing.s16, vertical: Spacing.s12),
+        onTap: () => showCheckinSheet(context),
         child: Row(children: [
-          Text(mine != null ? checkinEmoji(mine) : '👋', style: const TextStyle(fontSize: 18)),
-          const SizedBox(width: 10),
+          Text(mine != null ? checkinEmoji(mine) : '👋',
+              style: const TextStyle(fontSize: 18)),
+          const SizedBox(width: Spacing.s12),
           Expanded(
             child: Text(
-              mine != null ? 'Today: $label — tap to change' : "How's today going? Tap to check in",
-              style: const TextStyle(color: kText, fontSize: 13)),
+              mine != null
+                  ? 'Today: $label — tap to change'
+                  : "How's today going? Tap to check in",
+              style: AppText.bodyS,
+            ),
           ),
-          const Icon(Icons.chevron_right, color: kTextDim, size: 18),
+          const Icon(LucideIcons.chevronRight,
+              color: AppColors.textTertiary, size: 18),
         ]),
       ),
     );
@@ -70,7 +86,16 @@ class _SquadTodayTabState extends State<SquadTodayTab> {
       stream: service.watchMembers(widget.squadId),
       builder: (context, mSnap) {
         if (!mSnap.hasData) {
-          return const Center(child: CircularProgressIndicator(color: kNavy));
+          return ListView(
+            padding: const EdgeInsets.all(Spacing.s16),
+            children: const [
+              ShimmerPlaceholder.card(height: 56),
+              SizedBox(height: Spacing.s12),
+              ShimmerPlaceholder.card(height: 280),
+              SizedBox(height: Spacing.s12),
+              ShimmerPlaceholder.card(height: 120),
+            ],
+          );
         }
         final members = mSnap.data!;
         return StreamBuilder<List<SquadDayEntry>>(
@@ -85,27 +110,41 @@ class _SquadTodayTabState extends State<SquadTodayTab> {
                   GroupGoalsStrip(squadId: widget.squadId),
                   if (myUid != null) IntentionBanner(squadId: widget.squadId, uid: myUid),
                   _checkinBar(context, entries[myUid]?.checkin),
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(16),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.82,
+                  // Horizontal snap carousel of large member cards (~85% of
+                  // the screen width each), per the Squad room spec.
+                  Padding(
+                    padding:
+                        const EdgeInsets.symmetric(vertical: Spacing.s16),
+                    child: SizedBox(
+                      height: 300,
+                      child: PageView.builder(
+                        controller: PageController(viewportFraction: 0.85),
+                        padEnds: false,
+                        itemCount: members.length,
+                        itemBuilder: (_, i) {
+                          final m = members[i];
+                          final entry = entries[m.uid];
+                          return Padding(
+                            padding: const EdgeInsets.only(
+                                left: Spacing.s16, right: Spacing.s4),
+                            child: MemberCard(
+                              member: m,
+                              entry: entry,
+                              isMe: m.uid == myUid,
+                              receivedEmoji: emojiByUid[m.uid],
+                              onTap: () => Navigator.push(
+                                  context,
+                                  HeroTransitionScaffold.route(
+                                      MemberDayDetailScreen(
+                                          member: m,
+                                          entry: entry,
+                                          squadId: widget.squadId,
+                                          dateKey: _dateKey))),
+                            ),
+                          );
+                        },
+                      ),
                     ),
-                    itemCount: members.length,
-                    itemBuilder: (_, i) {
-                      final m = members[i];
-                      final entry = entries[m.uid];
-                      return MemberCard(
-                        member: m,
-                        entry: entry,
-                        isMe: m.uid == myUid,
-                        receivedEmoji: emojiByUid[m.uid],
-                        onTap: () => Navigator.push(context, MaterialPageRoute(
-                            builder: (_) => MemberDayDetailScreen(
-                                member: m, entry: entry, squadId: widget.squadId, dateKey: _dateKey))),
-                      );
-                    },
                   ),
                   ActivityFeed(squadId: widget.squadId),
                 ]);

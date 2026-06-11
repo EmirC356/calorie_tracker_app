@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_theme.dart';
+import '../../theme/app_colors.dart';
+import '../../widgets/ui/ui.dart';
 
-/// A circular progress ring. [value] null = no numeric data (a dim full ring).
+/// Legacy squad progress ring — now a thin wrapper over the [AnimatedRing]
+/// primitive (spring fill, surface2 track). [value] null = no numeric data:
+/// rendered as a dim full ring in surface3.
 class ProgressRing extends StatelessWidget {
   final double? value;
   final Color color;
@@ -11,22 +14,12 @@ class ProgressRing extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: size,
-      height: size,
-      child: Stack(alignment: Alignment.center, children: [
-        SizedBox(
-          width: size,
-          height: size,
-          child: CircularProgressIndicator(
-            value: value ?? 1.0,
-            strokeWidth: 5,
-            backgroundColor: kBorderDim,
-            valueColor: AlwaysStoppedAnimation<Color>(value == null ? kBorderDim : color),
-          ),
-        ),
-        if (center != null) center!,
-      ]),
+    return AnimatedRing(
+      progress: value ?? 1.0,
+      accent: value == null ? AppColors.surface3 : color,
+      size: size,
+      strokeWidth: 5,
+      child: center,
     );
   }
 }

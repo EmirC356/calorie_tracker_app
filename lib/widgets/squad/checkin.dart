@@ -1,22 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../services/database_service.dart';
 import '../../services/snapshot_service.dart';
 import '../../providers/snapshot_provider.dart';
-import '../../theme/app_theme.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_motion.dart';
+import '../../theme/app_spacing.dart';
+import '../../theme/app_text_styles.dart';
 
 /// (value, emoji, label, color) for the three one-tap check-in states.
+/// Check-in colors are data semantics, not section accents.
 const List<(String, String, String, Color)> kCheckinOptions = [
-  ('onIt', '😎', 'On it', Color(0xFF4CC38A)),
-  ('offTrack', '😬', 'Off track', kAmber),
-  ('cheatDay', '🍕', 'Cheat day', kOrange),
+  ('onIt', '😎', 'On it', AppColors.statusHit),
+  ('offTrack', '😬', 'Off track', AppColors.statusInProgress),
+  // TODO(ui): clarify cheat-day color — legacy kOrange now aliases
+  // textTertiary; kept neutral until a token is decided.
+  ('cheatDay', '🍕', 'Cheat day', AppColors.textTertiary),
 ];
 
 Color checkinColor(String? v) => switch (v) {
-  'onIt' => const Color(0xFF4CC38A),
-  'offTrack' => kAmber,
-  'cheatDay' => kOrange,
-  _ => kBorderDim, // grey = didn't check in (a visible signal in itself)
+  'onIt' => AppColors.statusHit,
+  'offTrack' => AppColors.statusInProgress,
+  'cheatDay' => AppColors.textTertiary,
+  _ => AppColors.surface3, // grey = didn't check in (a visible signal in itself)
 };
 
 String checkinEmoji(String? v) =>
@@ -31,40 +38,46 @@ Future<void> showCheckinSheet(BuildContext context) async {
   if (!context.mounted) return;
   await showModalBottomSheet<void>(
     context: context,
-    backgroundColor: kSurface,
+    backgroundColor: AppColors.surface3,
     shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-        side: BorderSide(color: kNavy, width: 1)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.r16)),
+    ),
     builder: (ctx) => Padding(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(Spacing.s20),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        const Text("How's today going?",
-            style: TextStyle(color: kText, fontSize: 16, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 18),
+        Text("How's today going?", style: AppText.titleM),
+        const SizedBox(height: Spacing.s16),
         Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
           for (final (val, emoji, label, color) in kCheckinOptions)
             GestureDetector(
               onTap: () async {
+                HapticFeedback.lightImpact();
                 await db.setCheckin(today, val);
                 if (ctx.mounted) Navigator.pop(ctx);
                 if (context.mounted) context.read<SnapshotProvider>().pushNow();
               },
               child: Column(children: [
                 Container(
-                  padding: const EdgeInsets.all(14),
+                  padding: const EdgeInsets.all(Spacing.s12),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: current == val ? color.withValues(alpha: 0.25) : kCard,
-                    border: Border.all(color: color, width: current == val ? 2 : 1),
+                    color: AppColors.surface2,
+                    // Selection per the focus rule: 1.5px border, no fill.
+                    border: current == val
+                        ? Border.all(
+                            color: color, width: AppMotion.focusBorderWidth)
+                        : null,
+                    boxShadow:
+                        current == val ? AppMotion.accentGlow(color) : null,
                   ),
                   child: Text(emoji, style: const TextStyle(fontSize: 30)),
                 ),
-                const SizedBox(height: 6),
-                Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600)),
+                const SizedBox(height: Spacing.s8),
+                Text(label, style: AppText.bodyS.copyWith(color: color)),
               ]),
             ),
         ]),
-        const SizedBox(height: 8),
+        const SizedBox(height: Spacing.s8),
       ]),
     ),
   );

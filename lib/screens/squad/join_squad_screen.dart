@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../providers/squad_provider.dart';
 import '../../services/squad_service.dart';
-import '../../theme/app_theme.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_spacing.dart';
+import '../../theme/app_text_styles.dart';
 import 'squad_home_screen.dart';
 
 class JoinSquadScreen extends StatefulWidget {
@@ -42,34 +44,32 @@ class _JoinSquadScreenState extends State<JoinSquadScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('JOIN SQUAD'),
-        titleTextStyle: const TextStyle(color: kNavy, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.4),
-        iconTheme: const IconThemeData(color: kNavy),
-      ),
+      appBar: AppBar(title: const Text('Join Squad')),
       body: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(Spacing.s20),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text('6-DIGIT INVITE CODE', style: neonLabel(kNavy, size: 12)),
-          const SizedBox(height: 12),
+          Text('6-DIGIT INVITE CODE', style: AppText.caption),
+          const SizedBox(height: Spacing.s12),
           TextField(
             controller: _code,
             keyboardType: TextInputType.number,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
             textAlign: TextAlign.center,
-            style: const TextStyle(color: kWhite, fontSize: 34, fontWeight: FontWeight.bold, letterSpacing: 10),
+            style: AppText.displayL.copyWith(letterSpacing: 10),
             decoration: const InputDecoration(hintText: '000000', counterText: ''),
           ),
-          const SizedBox(height: 8),
-          const Text('Ask a squad member for the code shown on their squad screen.',
-              style: TextStyle(color: kTextDim, fontSize: 12), textAlign: TextAlign.center),
-          const SizedBox(height: 20),
-          ElevatedButton(
+          const SizedBox(height: Spacing.s8),
+          Text('Ask a squad member for the code shown on their squad screen.',
+              style: AppText.bodyM.copyWith(color: AppColors.textSecondary),
+              textAlign: TextAlign.center),
+          const SizedBox(height: Spacing.s20),
+          OutlinedButton(
             onPressed: _busy ? null : _join,
-            style: ElevatedButton.styleFrom(backgroundColor: kNavy, foregroundColor: kWhite,
-                padding: const EdgeInsets.symmetric(vertical: 14)),
-            child: Text(_busy ? 'JOINING...' : 'JOIN SQUAD',
-                style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.squadBlue,
+              side: const BorderSide(color: AppColors.squadBlue, width: 1.5),
+            ),
+            child: Text(_busy ? 'Joining…' : 'Join squad'),
           ),
         ]),
       ),

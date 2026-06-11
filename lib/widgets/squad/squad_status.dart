@@ -1,20 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import '../../models/squad_goal.dart';
 import '../../models/squad_day_entry.dart';
-import '../../theme/app_theme.dart';
+import '../../theme/app_colors.dart';
+import '../../widgets/ui/ui.dart';
 
-/// Semantic status color (a literal green for "hit" reads clearly even in the
-/// red/navy/white theme).
-const kHit = Color(0xFF34C759);
+/// Deprecated alias — use [AppColors.statusHit]. Kept for legacy references.
+const kHit = AppColors.statusHit;
 
+/// Status colors come from the orthogonal status palette (design/system.md):
+/// identical in every room, never the section accent.
 Color statusColor(GoalStatus s) {
   switch (s) {
     case GoalStatus.hit:
-      return kHit;
+      return AppColors.statusHit;
     case GoalStatus.inProgress:
-      return kNavy;
+      return AppColors.statusInProgress;
     case GoalStatus.missed:
-      return kNeonRed;
+      return AppColors.statusMissed;
   }
 }
 
@@ -32,11 +35,24 @@ String statusLabel(GoalStatus s) {
 IconData statusIcon(GoalStatus s) {
   switch (s) {
     case GoalStatus.hit:
-      return Icons.check;
+      return LucideIcons.check;
     case GoalStatus.inProgress:
-      return Icons.hourglass_bottom;
+      return LucideIcons.clock;
     case GoalStatus.missed:
-      return Icons.close;
+      return LucideIcons.x;
+  }
+}
+
+/// Maps a [GoalStatus] onto the [StatusPill] variant — the one status badge
+/// used everywhere in the squad room.
+PillStatus pillStatusFor(GoalStatus s) {
+  switch (s) {
+    case GoalStatus.hit:
+      return PillStatus.hit;
+    case GoalStatus.inProgress:
+      return PillStatus.inProgress;
+    case GoalStatus.missed:
+      return PillStatus.missed;
   }
 }
 

@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import '../../models/index.dart';
 import '../../providers/squad_provider.dart';
-import '../../theme/app_theme.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_spacing.dart';
+import '../../theme/app_text_styles.dart';
+import '../../widgets/ui/ui.dart';
 
 const _templates = ['Gym 3x', 'Stay under 2200 kcal', 'Log every meal', 'Read 30 min/day'];
 
-/// Top-of-squad banner for this week's public commitment. Amber prompt until
-/// set; shows your intention once declared. Always squad-visible.
+/// Top-of-squad banner for this week's public commitment. Attention (amber,
+/// from the orthogonal status palette) until set; squadBlue once declared.
+/// Always squad-visible.
 class IntentionBanner extends StatelessWidget {
   final String squadId;
   final String uid;
@@ -22,21 +27,32 @@ class IntentionBanner extends StatelessWidget {
       builder: (context, snap) {
         final mine = snap.data;
         final set = mine != null && mine.text.isNotEmpty;
-        return InkWell(
-          onTap: mine?.isGraded == true ? null : () => _showSheet(context, week, mine),
-          child: Container(
-            margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: neonBox(set ? kNavy : kAmber),
+        final accent =
+            set ? AppColors.squadBlue : AppColors.statusInProgress;
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(
+              Spacing.s16, Spacing.s12, Spacing.s16, 0),
+          child: ColoredLeftBorderCard(
+            accent: accent,
+            padding: const EdgeInsets.symmetric(
+                horizontal: Spacing.s16, vertical: Spacing.s12),
+            onTap: mine?.isGraded == true
+                ? null
+                : () => _showSheet(context, week, mine),
             child: Row(children: [
-              Icon(set ? Icons.flag : Icons.flag_outlined, color: set ? kNavy : kAmber, size: 18),
-              const SizedBox(width: 10),
+              Icon(LucideIcons.flag, color: accent, size: 18),
+              const SizedBox(width: Spacing.s12),
               Expanded(
                 child: Text(
-                  set ? "This week: ${mine.text}" : "Set this week's intention — visible to all squadmates",
-                  style: const TextStyle(color: kText, fontSize: 13)),
+                  set
+                      ? "This week: ${mine.text}"
+                      : "Set this week's intention — visible to all squadmates",
+                  style: AppText.bodyM,
+                ),
               ),
-              if (mine?.isGraded != true) const Icon(Icons.chevron_right, color: kTextDim, size: 18),
+              if (mine?.isGraded != true)
+                const Icon(LucideIcons.chevronRight,
+                    color: AppColors.textTertiary, size: 18),
             ]),
           ),
         );
@@ -50,45 +66,60 @@ class IntentionBanner extends StatelessWidget {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: kSurface,
+      backgroundColor: AppColors.surface3,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)), side: BorderSide(color: kAmber)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.r16)),
+      ),
       builder: (ctx) => Padding(
         padding: EdgeInsets.only(
-            left: 20, right: 20, top: 20, bottom: 20 + MediaQuery.of(ctx).viewInsets.bottom),
+            left: Spacing.s20,
+            right: Spacing.s20,
+            top: Spacing.s20,
+            bottom: Spacing.s20 + MediaQuery.of(ctx).viewInsets.bottom),
         child: StatefulBuilder(
-          builder: (ctx, setState) => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('This week, I will…', style: TextStyle(color: kText, fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            const Text('Visible to all squadmates.', style: TextStyle(color: kTextDim, fontSize: 11)),
-            const SizedBox(height: 12),
-            Wrap(spacing: 8, runSpacing: 8, children: [
-              for (final t in _templates)
-                ActionChip(
-                  label: Text(t, style: const TextStyle(fontSize: 12)),
-                  backgroundColor: kCard,
-                  side: const BorderSide(color: kNavy),
-                  onPressed: () => setState(() => ctrl.text = t),
+          builder: (ctx, setState) => Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('This week, I will…', style: AppText.titleM),
+                const SizedBox(height: Spacing.s4),
+                Text('Visible to all squadmates.',
+                    style:
+                        AppText.bodyM.copyWith(color: AppColors.textTertiary)),
+                const SizedBox(height: Spacing.s12),
+                Wrap(spacing: Spacing.s8, runSpacing: Spacing.s8, children: [
+                  for (final t in _templates)
+                    ActionChip(
+                      label: Text(t, style: AppText.bodyS),
+                      onPressed: () => setState(() => ctrl.text = t),
+                    ),
+                ]),
+                const SizedBox(height: Spacing.s12),
+                TextField(
+                  controller: ctrl,
+                  maxLength: 80,
+                  style: AppText.bodyM,
+                  decoration:
+                      const InputDecoration(hintText: 'or write your own…'),
                 ),
-            ]),
-            const SizedBox(height: 12),
-            TextField(
-              controller: ctrl, maxLength: 80, style: const TextStyle(color: kText),
-              decoration: const InputDecoration(hintText: 'or write your own…'),
-            ),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () async {
-                  final text = ctrl.text.trim();
-                  if (text.isEmpty) return;
-                  await service.setIntention(squadId, week, SquadIntention(uid: uid, text: text));
-                  if (ctx.mounted) Navigator.pop(ctx);
-                },
-                child: const Text('COMMIT'),
-              ),
-            ),
-          ]),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.squadBlue,
+                      foregroundColor: AppColors.surface0,
+                    ),
+                    onPressed: () async {
+                      final text = ctrl.text.trim();
+                      if (text.isEmpty) return;
+                      await service.setIntention(
+                          squadId, week, SquadIntention(uid: uid, text: text));
+                      if (ctx.mounted) Navigator.pop(ctx);
+                    },
+                    child: const Text('COMMIT'),
+                  ),
+                ),
+              ]),
         ),
       ),
     );

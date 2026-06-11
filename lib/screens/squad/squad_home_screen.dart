@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/squad.dart';
 import '../../providers/squad_provider.dart';
-import '../../theme/app_theme.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_text_styles.dart';
 import 'squad_settings_screen.dart';
 import 'squad_today_tab.dart';
 import 'squad_board_tab.dart';
@@ -20,17 +21,25 @@ class SquadHomeScreen extends StatelessWidget {
       length: 3,
       child: Scaffold(
         appBar: AppBar(
-          iconTheme: const IconThemeData(color: kNavy),
-          titleTextStyle: const TextStyle(color: kNavy, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.4),
           title: StreamBuilder<Squad?>(
             stream: service.watchSquad(squadId),
-            builder: (_, snap) => Text(snap.data?.name.toUpperCase() ?? 'SQUAD'),
+            builder: (_, snap) => Text(snap.data?.name ?? 'Squad'),
           ),
-          bottom: const TabBar(
-            labelColor: kNavy,
-            unselectedLabelColor: kTextDim,
-            indicatorColor: kNavy,
-            tabs: [Tab(text: 'TODAY'), Tab(text: 'BOARD'), Tab(text: 'SETTINGS')],
+          bottom: TabBar(
+            labelColor: AppColors.squadBlue,
+            unselectedLabelColor: AppColors.textSecondary,
+            indicatorColor: AppColors.squadBlue,
+            indicatorWeight: 2,
+            indicatorSize: TabBarIndicatorSize.label,
+            dividerColor: AppColors.divider,
+            dividerHeight: 1,
+            labelStyle: AppText.bodyS,
+            unselectedLabelStyle: AppText.bodyS,
+            tabs: const [
+              Tab(text: 'TODAY'),
+              Tab(text: 'BOARD'),
+              Tab(text: 'SETTINGS')
+            ],
           ),
         ),
         body: TabBarView(children: [

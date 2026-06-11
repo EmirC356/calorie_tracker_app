@@ -3,8 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../models/squad.dart';
 import '../../providers/squad_provider.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import '../../services/squad_service.dart';
-import '../../theme/app_theme.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_spacing.dart';
+import '../../theme/app_text_styles.dart';
 import 'squad_home_screen.dart';
 
 class CreateSquadScreen extends StatefulWidget {
@@ -50,13 +53,9 @@ class _CreateSquadScreenState extends State<CreateSquadScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('CREATE SQUAD'),
-        titleTextStyle: const TextStyle(color: kNavy, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.4),
-        iconTheme: const IconThemeData(color: kNavy),
-      ),
+      appBar: AppBar(title: const Text('Create Squad')),
       body: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(Spacing.s20),
         child: _created == null ? _form() : _success(_created!),
       ),
     );
@@ -64,68 +63,66 @@ class _CreateSquadScreenState extends State<CreateSquadScreen> {
 
   Widget _form() {
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Text('SQUAD NAME', style: neonLabel(kNavy, size: 12)),
-      const SizedBox(height: 8),
+      Text('SQUAD NAME', style: AppText.caption),
+      const SizedBox(height: Spacing.s8),
       TextField(
         controller: _name,
         maxLength: 30,
-        style: const TextStyle(color: kText),
         decoration: const InputDecoration(hintText: 'e.g. Morning Grinders'),
       ),
-      const SizedBox(height: 8),
-      const Text('You\'ll be the owner. Up to 10 members can join with a 6-digit code.',
-          style: TextStyle(color: kTextDim, fontSize: 12)),
-      const SizedBox(height: 20),
-      ElevatedButton(
+      const SizedBox(height: Spacing.s8),
+      Text("You'll be the owner. Up to 10 members can join with a 6-digit code.",
+          style: AppText.bodyM.copyWith(color: AppColors.textSecondary)),
+      const SizedBox(height: Spacing.s20),
+      OutlinedButton(
         onPressed: _busy ? null : _create,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: kNavy, foregroundColor: kWhite,
-          padding: const EdgeInsets.symmetric(vertical: 14),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.squadBlue,
+          side: const BorderSide(color: AppColors.squadBlue, width: 1.5),
         ),
-        child: Text(_busy ? 'CREATING...' : 'CREATE SQUAD',
-            style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+        child: Text(_busy ? 'Creating…' : 'Create squad'),
       ),
     ]);
   }
 
   Widget _success(Squad s) {
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      const SizedBox(height: 8),
-      const Icon(Icons.check_circle, color: kNavy, size: 48),
-      const SizedBox(height: 12),
-      Center(child: Text(s.name, style: const TextStyle(color: kText, fontSize: 18, fontWeight: FontWeight.bold))),
-      const SizedBox(height: 20),
-      Container(
-        padding: const EdgeInsets.all(16),
-        decoration: neonBox(kNavy),
-        child: Column(children: [
-          Text('INVITE CODE', style: neonLabel(kNavy, size: 12)),
-          const SizedBox(height: 8),
-          Text(s.inviteCode,
-              style: const TextStyle(color: kWhite, fontSize: 36, fontWeight: FontWeight.bold, letterSpacing: 6)),
-          const SizedBox(height: 4),
-          const Text('Valid for 7 days', style: TextStyle(color: kTextDim, fontSize: 11)),
-        ]),
-      ),
-      const SizedBox(height: 16),
+      const SizedBox(height: Spacing.s8),
+      const Icon(LucideIcons.checkCircle2,
+          color: AppColors.statusHit, size: 48),
+      const SizedBox(height: Spacing.s12),
+      Center(child: Text(s.name, style: AppText.titleL)),
+      const SizedBox(height: Spacing.s20),
+      Column(children: [
+        Text('INVITE CODE', style: AppText.caption),
+        const SizedBox(height: Spacing.s8),
+        Text(s.inviteCode,
+            textAlign: TextAlign.center,
+            style: AppText.displayL.copyWith(letterSpacing: 6)),
+        const SizedBox(height: Spacing.s4),
+        Text('Valid for 7 days', style: AppText.caption),
+      ]),
+      const SizedBox(height: Spacing.s16),
       OutlinedButton.icon(
         onPressed: () {
           Clipboard.setData(ClipboardData(text: _shareText(s)));
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Invite copied to clipboard')));
         },
-        style: OutlinedButton.styleFrom(foregroundColor: kNavy, side: const BorderSide(color: kNavy),
-            padding: const EdgeInsets.symmetric(vertical: 14)),
-        icon: const Icon(Icons.copy),
-        label: const Text('COPY INVITE'),
+        style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.squadBlue,
+            side: const BorderSide(color: AppColors.squadBlue, width: 1.5)),
+        icon: const Icon(LucideIcons.copy, size: 18),
+        label: const Text('Copy invite'),
       ),
-      const SizedBox(height: 12),
-      ElevatedButton(
+      const SizedBox(height: Spacing.s12),
+      OutlinedButton(
         onPressed: () => Navigator.pushReplacement(context,
             MaterialPageRoute(builder: (_) => SquadHomeScreen(squadId: s.id))),
-        style: ElevatedButton.styleFrom(backgroundColor: kNavy, foregroundColor: kWhite,
-            padding: const EdgeInsets.symmetric(vertical: 14)),
-        child: const Text('GO TO SQUAD', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+        style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.squadBlue,
+            side: const BorderSide(color: AppColors.squadBlue, width: 1.5)),
+        child: const Text('Go to squad'),
       ),
     ]);
   }

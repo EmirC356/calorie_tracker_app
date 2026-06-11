@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
-import '../../theme/app_theme.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_spacing.dart';
+import '../../theme/app_text_styles.dart';
+import '../../widgets/ui/ui.dart';
 
 /// Shown once after the first Google sign-in to confirm the display name and
 /// avatar. Defaults come from the Google account. Custom avatar upload would
@@ -40,50 +43,46 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   @override
   Widget build(BuildContext context) {
     final appUser = context.watch<AuthProvider>().appUser;
-    final photo = appUser?.photoURL;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('SET UP PROFILE'),
-        automaticallyImplyLeading: false,
-        titleTextStyle: const TextStyle(
-            color: kNavy, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.4,
-            shadows: [Shadow(color: kNavy, blurRadius: 6)]),
+      appBar: const SectionAppBar(
+        title: 'Set up profile',
+        caption: 'Squads',
+        accent: AppColors.squadBlue,
       ),
       body: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(Spacing.s24),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          const SizedBox(height: 12),
+          const SizedBox(height: Spacing.s12),
           Center(
-            child: CircleAvatar(
-              radius: 44,
-              backgroundColor: kCard,
-              backgroundImage: (photo != null && photo.isNotEmpty) ? NetworkImage(photo) : null,
-              child: (photo == null || photo.isEmpty)
-                  ? const Icon(Icons.person, color: kNavy, size: 44)
-                  : null,
+            child: MemberAvatar(
+              photoURL:
+                  (appUser?.photoURL?.isNotEmpty ?? false) ? appUser!.photoURL : null,
+              displayName: appUser?.displayName ?? 'Athlete',
+              size: 88,
             ),
           ),
-          const SizedBox(height: 24),
-          Text('DISPLAY NAME', style: neonLabel(kNavy, size: 12)),
-          const SizedBox(height: 8),
+          const SizedBox(height: Spacing.s24),
+          Text('DISPLAY NAME', style: AppText.caption),
+          const SizedBox(height: Spacing.s8),
           TextField(
             controller: _name,
-            style: const TextStyle(color: kText),
+            style: AppText.bodyL,
             decoration: const InputDecoration(hintText: 'How squadmates see you'),
           ),
-          const SizedBox(height: 8),
-          const Text('This is how you appear to your squads. You can change it later in Squad settings.',
-              style: TextStyle(color: kTextDim, fontSize: 12)),
-          const SizedBox(height: 24),
+          const SizedBox(height: Spacing.s8),
+          Text(
+            'This is how you appear to your squads. You can change it later in Squad settings.',
+            style: AppText.bodyM.copyWith(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: Spacing.s24),
           ElevatedButton(
             onPressed: _saving ? null : _save,
             style: ElevatedButton.styleFrom(
-              backgroundColor: kNavy,
-              foregroundColor: kWhite,
-              padding: const EdgeInsets.symmetric(vertical: 14),
+              backgroundColor: AppColors.squadBlue,
+              foregroundColor: AppColors.surface0,
+              padding: const EdgeInsets.symmetric(vertical: Spacing.s12),
             ),
-            child: Text(_saving ? 'SAVING...' : 'CONTINUE',
-                style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+            child: Text(_saving ? 'Saving…' : 'Continue'),
           ),
         ]),
       ),

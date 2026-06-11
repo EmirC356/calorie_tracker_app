@@ -7,7 +7,12 @@ import '../../models/squad_stats.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/squad_provider.dart';
 import '../../services/snapshot_service.dart';
-import '../../theme/app_theme.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_motion.dart';
+import '../../theme/app_spacing.dart';
+import '../../theme/app_text_styles.dart';
+import '../../widgets/ui/member_avatar.dart';
+import '../../widgets/ui/shimmer_placeholder.dart';
 
 class _Row {
   final SquadMember member;
@@ -78,16 +83,29 @@ class _SquadBoardTabState extends State<SquadBoardTab> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator(color: kNavy));
+    if (_loading) {
+      return ListView(
+        padding: const EdgeInsets.all(Spacing.s16),
+        children: const [
+          ShimmerPlaceholder.line(width: 160),
+          SizedBox(height: Spacing.s12),
+          ShimmerPlaceholder.card(height: 72),
+          SizedBox(height: Spacing.s8),
+          ShimmerPlaceholder.card(height: 72),
+          SizedBox(height: Spacing.s8),
+          ShimmerPlaceholder.card(height: 72),
+        ],
+      );
+    }
     final myUid = context.read<AuthProvider>().firebaseUser?.uid;
     return RefreshIndicator(
-      color: kNavy,
+      color: AppColors.squadBlue,
       onRefresh: _load,
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(Spacing.s16),
         children: [
-          Text('LAST 7 DAYS  ·  STREAKS', style: neonLabel(kNavy, size: 12)),
-          const SizedBox(height: 12),
+          Text('LAST 7 DAYS  ·  STREAKS', style: AppText.caption),
+          const SizedBox(height: Spacing.s12),
           ..._rows.asMap().entries.map((e) => _row(e.key + 1, e.value, e.value.member.uid == myUid)),
         ],
       ),
@@ -96,33 +114,54 @@ class _SquadBoardTabState extends State<SquadBoardTab> {
 
   Widget _row(int rank, _Row r, bool isMe) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: neonBox(isMe ? kNavy : kBorderDim),
+      margin: const EdgeInsets.only(bottom: Spacing.s8),
+      padding: const EdgeInsets.all(Spacing.s12),
+      decoration: BoxDecoration(
+        color: AppColors.surface1,
+        borderRadius: BorderRadius.circular(AppRadius.r12),
+        // The signed-in user's row is highlighted with the room accent —
+        // border + glow only, never a fill (design/system.md focus rule).
+        border: isMe
+            ? Border.all(
+                color: AppColors.squadBlue,
+                width: AppMotion.focusBorderWidth)
+            : null,
+        boxShadow: isMe ? AppMotion.accentGlow(AppColors.squadBlue) : null,
+      ),
       child: Row(children: [
         SizedBox(
           width: 24,
-          child: Text('$rank', style: const TextStyle(color: kNavy, fontWeight: FontWeight.bold, fontSize: 16)),
+          child: Text('$rank',
+              style: AppText.tabular(AppText.titleM
+                  .copyWith(color: AppColors.textTertiary))),
         ),
-        CircleAvatar(
-          radius: 18, backgroundColor: kSurface,
-          backgroundImage: (r.member.photoURL?.isNotEmpty ?? false) ? NetworkImage(r.member.photoURL!) : null,
-          child: (r.member.photoURL?.isEmpty ?? true) ? const Icon(Icons.person, color: kNavy, size: 18) : null,
+        MemberAvatar(
+          photoURL: (r.member.photoURL?.isNotEmpty ?? false)
+              ? r.member.photoURL
+              : null,
+          displayName: r.member.displayName,
+          currentStreak: r.streak.currentStreak.toDouble(),
+          size: 36,
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: Spacing.s12),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(isMe ? '${r.member.displayName} (you)' : r.member.displayName,
-                maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: kText, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 2),
-            Text('${r.streak.daysHitLast7}/7 days hit  ·  longest ${r.streak.longestStreak}',
-                style: const TextStyle(color: kTextDim, fontSize: 12)),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppText.titleM),
+            const SizedBox(height: Spacing.s4),
+            Text(
+                '${r.streak.daysHitLast7}/7 days hit  ·  longest ${r.streak.longestStreak}',
+                style: AppText.tabular(AppText.bodyS
+                    .copyWith(color: AppColors.textSecondary))),
           ]),
         ),
-        Column(children: [
-          Text('🔥 ${r.streak.currentStreak}', style: const TextStyle(color: kText, fontWeight: FontWeight.bold, fontSize: 16)),
-          const Text('streak', style: TextStyle(color: kTextDim, fontSize: 10)),
+        Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Text('${r.streak.currentStreak}',
+              style: AppText.tabular(AppText.displayM
+                  .copyWith(color: AppColors.squadBlue))),
+          Text('STREAK', style: AppText.caption),
         ]),
       ]),
     );

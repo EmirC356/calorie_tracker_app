@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_theme.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_spacing.dart';
+import '../../theme/app_text_styles.dart';
+import '../../theme/app_theme.dart' show StreakTier, streakTierFor;
 
-/// Streak-aware member avatar. The flame + ring escalate with the streak; a
-/// member gone 3+ days (and not paused) is greyed/tarnished; an at-risk member
-/// gets a ⚠ overlay; a paused member shows 🌴 instead of any flame chrome.
+/// Legacy streak-aware member avatar, kept as a stable public API (its render
+/// tree — flame + count chip, ScaleTransition pulse, single tarnish
+/// ColorFiltered/Opacity — is pinned by widget tests). New code should prefer
+/// the `MemberAvatar` primitive in `lib/widgets/ui/`; this widget shares the
+/// same streak-tier system ([streakTierFor]) and design tokens.
 class SquadMemberAvatar extends StatefulWidget {
   final String? photoURL;
   final double currentStreak;
@@ -72,14 +77,16 @@ class _SquadMemberAvatarState extends State<SquadMemberAvatar>
   @override
   Widget build(BuildContext context) {
     final r = widget.radius;
-    if (widget.paused) return _circleWithChip('🌴', const Color(0xFF4CC38A));
+    if (widget.paused) return _circleWithChip('🌴', AppColors.statusPaused);
 
     final tier = _tier;
     Widget avatar = CircleAvatar(
       radius: r,
-      backgroundColor: kSurface,
+      backgroundColor: AppColors.surface2,
       backgroundImage: (widget.photoURL?.isNotEmpty ?? false) ? NetworkImage(widget.photoURL!) : null,
-      child: (widget.photoURL?.isEmpty ?? true) ? Icon(Icons.person, color: kNavy, size: r) : null,
+      child: (widget.photoURL?.isEmpty ?? true)
+          ? Icon(Icons.person, color: AppColors.textTertiary, size: r)
+          : null,
     );
 
     if (tier.ringColor != null) {
@@ -111,14 +118,20 @@ class _SquadMemberAvatarState extends State<SquadMemberAvatar>
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
           decoration: BoxDecoration(
-            color: kBg.withValues(alpha: 0.85),
-            borderRadius: BorderRadius.circular(10),
+            color: AppColors.surface0.withValues(alpha: 0.85),
+            borderRadius: BorderRadius.circular(AppRadius.pill),
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             flame,
             const SizedBox(width: 2),
-            Text(SquadMemberAvatar.streakLabel(widget.currentStreak),
-                style: TextStyle(color: tier.ringColor ?? kAmber, fontSize: 10, fontWeight: FontWeight.bold)),
+            Text(
+              SquadMemberAvatar.streakLabel(widget.currentStreak),
+              style: AppText.tabular(AppText.caption.copyWith(
+                color: tier.ringColor ?? AppColors.calendarAmber,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              )),
+            ),
           ]),
         ),
       ));
@@ -147,7 +160,7 @@ class _SquadMemberAvatarState extends State<SquadMemberAvatar>
       child: Stack(clipBehavior: Clip.none, alignment: Alignment.center, children: [
         CircleAvatar(
           radius: r,
-          backgroundColor: kSurface,
+          backgroundColor: AppColors.surface2,
           backgroundImage: (widget.photoURL?.isNotEmpty ?? false) ? NetworkImage(widget.photoURL!) : null,
           child: (widget.photoURL?.isEmpty ?? true) ? Icon(Icons.person, color: color, size: r) : null,
         ),

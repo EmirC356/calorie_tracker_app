@@ -1,12 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import '../../models/index.dart';
 import '../../providers/squad_provider.dart';
-import '../../theme/app_theme.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_spacing.dart';
+import '../../theme/app_text_styles.dart';
+import '../../widgets/ui/ui.dart';
 
 /// Comment thread + composer at the foot of a member's day detail. Words, not
 /// emoji. ≤200 chars, ≤5 per person per day (rules-enforced; surfaced on reject).
+///
+/// Styled per the canon: 24px MemberAvatars, bodyM text, caption timestamps in
+/// textTertiary, no card backgrounds.
 class CommentThread extends StatefulWidget {
   final String squadId;
   final String dateKey;
@@ -60,12 +67,19 @@ class _CommentThreadState extends State<CommentThread> {
         DateTime.now().difference(c.createdAt!) < const Duration(minutes: 5);
     final action = await showModalBottomSheet<String>(
       context: context,
-      backgroundColor: kSurface,
+      backgroundColor: AppColors.surface3,
       builder: (ctx) => Column(mainAxisSize: MainAxisSize.min, children: [
         if (canEdit)
-          ListTile(leading: const Icon(Icons.edit, color: kNavy), title: const Text('Edit', style: TextStyle(color: kText)),
+          ListTile(
+              leading: const Icon(LucideIcons.pencil,
+                  color: AppColors.textPrimary, size: 20),
+              title: Text('Edit', style: AppText.bodyL),
               onTap: () => Navigator.pop(ctx, 'edit')),
-        ListTile(leading: const Icon(Icons.delete_outline, color: kNeonRed), title: const Text('Delete', style: TextStyle(color: kNeonRed)),
+        ListTile(
+            leading: const Icon(LucideIcons.trash2,
+                color: AppColors.statusMissed, size: 20),
+            title: Text('Delete',
+                style: AppText.bodyL.copyWith(color: AppColors.statusMissed)),
             onTap: () => Navigator.pop(ctx, 'delete')),
       ]),
     );
@@ -76,9 +90,8 @@ class _CommentThreadState extends State<CommentThread> {
       final edited = await showDialog<String>(
         context: context,
         builder: (ctx) => AlertDialog(
-          backgroundColor: kSurface,
-          title: const Text('Edit comment', style: TextStyle(color: kText, fontSize: 16)),
-          content: TextField(controller: _ctrl, maxLength: 200, style: const TextStyle(color: kText)),
+          title: const Text('Edit comment'),
+          content: TextField(controller: _ctrl, maxLength: 200, style: AppText.bodyM),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('CANCEL')),
             TextButton(onPressed: () => Navigator.pop(ctx, _ctrl.text.trim()), child: const Text('SAVE')),
@@ -96,65 +109,90 @@ class _CommentThreadState extends State<CommentThread> {
   Widget build(BuildContext context) {
     final service = context.read<SquadProvider>().service;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('COMMENTS', style: neonLabel(kNavy, size: 12)),
-      const SizedBox(height: 8),
+      Text('COMMENTS', style: AppText.caption),
+      const SizedBox(height: Spacing.s8),
       StreamBuilder<List<SquadComment>>(
         stream: service.watchComments(widget.squadId, widget.dateKey, widget.toUid),
         builder: (context, snap) {
           final comments = snap.data ?? const <SquadComment>[];
           if (comments.isEmpty) {
-            return const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: Text('No comments yet — say something.', style: TextStyle(color: kTextDim, fontSize: 12)),
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: Spacing.s8),
+              child: Text('No comments yet — say something.',
+                  style: AppText.bodyM.copyWith(color: AppColors.textTertiary)),
             );
           }
-          return Column(children: [for (final c in comments) _bubble(c)]);
+          return Column(children: [for (final c in comments) _comment(c)]);
         },
       ),
-      const SizedBox(height: 10),
+      const SizedBox(height: Spacing.s8),
       Row(children: [
         Expanded(
           child: TextField(
             controller: _ctrl, maxLength: 200, minLines: 1, maxLines: 3,
-            style: const TextStyle(color: kText, fontSize: 13),
+            style: AppText.bodyM,
             decoration: const InputDecoration(hintText: 'Write a comment…', isDense: true),
           ),
         ),
-        const SizedBox(width: 8),
-        IconButton(
-          icon: _sending
-              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: kNavy))
-              : const Icon(Icons.send, color: kNavy),
-          onPressed: _send,
-        ),
+        const SizedBox(width: Spacing.s8),
+        _sending
+            ? const Padding(
+                padding: EdgeInsets.all(Spacing.s12),
+                child: ShimmerPlaceholder(
+                    width: 20, height: 20, radius: AppRadius.pill),
+              )
+            : IconButton(
+                icon: const Icon(LucideIcons.send, color: AppColors.squadBlue),
+                onPressed: _send,
+              ),
       ]),
     ]);
   }
 
-  Widget _bubble(SquadComment c) {
+  /// Flat comment row: 24px avatar, name + caption timestamp, bodyM text.
+  Widget _comment(SquadComment c) {
     final mine = c.fromUid == widget.myUid;
     return GestureDetector(
       onLongPress: () => _manage(c),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: kCard,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: mine ? kNavy.withValues(alpha: 0.5) : kBorderDim),
-        ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Text(mine ? 'You' : c.fromName, style: const TextStyle(color: kNavy, fontWeight: FontWeight.bold, fontSize: 12)),
-            const Spacer(),
-            if (c.createdAt != null)
-              Text(DateFormat('MMM d, HH:mm').format(c.createdAt!), style: const TextStyle(color: kTextDim, fontSize: 10)),
-          ]),
-          const SizedBox(height: 3),
-          Text(c.displayText,
-              style: TextStyle(color: c.isDeleted ? kTextDim : kText, fontSize: 13, fontStyle: c.isDeleted ? FontStyle.italic : null)),
-          if (c.isEdited && !c.isDeleted)
-            const Text('edited', style: TextStyle(color: kTextDim, fontSize: 10)),
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: Spacing.s12),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          MemberAvatar(displayName: mine ? widget.myName : c.fromName, size: 24),
+          const SizedBox(width: Spacing.s8),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Flexible(
+                  child: Text(mine ? 'You' : c.fromName,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppText.bodyS),
+                ),
+                const SizedBox(width: Spacing.s8),
+                if (c.createdAt != null)
+                  Text(
+                    DateFormat('MMM d, HH:mm').format(c.createdAt!).toUpperCase(),
+                    style: AppText.caption.copyWith(color: AppColors.textTertiary),
+                  ),
+                if (c.isEdited && !c.isDeleted) ...[
+                  const SizedBox(width: Spacing.s8),
+                  Text('EDITED',
+                      style: AppText.caption
+                          .copyWith(color: AppColors.textTertiary)),
+                ],
+              ]),
+              const SizedBox(height: Spacing.s4),
+              Text(
+                c.displayText,
+                style: AppText.bodyM.copyWith(
+                  color: c.isDeleted
+                      ? AppColors.textTertiary
+                      : AppColors.textPrimary,
+                  fontStyle: c.isDeleted ? FontStyle.italic : null,
+                ),
+              ),
+            ]),
+          ),
         ]),
       ),
     );

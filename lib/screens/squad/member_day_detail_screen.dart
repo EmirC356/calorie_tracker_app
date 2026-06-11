@@ -6,8 +6,13 @@ import '../../models/squad_day_entry.dart';
 import '../../models/squad_reaction.dart';
 import '../../models/goal_visible.dart';
 import '../../providers/auth_provider.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import '../../providers/squad_provider.dart';
-import '../../theme/app_theme.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_spacing.dart';
+import '../../theme/app_text_styles.dart';
+import '../../widgets/ui/member_avatar.dart';
+import '../../widgets/ui/status_pill.dart';
 import '../../widgets/squad/goal_summary.dart';
 import '../../widgets/squad/squad_status.dart';
 import '../../widgets/squad/reaction_bar.dart';
@@ -33,55 +38,48 @@ class MemberDayDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status = entry?.status;
-    final color = status == null ? kTextDim : statusColor(status);
     return Scaffold(
-      appBar: AppBar(
-        title: Text(member.displayName.toUpperCase()),
-        titleTextStyle: const TextStyle(color: kNavy, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.2),
-        iconTheme: const IconThemeData(color: kNavy),
-      ),
-      body: ListView(padding: const EdgeInsets.all(16), children: [
+      appBar: AppBar(title: Text(member.displayName)),
+      body: ListView(padding: const EdgeInsets.all(Spacing.s16), children: [
         Row(children: [
-          CircleAvatar(
-            radius: 26, backgroundColor: kCard,
-            backgroundImage: (member.photoURL?.isNotEmpty ?? false) ? NetworkImage(member.photoURL!) : null,
-            child: (member.photoURL?.isEmpty ?? true) ? const Icon(Icons.person, color: kNavy) : null,
+          Hero(
+            tag: 'squad-member-${member.uid}',
+            child: MemberAvatar(
+              photoURL: (member.photoURL?.isNotEmpty ?? false)
+                  ? member.photoURL
+                  : null,
+              displayName: member.displayName,
+              paused: entry?.paused ?? false,
+              size: 56,
+            ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: Spacing.s12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(member.displayName, style: const TextStyle(color: kText, fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
+            Text(member.displayName, style: AppText.titleL),
+            const SizedBox(height: Spacing.s4),
             GoalSummary(goal: member.goal),
           ])),
         ]),
-        const SizedBox(height: 16),
+        const SizedBox(height: Spacing.s16),
         if (status != null)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.16),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: color),
-            ),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(statusIcon(status), color: color, size: 18),
-              const SizedBox(width: 8),
-              Text(statusLabel(status), style: TextStyle(color: color, fontWeight: FontWeight.bold)),
-            ]),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: StatusPill(status: pillStatusFor(status)),
           ),
-        const SizedBox(height: 16),
+        const SizedBox(height: Spacing.s16),
         if (entry == null)
-          const Text('No data logged yet today.', style: TextStyle(color: kTextDim))
+          Text('No data logged yet today.',
+              style: AppText.bodyM.copyWith(color: AppColors.textSecondary))
         else if (entry!.hasTotals) ...[
           _totals(entry!),
           if (entry!.hasDetails) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: Spacing.s16),
             _details(entry!),
           ],
         ] else
-          const Text('This member shares only their status with the squad.',
-              style: TextStyle(color: kTextDim)),
-        const SizedBox(height: 24),
+          Text('This member shares only their status with the squad.',
+              style: AppText.bodyM.copyWith(color: AppColors.textSecondary)),
+        const SizedBox(height: Spacing.s24),
         _goalsSection(context),
         const SizedBox(height: 20),
         _reactions(context),
@@ -140,10 +138,11 @@ class MemberDayDetailScreen extends StatelessWidget {
                 SnackBar(content: Text('Goal suggested to ${member.displayName}')));
           }
         },
-        icon: const Icon(Icons.lightbulb_outline, size: 18),
+        icon: const Icon(LucideIcons.lightbulb, size: 18),
         label: Text('Suggest a goal to ${member.displayName}'),
         style: OutlinedButton.styleFrom(
-            foregroundColor: kAmber, side: const BorderSide(color: kAmber),
+            foregroundColor: AppColors.squadBlue,
+            side: const BorderSide(color: AppColors.squadBlue, width: 1.5),
             minimumSize: const Size.fromHeight(46)),
       ),
     );
@@ -171,12 +170,8 @@ class MemberDayDetailScreen extends StatelessWidget {
 
     // Can't nudge yourself.
     if (member.uid == myUid) {
-      return Container(
-        padding: const EdgeInsets.all(14),
-        decoration: neonBox(kBorderDim),
-        child: const Text("This is you — open a squadmate's card to send a nudge.",
-            style: TextStyle(color: kTextDim, fontSize: 12)),
-      );
+      return Text("This is you — open a squadmate's card to send a nudge.",
+          style: AppText.bodyS.copyWith(color: AppColors.textTertiary));
     }
 
     final squadProvider = context.read<SquadProvider>();
@@ -198,48 +193,49 @@ class MemberDayDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _totals(SquadDayEntry e) => Container(
-        padding: const EdgeInsets.all(14),
-        decoration: neonBox(kNavy),
-        child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-          _stat('CONSUMED', e.consumed?.toStringAsFixed(0) ?? '–', 'kcal'),
-          _stat('BURNED', e.burned?.toStringAsFixed(0) ?? '–', 'kcal'),
-          _stat('EXERCISE', '${e.exerciseMinutes ?? '–'}', 'min'),
-        ]),
-      );
+  /// Day stats stacked as hero numbers (tabular displayM), per the spec's
+  /// "stats as HeroStats stacked" treatment.
+  Widget _totals(SquadDayEntry e) =>
+      Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+        _stat('CONSUMED', e.consumed?.toStringAsFixed(0) ?? '–', 'kcal'),
+        _stat('BURNED', e.burned?.toStringAsFixed(0) ?? '–', 'kcal'),
+        _stat('EXERCISE', '${e.exerciseMinutes ?? '–'}', 'min'),
+      ]);
 
   Widget _stat(String label, String value, String unit) => Column(children: [
-        Text(label, style: const TextStyle(color: kTextDim, fontSize: 10)),
-        const SizedBox(height: 2),
-        Text(value, style: const TextStyle(color: kText, fontSize: 18, fontWeight: FontWeight.bold)),
-        Text(unit, style: const TextStyle(color: kTextDim, fontSize: 10)),
+        Text(label, style: AppText.caption),
+        const SizedBox(height: Spacing.s4),
+        Text(value, style: AppText.tabular(AppText.displayM)),
+        Text(unit, style: AppText.caption),
       ]);
 
   Widget _details(SquadDayEntry e) {
     String fmt(DateTime? t) => t == null ? '' : DateFormat('HH:mm').format(t);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       if ((e.meals ?? []).isNotEmpty) ...[
-        Text('MEALS', style: neonLabel(kNavy, size: 12)),
-        const SizedBox(height: 8),
+        Text('MEALS', style: AppText.caption),
+        const SizedBox(height: Spacing.s8),
         ...e.meals!.map((m) => Padding(
-              padding: const EdgeInsets.only(bottom: 6),
+              padding: const EdgeInsets.only(bottom: Spacing.s8),
               child: Row(children: [
-                Expanded(child: Text(m.name, style: const TextStyle(color: kText, fontSize: 13))),
+                Expanded(child: Text(m.name, style: AppText.bodyS)),
                 Text('${m.kcal.toStringAsFixed(0)} kcal  ${fmt(m.time)}',
-                    style: const TextStyle(color: kTextDim, fontSize: 12)),
+                    style: AppText.tabular(AppText.bodyS
+                        .copyWith(color: AppColors.textSecondary))),
               ]),
             )),
-        const SizedBox(height: 12),
+        const SizedBox(height: Spacing.s12),
       ],
       if ((e.exercises ?? []).isNotEmpty) ...[
-        Text('EXERCISES', style: neonLabel(kNavy, size: 12)),
-        const SizedBox(height: 8),
+        Text('EXERCISES', style: AppText.caption),
+        const SizedBox(height: Spacing.s8),
         ...e.exercises!.map((x) => Padding(
-              padding: const EdgeInsets.only(bottom: 6),
+              padding: const EdgeInsets.only(bottom: Spacing.s8),
               child: Row(children: [
-                Expanded(child: Text(x.name, style: const TextStyle(color: kText, fontSize: 13))),
+                Expanded(child: Text(x.name, style: AppText.bodyS)),
                 Text('${x.minutes} min · ${x.kcal.toStringAsFixed(0)} kcal  ${fmt(x.time)}',
-                    style: const TextStyle(color: kTextDim, fontSize: 12)),
+                    style: AppText.tabular(AppText.bodyS
+                        .copyWith(color: AppColors.textSecondary))),
               ]),
             )),
       ],
