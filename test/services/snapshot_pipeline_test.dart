@@ -129,27 +129,6 @@ void main() {
     await db.close();
   });
 
-  test('a daily check-in is mirrored onto the day entry', () async {
-    final fs = FakeFirebaseFirestore();
-    final db = DatabaseService(overridePath: inMemoryDatabasePath);
-    final ss = SquadService(firestore: fs);
-
-    await fs.doc('squads/s1').set({
-      'name': 'S', 'ownerUid': 'u1', 'memberUids': ['u1'],
-      'inviteCode': '123456', 'createdAt': Timestamp.fromDate(DateTime(2026, 1, 1)),
-    });
-    await fs.doc('squads/s1/members/u1').set({'sharingLevel': 'status', 'displayName': 'A'});
-    await db.setCheckin('2026-06-08', 'cheatDay');
-
-    await SnapshotService(db: db, squadService: ss)
-        .pushForUser(uid: 'u1', date: DateTime(2026, 6, 8), now: DateTime(2026, 6, 9, 12));
-
-    final e = (await fs.doc('squads/s1/days/2026-06-08/entries/u1').get()).data()!;
-    expect(e['checkin'], 'cheatDay');
-
-    await db.close();
-  });
-
   test('a today push marks squad activity (lastActivityAt + clears ghostedSince)', () async {
     final fs = FakeFirebaseFirestore();
     final db = DatabaseService(overridePath: inMemoryDatabasePath);

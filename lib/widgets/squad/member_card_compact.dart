@@ -10,7 +10,6 @@ import '../../theme/app_text_styles.dart';
 import '../../widgets/ui/ui.dart';
 import 'goal_summary.dart';
 import 'squad_status.dart';
-import 'checkin.dart';
 import 'presence_indicator.dart';
 
 /// Compact (~140dp) member card for the Today carousel: avatar + presence on
@@ -104,12 +103,6 @@ class MemberCardCompact extends StatelessWidget {
             child: Text(isMe ? '${member.displayName} (you)' : member.displayName,
                 maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.titleL),
           ),
-          if (entry?.checkin != null) ...[
-            const SizedBox(width: Spacing.s8),
-            Container(
-                width: 9, height: 9,
-                decoration: BoxDecoration(shape: BoxShape.circle, color: checkinColor(entry!.checkin))),
-          ],
           if (receivedEmoji != null) ...[
             const SizedBox(width: Spacing.s4),
             Text(receivedEmoji!.glyph, style: const TextStyle(fontSize: 14)),

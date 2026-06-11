@@ -14,7 +14,6 @@ import '../../theme/app_text_styles.dart';
 import '../../widgets/ui/hero_transition_scaffold.dart';
 import '../../widgets/ui/shimmer_placeholder.dart';
 import '../../widgets/squad/member_card_compact.dart';
-import '../../widgets/squad/checkin.dart';
 import '../../widgets/squad/intentions_strip.dart';
 import '../../widgets/squad/group_goals_strip.dart';
 import '../../widgets/squad/activity_feed_strip.dart';
@@ -78,7 +77,6 @@ class _SquadTodayTabState extends State<SquadTodayTab> {
                   children: [
                     ActivityFeedStrip(squadId: widget.squadId),
                     if (myUid != null) IntentionsStrip(squadId: widget.squadId, myUid: myUid),
-                    _checkinChip(context, entries[myUid]?.checkin),
                     const SizedBox(height: Spacing.s8),
                     for (final m in members)
                       Padding(
@@ -136,42 +134,6 @@ class _SquadTodayTabState extends State<SquadTodayTab> {
         squadId: widget.squadId, dateKey: _dateKey,
         fromUid: myUid, fromName: myName, toUid: m.uid, emoji: e);
     messenger.showSnackBar(SnackBar(content: Text('${e.glyph} sent to ${m.displayName}')));
-  }
-
-  /// Compact check-in chip — just the emoji + "Tap to change". More prominent
-  /// (amber) when not yet checked in.
-  Widget _checkinChip(BuildContext context, String? mine) {
-    final set = mine != null;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(Spacing.s16, Spacing.s12, Spacing.s16, 0),
-      child: Material(
-        color: AppColors.surface1,
-        borderRadius: BorderRadius.circular(AppRadius.r12),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () => showCheckinSheet(context),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: Spacing.s12, vertical: Spacing.s8),
-            decoration: set
-                ? null
-                : BoxDecoration(
-                    borderRadius: BorderRadius.circular(AppRadius.r12),
-                    border: Border.all(color: AppColors.calendarAmber, width: 1.5)),
-            child: Row(children: [
-              Text(set ? checkinEmoji(mine) : '👋', style: const TextStyle(fontSize: 18)),
-              const SizedBox(width: Spacing.s12),
-              Expanded(
-                child: Text(set ? 'Tap to change' : 'Check in for today',
-                    style: AppText.bodyS.copyWith(
-                        color: set ? AppColors.textSecondary : AppColors.calendarAmber)),
-              ),
-              Icon(LucideIcons.chevronRight,
-                  color: set ? AppColors.textTertiary : AppColors.calendarAmber, size: 18),
-            ]),
-          ),
-        ),
-      ),
-    );
   }
 
   Widget _endCta(BuildContext context, List<SquadMember> members, String? myUid) {
