@@ -6,7 +6,7 @@ import '../models/index.dart';
 
 class DatabaseService {
   static const String _dbName = 'calorie_tracker.db';
-  static const int _dbVersion = 7;
+  static const int _dbVersion = 8;
 
   /// Current local schema version (for backup metadata).
   static int get currentSchemaVersion => _dbVersion;
@@ -114,6 +114,12 @@ class DatabaseService {
       // Squad pause/vacation personal records — additive.
       await _createPauseHistoryTable(db);
     }
+    if (oldVersion < 8) {
+      // Make-up day: tag a meal/exercise as recovering a missed squad day.
+      // Additive nullable columns — no row rewrite.
+      await db.execute('ALTER TABLE $tablesMeals ADD COLUMN makeup_for_date TEXT');
+      await db.execute('ALTER TABLE $tablesExercises ADD COLUMN makeup_for_date TEXT');
+    }
   }
 
   /// Indexes the date columns the dashboard queries hit on every load.
@@ -171,7 +177,8 @@ class DatabaseService {
         portion_grams REAL NOT NULL DEFAULT 0,
         nutrients TEXT NOT NULL,
         timestamp TEXT NOT NULL,
-        notes TEXT
+        notes TEXT,
+        makeup_for_date TEXT
       )
     ''');
   }
@@ -185,7 +192,8 @@ class DatabaseService {
         caloriesBurned REAL NOT NULL,
         timestamp TEXT NOT NULL,
         notes TEXT,
-        intensity TEXT NOT NULL
+        intensity TEXT NOT NULL,
+        makeup_for_date TEXT
       )
     ''');
   }
@@ -329,6 +337,7 @@ class DatabaseService {
       'nutrients': jsonEncode(meal.nutrients.toJson()),
       'timestamp': meal.timestamp.toIso8601String(),
       'notes': meal.notes,
+      'makeup_for_date': meal.makeupForDate,
     });
   }
 
@@ -371,6 +380,7 @@ class DatabaseService {
             jsonDecode(m['nutrients'] as String) as Map<String, dynamic>),
         timestamp: DateTime.parse(m['timestamp'] as String),
         notes: m['notes'] as String?,
+        makeupForDate: m['makeup_for_date'] as String?,
       );
 
   Future<int> updateMeal(Meal meal) async {
@@ -405,6 +415,7 @@ class DatabaseService {
       'timestamp': exercise.timestamp.toIso8601String(),
       'notes': exercise.notes,
       'intensity': exercise.intensity,
+      'makeup_for_date': exercise.makeupForDate,
     });
   }
 
@@ -446,6 +457,7 @@ class DatabaseService {
         timestamp: DateTime.parse(m['timestamp'] as String),
         notes: m['notes'] as String?,
         intensity: m['intensity'] as String,
+        makeupForDate: m['makeup_for_date'] as String?,
       );
 
   Future<int> updateExercise(Exercise exercise) async {
@@ -568,6 +580,22 @@ class DatabaseService {
   }
 
   // ─── Pause history (personal records of squad pauses) ───────────────────────
+
+  /// Meals/exercises tagged as a make-up for [dateKey] (YYYY-MM-DD), regardless
+  /// of when they were logged.
+  Future<List<Meal>> getMealsByMakeupDate(String dateKey) async {
+    final database = await db;
+    final maps = await database.query(tablesMeals,
+        where: 'makeup_for_date = ?', whereArgs: [dateKey]);
+    return maps.map(_mealFromMap).toList();
+  }
+
+  Future<List<Exercise>> getExercisesByMakeupDate(String dateKey) async {
+    final database = await db;
+    final maps = await database.query(tablesExercises,
+        where: 'makeup_for_date = ?', whereArgs: [dateKey]);
+    return maps.map(_exerciseFromMap).toList();
+  }
 
   Future<int> insertPauseHistory({
     required String squadId,

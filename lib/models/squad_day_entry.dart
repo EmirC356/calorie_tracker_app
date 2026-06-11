@@ -39,6 +39,8 @@ class SquadDayEntry {
   final String uid;
   final GoalStatus status;
   final bool paused; // a paused (vacation) day — status falls back to inProgress
+  final bool redeemed; // a missed day rescued by a make-up (counts 0.5)
+  final String? makeupForDate; // set on a make-up day's entry → the day it recovers
   final double? consumed; // totals+
   final double? burned;
   final int? exerciseMinutes;
@@ -50,6 +52,8 @@ class SquadDayEntry {
     required this.uid,
     required this.status,
     this.paused = false,
+    this.redeemed = false,
+    this.makeupForDate,
     this.consumed,
     this.burned,
     this.exerciseMinutes,
@@ -69,6 +73,8 @@ class SquadDayEntry {
       // 'paused' isn't a GoalStatus — fall back to inProgress and use [paused].
       status: GoalStatus.values.asNameMap()[statusName] ?? GoalStatus.inProgress,
       paused: paused,
+      redeemed: (m['redeemed'] as bool?) ?? false,
+      makeupForDate: m['makeupForDate'] as String?,
       consumed: (m['consumed'] as num?)?.toDouble(),
       burned: (m['burned'] as num?)?.toDouble(),
       exerciseMinutes: (m['exerciseMinutes'] as num?)?.toInt(),

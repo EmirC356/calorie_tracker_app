@@ -111,7 +111,7 @@ void main() {
     if (tmp.existsSync()) tmp.deleteSync(recursive: true);
   });
 
-  test('v4 → v7 migration keeps all data and adds goal + water + pause tables', () async {
+  test('v4 → v8 migration keeps all data and adds goal/water/pause/makeup schema', () async {
     await _createV4Database(dbPath);
 
     // Reopen through the real DatabaseService (version 5) → runs the additive
@@ -121,7 +121,13 @@ void main() {
 
     final version =
         (await db.rawQuery('PRAGMA user_version')).first.values.first;
-    expect(version, 7);
+    expect(version, 8);
+
+    // v8 added the make-up column to meals + exercises.
+    final mealCols = (await db.rawQuery('PRAGMA table_info(meals)')).map((c) => c['name']).toList();
+    expect(mealCols, contains('makeup_for_date'));
+    final exCols = (await db.rawQuery('PRAGMA table_info(exercises)')).map((c) => c['name']).toList();
+    expect(exCols, contains('makeup_for_date'));
 
     // Existing v4 tables and their rows are intact.
     expect(await _tableExists(db, 'meals'), isTrue);

@@ -7,6 +7,9 @@ class Exercise {
   final String? notes;
   final String intensity; // low, medium, high
 
+  /// When set (YYYY-MM-DD), a make-up recovering that missed squad day.
+  final String? makeupForDate;
+
   Exercise({
     this.id,
     required this.name,
@@ -15,6 +18,7 @@ class Exercise {
     required this.timestamp,
     this.notes,
     this.intensity = 'medium',
+    this.makeupForDate,
   });
 
   factory Exercise.fromJson(Map<String, dynamic> json) {
@@ -26,6 +30,7 @@ class Exercise {
       timestamp: DateTime.parse(json['timestamp'] as String),
       notes: json['notes'] as String?,
       intensity: json['intensity'] as String? ?? 'medium',
+      makeupForDate: (json['makeupForDate'] ?? json['makeup_for_date']) as String?,
     );
   }
 
@@ -38,6 +43,7 @@ class Exercise {
       'timestamp': timestamp.toIso8601String(),
       'notes': notes,
       'intensity': intensity,
+      'makeupForDate': makeupForDate,
     };
   }
 }

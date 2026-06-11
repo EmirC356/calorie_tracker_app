@@ -99,4 +99,33 @@ void main() {
 
     await db.close();
   });
+
+  test('a make-up entry redeems a missed day (status stays missed)', () async {
+    final fs = FakeFirebaseFirestore();
+    final db = DatabaseService(overridePath: inMemoryDatabasePath);
+    final ss = SquadService(firestore: fs);
+
+    await fs.doc('squads/s1').set({
+      'name': 'S', 'ownerUid': 'u1', 'memberUids': ['u1'],
+      'inviteCode': '123456', 'createdAt': Timestamp.fromDate(DateTime(2026, 1, 1)),
+    });
+    // Goal: burn ≥ 200 kcal. Day 6/8 logged nothing → missed.
+    await fs.doc('squads/s1/members/u1').set({
+      'sharingLevel': 'status', 'displayName': 'A',
+      'goal': {'caloriesBurnedMin': 200},
+    });
+    // A make-up exercise logged later, tagged for 6/8, satisfies the goal.
+    await db.insertExercise(Exercise(
+      name: 'Catch-up run', durationMinutes: 30, caloriesBurned: 250,
+      timestamp: DateTime(2026, 6, 9, 7), makeupForDate: '2026-06-08'));
+
+    await SnapshotService(db: db, squadService: ss)
+        .pushForUser(uid: 'u1', date: DateTime(2026, 6, 8), now: DateTime(2026, 6, 9, 12));
+
+    final e = (await fs.doc('squads/s1/days/2026-06-08/entries/u1').get()).data()!;
+    expect(e['status'], 'missed'); // the day itself was still a miss
+    expect(e['redeemed'], isTrue); // but rescued by the make-up
+
+    await db.close();
+  });
 }

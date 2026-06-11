@@ -8,6 +8,10 @@ class Meal {
   final DateTime timestamp;
   final String? notes;
 
+  /// When set (YYYY-MM-DD), this entry is a make-up recovering that missed squad
+  /// day rather than (only) counting toward its own day.
+  final String? makeupForDate;
+
   Meal({
     this.id,
     required this.name,
@@ -15,6 +19,7 @@ class Meal {
     required this.nutrients,
     required this.timestamp,
     this.notes,
+    this.makeupForDate,
   });
 
   factory Meal.fromJson(Map<String, dynamic> json) {
@@ -27,6 +32,7 @@ class Meal {
       nutrients: NutrientInfo.fromJson(json['nutrients']),
       timestamp: DateTime.parse(json['timestamp'] as String),
       notes: json['notes'] as String?,
+      makeupForDate: (json['makeupForDate'] ?? json['makeup_for_date']) as String?,
     );
   }
 
@@ -38,6 +44,7 @@ class Meal {
       'nutrients': nutrients.toJson(),
       'timestamp': timestamp.toIso8601String(),
       'notes': notes,
+      'makeupForDate': makeupForDate,
     };
   }
 }

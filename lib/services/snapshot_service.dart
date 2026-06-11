@@ -48,8 +48,9 @@ class SnapshotService {
     // Reuse the same database instance so goal reads hit the same store.
     _goalService = goalService ?? GoalService(db: _db);
     // Pause is the first gate: a paused day finalizes as `paused` and skips the
-    // rest of the pipeline (status, totals, group-goal contributions).
-    this.transformers = transformers ?? const [PauseTransformer(), StatusTransformer()];
+    // rest of the pipeline. Make-up runs after status to redeem a missed day.
+    this.transformers = transformers ??
+        const [PauseTransformer(), StatusTransformer(), MakeupTransformer()];
   }
 
   /// Local-timezone date key (a meal logged at 1am Tuesday counts as Tuesday).
@@ -366,6 +367,33 @@ class StatusTransformer extends SnapshotTransformer {
       stats: ctx.stats,
       level: ctx.member.sharingLevel,
     ));
+    return true;
+  }
+}
+
+/// Make-up day: if this day finalized as `missed` but the member logged make-up
+/// activity tagged for it (`makeupForDate == this day`) that — combined with the
+/// day's own activity — satisfies the goal, mark the entry `redeemed`. The
+/// streak engine then counts it as 0.5 instead of a break (status stays missed).
+class MakeupTransformer extends SnapshotTransformer {
+  const MakeupTransformer();
+
+  @override
+  Future<bool> apply(SnapshotContext ctx, Map<String, dynamic> entry) async {
+    if (entry['status'] != GoalStatus.missed.name) return true;
+    final meals = await ctx.db.getMealsByMakeupDate(ctx.dateKey);
+    final exercises = await ctx.db.getExercisesByMakeupDate(ctx.dateKey);
+    if (meals.isEmpty && exercises.isEmpty) return true;
+
+    final consumed = ctx.stats.consumed + meals.fold(0.0, (s, m) => s + m.nutrients.calories);
+    final burned = ctx.stats.burned + exercises.fold(0.0, (s, e) => s + e.caloriesBurned);
+    final minutes = ctx.stats.exerciseMinutes + exercises.fold<int>(0, (s, e) => s + e.durationMinutes);
+
+    final status = ctx.member.goal.evaluate(
+      consumed: consumed, exerciseMinutes: minutes, burned: burned, dayOver: true);
+    if (status == GoalStatus.hit) {
+      entry['redeemed'] = true; // rescued — streak survives at 0.5
+    }
     return true;
   }
 }
