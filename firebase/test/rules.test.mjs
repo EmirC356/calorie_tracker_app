@@ -145,6 +145,10 @@ await check('member CAN read the activity feed',
   assertSucceeds(getDoc(doc(member, 'squads/s1/activity/a1'))));
 await check('client CANNOT write the activity feed (functions only)',
   assertFails(setDoc(doc(member, 'squads/s1/activity/a2'), { type: 'x' })));
+await check('client CANNOT forge a full-schema activity event',
+  assertFails(setDoc(doc(member, 'squads/s1/activity/a3'), {
+    type: 'goalHit', actorUid: 'm1', actorName: 'M', payload: {}, createdAt: new Date(),
+  })));
 await check('member CAN add self to a ghost mass-nudge',
   assertSucceeds(setDoc(doc(member, 'squads/s1/ghostChecks/2026-06-15/aggregateNudges/owner'), { nudgerUids: ['m1'], count: 1 })));
 await check('member CANNOT nudge without including self',
@@ -224,4 +228,4 @@ await check('outsider CANNOT read a birthday event',
 
 await testEnv.cleanup();
 console.log(`\nALL ${n} RULES TESTS PASSED`);
-assert(n === 64);
+assert(n === 65);

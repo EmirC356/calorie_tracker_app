@@ -10,7 +10,7 @@
 import {onSchedule} from "firebase-functions/v2/scheduler";
 import * as admin from "firebase-admin";
 import {db} from "./shared";
-import {sendSquadPush} from "./social";
+import {sendSquadPush, logActivity} from "./social";
 
 const FieldValue = admin.firestore.FieldValue;
 
@@ -36,6 +36,9 @@ export const scheduledBirthdayCheck = onSchedule("0 9 * * *", async () => {
       if (!squad.exists) continue;
       const members = (squad.get("memberUids") as string[] | undefined) ?? [];
       const others = members.filter((m) => m !== ownerUid);
+
+      // Feed: the birthday surfaces once per squad on the day.
+      await logActivity(squadId, {type: "birthday", actorUid: ownerUid, actorName: displayName});
 
       // One push per recipient per birthday per year.
       const recipients: string[] = [];

@@ -15,12 +15,16 @@ import {onSchedule} from "firebase-functions/v2/scheduler";
 import {
   db, messaging, isMuted, memberName, pushToUsers, glyph, localDateKey, dateKeyDaysAgo,
 } from "./shared";
+import {logActivity, priorStreak} from "./social";
 
 // Goals/Calendar functions (suggestion pushes, morning brief, reminders).
 export * from "./calendar";
 
 // Birthday celebration push (daily 09:00 UTC).
 export {scheduledBirthdayCheck} from "./birthdays";
+
+// Activity-feed nightly trim (keeps the latest 100 events per squad).
+export {scheduledActivityPrune} from "./feed_prune";
 
 // Social/accountability functions (streak-loss + full-squad-day broadcasts,
 // ghost sweep + aggregate nudge, weekly retro). All push via sendSquadPush.
@@ -33,6 +37,7 @@ export {
   onCommentCreated,
   onGroupGoalHit,
   onMemberPauseChanged,
+  onIntentionWritten,
 } from "./social";
 
 export const onEntryStatusHit = onDocumentWritten(
@@ -41,13 +46,27 @@ export const onEntryStatusHit = onDocumentWritten(
     const before = event.data?.before?.get("status");
     const after = event.data?.after?.get("status");
     if (after !== "hit" || before === "hit") return; // only the transition INTO hit
-    const {squadId, uid} = event.params as {squadId: string; uid: string};
+    const {squadId, date, uid} = event.params as {squadId: string; date: string; uid: string};
     const squad = await db.doc(`squads/${squadId}`).get();
     const members = (squad.get("memberUids") as string[] | undefined) ?? [];
     const others = members.filter((m) => m !== uid);
-    if (others.length === 0) return;
     const name = await memberName(squadId, uid);
-    await pushToUsers(others, squadId, "Goal hit 💪", `${name} hit their goal today!`);
+    const photo = (await db.doc(`squads/${squadId}/members/${uid}`).get()).get("photoURL") as
+      | string
+      | undefined;
+
+    // Feed: the hit itself, plus a milestone when the streak crosses a threshold.
+    await logActivity(squadId, {type: "goalHit", actorUid: uid, actorName: name, actorPhotoURL: photo ?? undefined});
+    const streak = (await priorStreak(squadId, uid, date)) + 1;
+    if ([7, 14, 30, 50, 100].includes(streak)) {
+      await logActivity(squadId, {
+        type: "streakMilestone", actorUid: uid, actorName: name,
+        actorPhotoURL: photo ?? undefined, payload: {length: streak},
+      });
+    }
+    if (others.length > 0) {
+      await pushToUsers(others, squadId, "Goal hit 💪", `${name} hit their goal today!`);
+    }
   },
 );
 
@@ -59,6 +78,14 @@ export const onReactionCreated = onDocumentCreated(
     const {squadId} = event.params as {squadId: string};
     const toUid = data.toUid as string;
     const fromName = (data.fromName as string | undefined) ?? "A squadmate";
+    await logActivity(squadId, {
+      type: "reactionSent",
+      actorUid: (data.fromUid as string | undefined) ?? "",
+      actorName: fromName,
+      subjectUid: toUid,
+      subjectName: await memberName(squadId, toUid),
+      payload: {emoji: data.emoji},
+    });
     await pushToUsers([toUid], squadId, "New nudge", `${fromName} sent you ${glyph(data.emoji as string)}`);
   },
 );

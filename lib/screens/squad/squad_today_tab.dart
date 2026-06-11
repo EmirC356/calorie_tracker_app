@@ -20,7 +20,7 @@ import '../../widgets/squad/member_card.dart';
 import '../../widgets/squad/checkin.dart';
 import '../../widgets/squad/intention_banner.dart';
 import '../../widgets/squad/group_goals_strip.dart';
-import '../../widgets/squad/activity_feed.dart';
+import '../../widgets/squad/activity_feed_strip.dart';
 import 'member_day_detail_screen.dart';
 
 /// Today tab: a grid of member cards (avatar, goal, progress ring, status).
@@ -162,7 +162,7 @@ class _SquadTodayTabState extends State<SquadTodayTab> {
                       ),
                     ),
                   ),
-                  ActivityFeed(squadId: widget.squadId),
+                  ActivityFeedStrip(squadId: widget.squadId),
                 ]);
               },
             );

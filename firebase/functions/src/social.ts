@@ -24,7 +24,7 @@ import {onSchedule} from "firebase-functions/v2/scheduler";
 import * as admin from "firebase-admin";
 import {
   db, isMuted, tokensForUser, sendToTokens, notificationPrefs, inQuietHours,
-  localDateKey, localDateKeyOffset, isoWeekKey, NotificationPrefs,
+  localDateKey, localDateKeyOffset, isoWeekKey, memberName, NotificationPrefs,
 } from "./shared";
 
 const FieldValue = admin.firestore.FieldValue;
@@ -33,6 +33,33 @@ type Pref = keyof Pick<
   "squadAttributed" | "personalPress" | "retros" | "broadcastStreakLoss"
 >;
 
+/** A unified activity-feed event (squads/{}/activity). Written by Cloud
+ * Functions only; the feed + push stay in lockstep when passed via SquadPushOpts. */
+export interface ActivityEvent {
+  type: string;
+  actorUid: string;
+  actorName: string;
+  actorPhotoURL?: string;
+  subjectUid?: string;
+  subjectName?: string;
+  payload?: Record<string, unknown>;
+}
+
+/** Appends one event to the squad's activity feed. The single writer for the
+ * feed; the nightly scheduledActivityPrune trims each squad to the latest 100. */
+export async function logActivity(squadId: string, e: ActivityEvent): Promise<void> {
+  await db.collection(`squads/${squadId}/activity`).add({
+    type: e.type,
+    actorUid: e.actorUid,
+    actorName: e.actorName,
+    ...(e.actorPhotoURL ? {actorPhotoURL: e.actorPhotoURL} : {}),
+    ...(e.subjectUid ? {subjectUid: e.subjectUid} : {}),
+    ...(e.subjectName ? {subjectName: e.subjectName} : {}),
+    payload: e.payload ?? {},
+    createdAt: FieldValue.serverTimestamp(),
+  });
+}
+
 interface SquadPushOpts {
   /** Which master-pref bool gates this push. Omit to skip the pref gate. */
   pref?: Pref;
@@ -40,6 +67,8 @@ interface SquadPushOpts {
   ignoreMute?: boolean;
   /** Override "now" (testing / batched callers). Defaults to new Date(). */
   now?: Date;
+  /** Feed event written alongside the push (push + feed in lockstep). */
+  activity?: ActivityEvent;
 }
 
 /**
@@ -78,6 +107,7 @@ export async function sendSquadPush(
   );
 
   await sendToTokens(lists.flat(), owner, payload.title, payload.body);
+  if (opts.activity) await logActivity(squadId, opts.activity);
 }
 
 // ───────────────────────────── onDayFinalized ──────────────────────────────
@@ -96,7 +126,7 @@ interface EntryData {
  * walk stops at the first genuine break (missed & !redeemed & !paused) or a day
  * with no entry. Bounded to 60 lookback days to cap reads.
  */
-async function priorStreak(squadId: string, uid: string, dateKey: string): Promise<number> {
+export async function priorStreak(squadId: string, uid: string, dateKey: string): Promise<number> {
   let streak = 0;
   let cursor = new Date(`${dateKey}T00:00:00Z`);
   for (let i = 0; i < 60; i++) {
@@ -179,10 +209,11 @@ async function maybeBroadcastStreakLoss(
   const senderBroadcasts = memberSnap.get("broadcastStreakLoss") !== false;
 
   // Append to the unified activity feed regardless of push gating.
-  await db.collection(`squads/${squadId}/activity`).add({
-    type: "streakLoss",
-    payload: {uid, displayName, length: streak, date},
-    createdAt: FieldValue.serverTimestamp(),
+  await logActivity(squadId, {
+    type: "streakBroken",
+    actorUid: uid,
+    actorName: displayName,
+    payload: {length: streak, date},
   });
 
   if (senderBroadcasts && others.length > 0) {
@@ -246,10 +277,11 @@ async function maybeFullSquadDay(
 
   const recovered = active.some((d) => (d.data() as EntryData).redeemed === true);
   const title = recovered ? "Full squad day (recovered!)" : "Full squad day";
-  await db.collection(`squads/${squadId}/activity`).add({
+  await logActivity(squadId, {
     type: "fullSquadDay",
+    actorUid: "",
+    actorName: "",
     payload: {date},
-    createdAt: FieldValue.serverTimestamp(),
   });
   await sendSquadPush(
     squadId,
@@ -617,7 +649,17 @@ export const onCommentCreated = onDocumentCreated(
     if (!snap) return;
     const {squadId, date} = event.params as {squadId: string; date: string};
     const c = snap.data() as {fromUid?: string; fromName?: string; toUid?: string; text?: string};
-    if (!c.fromUid || !c.toUid || c.fromUid === c.toUid) return; // no self-comment push
+    if (!c.fromUid || !c.toUid || c.fromUid === c.toUid) return; // no self-comment
+
+    // Every comment logs to the feed (the push below is 30-min throttled).
+    await logActivity(squadId, {
+      type: "commentPosted",
+      actorUid: c.fromUid,
+      actorName: c.fromName ?? "A squadmate",
+      subjectUid: c.toUid,
+      subjectName: await memberName(squadId, c.toUid),
+      payload: {excerpt: (c.text ?? "").slice(0, 60)},
+    });
 
     const throttleRef = db.doc(
       `squads/${squadId}/days/${date}/commentPushThrottle/${c.toUid}_${c.fromUid}`,
@@ -660,10 +702,11 @@ export const onGroupGoalHit = onDocumentWritten(
     const squad = await db.doc(`squads/${squadId}`).get();
     const members = (squad.get("memberUids") as string[] | undefined) ?? [];
 
-    await db.collection(`squads/${squadId}/activity`).add({
+    await logActivity(squadId, {
       type: "groupGoalHit",
+      actorUid: "",
+      actorName: "",
       payload: {title},
-      createdAt: FieldValue.serverTimestamp(),
     });
     await sendSquadPush(
       squadId,
@@ -685,15 +728,32 @@ export const onGroupGoalHit = onDocumentWritten(
 export const onMemberPauseChanged = onDocumentWritten(
   "squads/{squadId}/members/{uid}",
   async (event) => {
-    const after = event.data?.after;
-    if (!after?.exists) return;
     const before = event.data?.before;
+    const after = event.data?.after;
+    const {squadId, uid} = event.params as {squadId: string; uid: string};
+
+    // Member left (doc deleted) / joined (doc created) — feed only, no push.
+    if (before?.exists && !after?.exists) {
+      await logActivity(squadId, {
+        type: "memberLeft", actorUid: uid,
+        actorName: (before.get("displayName") as string | undefined) ?? "A squadmate",
+      });
+      return;
+    }
+    if (!after?.exists) return;
+    if (!before?.exists) {
+      await logActivity(squadId, {
+        type: "memberJoined", actorUid: uid,
+        actorName: (after.get("displayName") as string | undefined) ?? "A squadmate",
+        actorPhotoURL: (after.get("photoURL") as string | undefined) ?? undefined,
+      });
+    }
+
     const wasPaused = (before?.get("pause") as {active?: boolean} | undefined)?.active === true;
     const pause = after.get("pause") as {active?: boolean; until?: string} | undefined;
     const isPaused = pause?.active === true;
     if (wasPaused === isPaused) return; // no pause/return transition
 
-    const {squadId, uid} = event.params as {squadId: string; uid: string};
     const marker = isPaused ? `paused_${pause?.until ?? ""}` : "returned";
     const ref = db.doc(`squads/${squadId}/members/${uid}`);
     const fresh = await db.runTransaction(async (tx) => {
@@ -710,15 +770,36 @@ export const onMemberPauseChanged = onDocumentWritten(
     const others = members.filter((m) => m !== uid);
     const displayName = (after.get("displayName") as string | undefined) ?? "A squadmate";
 
-    await db.collection(`squads/${squadId}/activity`).add({
-      type: isPaused ? "pause" : "return",
-      payload: {uid, displayName, until: pause?.until ?? ""},
-      createdAt: FieldValue.serverTimestamp(),
+    await logActivity(squadId, {
+      type: isPaused ? "pauseStarted" : "pauseEnded",
+      actorUid: uid,
+      actorName: displayName,
+      payload: {until: pause?.until ?? ""},
     });
     if (others.length === 0) return;
     const body = isPaused ?
       `${displayName} paused${pause?.until ? ` til ${pause.until}` : ""} 🌴` :
       `${displayName} is back 💪`;
     await sendSquadPush(squadId, others, {title: "Squad update", body}, {pref: "squadAttributed"});
+  },
+);
+
+// ──────────────────────────── onIntentionWritten ────────────────────────────
+
+/** Logs a feed event the first time a member declares a weekly intention. */
+export const onIntentionWritten = onDocumentCreated(
+  "squads/{squadId}/intentions/{weekKey}/members/{memberUid}",
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+    const {squadId, memberUid} = event.params as {squadId: string; memberUid: string};
+    const text = (snap.get("text") as string | undefined) ?? "";
+    if (!text.trim()) return;
+    await logActivity(squadId, {
+      type: "intentionSet",
+      actorUid: memberUid,
+      actorName: await memberName(squadId, memberUid),
+      payload: {text},
+    });
   },
 );
