@@ -9,7 +9,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:calorie_tracker_app/providers/photo_provider.dart';
 import 'package:calorie_tracker_app/services/auth_service.dart';
 import 'package:calorie_tracker_app/services/photo_service.dart';
-import 'package:calorie_tracker_app/screens/squad/camera_screen.dart';
 import 'package:calorie_tracker_app/widgets/squad/photo_strip.dart';
 import 'package:calorie_tracker_app/widgets/squad/photo_thumbnail.dart';
 
@@ -57,39 +56,5 @@ void main() {
     await pumpFab(tester, FakeFirebaseFirestore(), 3);
     expect(find.byType(FloatingActionButton), findsOneWidget);
     expect(find.byType(PhotoThumbnail), findsOneWidget); // a single preview, not a strip
-  });
-
-  testWidgets('undo snackbar counts down and Undo soft-deletes the photo', (tester) async {
-    final fs = FakeFirebaseFirestore();
-    await fs.doc('squads/s1/photos/p1').set({
-      'uploadedByUid': 'me', 'published': false, 'publishedAt': null, 'deletedAt': null,
-      'uploadedAt': Timestamp.now(), 'storagePath': 'x',
-      'reactionCounts': {'fire': 0, 'flex': 0, 'clap': 0},
-    });
-    final service = svc(fs);
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: Builder(
-          builder: (ctx) => TextButton(
-            onPressed: () => showProofUndoSnackbar(
-                ctx, const PhotoSent(photoId: 'p1', squadId: 's1'), service),
-            child: const Text('go'),
-          ),
-        ),
-      ),
-    ));
-    await tester.tap(find.text('go'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(find.textContaining('Sent — undo'), findsOneWidget);
-    expect(find.text('Undo'), findsOneWidget);
-
-    await tester.tap(find.text('Undo'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-    final doc = await fs.doc('squads/s1/photos/p1').get();
-    expect(doc.data()!['deletedAt'], isNotNull);
-
-    await tester.pumpWidget(const SizedBox());
   });
 }

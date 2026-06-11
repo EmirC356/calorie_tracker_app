@@ -292,12 +292,10 @@ service cloud.firestore {
         allow read: if isMemberOf(squadId)
           && resource.data.deletedAt == null
           && (resource.data.published == true || resource.data.uploadedByUid == uid());
-        // Create is always pending (published false, no publishedAt); promotion
-        // is function-only.
+        // Photos ship immediately (no undo window): created already-published.
         allow create: if isMemberOf(squadId)
           && request.resource.data.uploadedByUid == uid()
-          && request.resource.data.published == false
-          && request.resource.data.publishedAt == null
+          && request.resource.data.published == true
           && request.resource.data.deletedAt == null
           && request.resource.data.storagePath is string;
         // Owner soft-deletes (deletedAt only); ANY member may bump reactionCounts

@@ -30,7 +30,6 @@ export {scheduledActivityPrune} from "./feed_prune";
 // reap, reaction push). Deploy only after confirming the sharp dependency.
 export {
   onPhotoCreated,
-  scheduledPhotoPromote,
   onPhotoSoftDeleted,
   onPhotoReactionCreated,
 } from "./photos";

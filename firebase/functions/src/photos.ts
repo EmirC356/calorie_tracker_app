@@ -15,73 +15,47 @@
  * runtime dependency: `firebase deploy --only functions`.
  */
 import {onDocumentCreated, onDocumentUpdated} from "firebase-functions/v2/firestore";
-import {onSchedule} from "firebase-functions/v2/scheduler";
 import * as admin from "firebase-admin";
 import sharp from "sharp";
 import {db} from "./shared";
 import {sendSquadPush, logActivity} from "./social";
 
-const FieldValue = admin.firestore.FieldValue;
-
 const glyph = (emoji: string): string =>
   emoji === "fire" ? "🔥" : emoji === "flex" ? "💪" : "👏";
 
-/** Generate the 400×400 thumbnail once the original lands in Storage. No push,
- * no feed — both happen at promotion. */
+/** On create, generate the 400×400 thumbnail, then immediately surface the
+ * photo: write the feed entry/entries and push the squad. No undo window — the
+ * doc is created already-published by the client, so squadmates see it at once. */
 export const onPhotoCreated = onDocumentCreated(
   "squads/{squadId}/photos/{photoId}",
   async (event) => {
     const snap = event.data;
     if (!snap) return;
     const {squadId, photoId} = event.params as {squadId: string; photoId: string};
-    const storagePath = snap.get("storagePath") as string | undefined;
+    const data = snap.data();
+    const storagePath = data.storagePath as string | undefined;
     if (!storagePath) return;
 
-    const bucket = admin.storage().bucket();
-    let buf: Buffer;
+    // 1. Thumbnail (best-effort — the full image is shown until it lands).
+    let thumbStoragePath: string | null = null;
     try {
-      [buf] = await bucket.file(storagePath).download();
-    } catch (_) {
-      // The Storage write may not be visible yet — retry once.
-      await new Promise((r) => setTimeout(r, 2000));
+      const bucket = admin.storage().bucket();
+      let buf: Buffer;
       try {
         [buf] = await bucket.file(storagePath).download();
-      } catch (e) {
-        console.error(`onPhotoCreated: original missing for ${photoId}`, e);
-        return;
+      } catch (_) {
+        await new Promise((r) => setTimeout(r, 2000));
+        [buf] = await bucket.file(storagePath).download();
       }
+      const thumb = await sharp(buf).resize(400, 400, {fit: "cover"}).jpeg({quality: 75}).toBuffer();
+      thumbStoragePath = `squads/${squadId}/thumbs/${photoId}.jpg`;
+      await bucket.file(thumbStoragePath).save(thumb, {contentType: "image/jpeg"});
+      await snap.ref.update({thumbStoragePath});
+    } catch (e) {
+      console.error(`onPhotoCreated: thumbnail failed for ${photoId}`, e);
     }
 
-    const thumb = await sharp(buf)
-      .resize(400, 400, {fit: "cover"})
-      .jpeg({quality: 75})
-      .toBuffer();
-    const thumbPath = `squads/${squadId}/thumbs/${photoId}.jpg`;
-    await bucket.file(thumbPath).save(thumb, {contentType: "image/jpeg"});
-    await snap.ref.update({thumbStoragePath: thumbPath});
-  },
-);
-
-/** Promote photos whose undo window has elapsed: flip published, write the feed
- * entry/entries, and push the squad. Runs every minute. */
-export const scheduledPhotoPromote = onSchedule("every 1 minutes", async () => {
-  const now = admin.firestore.Timestamp.now();
-  const due = await db
-    .collectionGroup("photos")
-    .where("published", "==", false)
-    .where("deletedAt", "==", null)
-    .where("pendingPublishAt", "<=", now)
-    .limit(200)
-    .get();
-
-  for (const doc of due.docs) {
-    const data = doc.data();
-    const squadRef = doc.ref.parent.parent;
-    if (!squadRef) continue;
-    const squadId = squadRef.id;
-
-    await doc.ref.update({published: true, publishedAt: FieldValue.serverTimestamp()});
-
+    // 2. Feed + push — the photo is live immediately.
     const actor = {
       actorUid: data.uploadedByUid as string,
       actorName: (data.uploadedByName as string) || "A squadmate",
@@ -90,21 +64,16 @@ export const scheduledPhotoPromote = onSchedule("every 1 minutes", async () => {
     await logActivity(squadId, {
       ...actor,
       type: "photoShared",
-      payload: {
-        photoId: doc.id,
-        thumbStoragePath: (data.thumbStoragePath as string | undefined) ?? null,
-        ...(data.goalRef ? {goalRef: data.goalRef} : {}),
-      },
+      payload: {photoId, thumbStoragePath, ...(data.goalRef ? {goalRef: data.goalRef} : {})},
     });
     if (data.goalRef) {
       await logActivity(squadId, {
         ...actor,
         type: "goalProvedWithPhoto",
-        payload: {photoId: doc.id, title: data.goalRef.title ?? "a goal"},
+        payload: {photoId, title: data.goalRef.title ?? "a goal"},
       });
     }
-
-    const squad = await squadRef.get();
+    const squad = await db.doc(`squads/${squadId}`).get();
     const members = (squad.get("memberUids") as string[] | undefined) ?? [];
     const squadName = (squad.get("name") as string | undefined) ?? "your squad";
     const others = members.filter((m) => m !== data.uploadedByUid);
@@ -116,8 +85,8 @@ export const scheduledPhotoPromote = onSchedule("every 1 minutes", async () => {
         {pref: "squadAttributed"},
       );
     }
-  }
-});
+  },
+);
 
 /** On the deletedAt null→set transition: an undo (still pending) is a clean
  * memory hole — delete the Storage objects, no push/feed. A post-publish delete

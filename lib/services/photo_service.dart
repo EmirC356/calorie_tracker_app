@@ -87,9 +87,10 @@ class PhotoService {
       'width': dims?.width ?? 0,
       'height': dims?.height ?? 0,
       'uploadedAt': FieldValue.serverTimestamp(),
-      'publishedAt': null,
-      'published': false,
-      'pendingPublishAt': Timestamp.fromDate(DateTime.now().add(const Duration(seconds: 60))),
+      // Ships immediately — no undo window. onPhotoCreated adds the thumbnail,
+      // feed entry, and push.
+      'publishedAt': FieldValue.serverTimestamp(),
+      'published': true,
       if (goalRef != null) 'goalRef': goalRef.toMap(),
       'reactionCounts': {'fire': 0, 'flex': 0, 'clap': 0},
       'deletedAt': null,
@@ -97,12 +98,8 @@ class PhotoService {
     return id;
   }
 
-  /// Undo within the 60s window: soft-delete a still-pending photo. The Cloud
-  /// Function reaps the Storage object (a clean memory hole — no push/feed).
-  Future<void> undoPhoto(String squadId, String photoId) =>
-      _photos(squadId).doc(photoId).update({'deletedAt': FieldValue.serverTimestamp()});
-
-  /// Soft-delete an already-published photo (owner only, enforced by rules).
+  /// Soft-delete a photo (owner only, enforced by rules). The Cloud Function
+  /// logs a photoDeleted event and reaps the Storage objects.
   Future<void> deletePhoto(String squadId, String photoId) =>
       _photos(squadId).doc(photoId).update({'deletedAt': FieldValue.serverTimestamp()});
 

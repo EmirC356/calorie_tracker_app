@@ -253,12 +253,12 @@ await check('uploader CAN read their own pending photo',
 await check('member CANNOT read a soft-deleted photo',
   assertFails(getDoc(doc(member, 'squads/s1/photos/p_del'))));
 
-await check('photo create with published:true is rejected',
-  assertFails(setDoc(doc(member, 'squads/s1/photos/p_new1'),
+await check('photo create as published succeeds (ships immediately)',
+  assertSucceeds(setDoc(doc(member, 'squads/s1/photos/p_new1'),
     { uploadedByUid: 'm1', published: true, publishedAt: new Date(), deletedAt: null, storagePath: 'x' })));
-await check('valid pending photo create succeeds',
-  assertSucceeds(setDoc(doc(member, 'squads/s1/photos/p_new2'),
-    { uploadedByUid: 'm1', published: false, publishedAt: null, deletedAt: null, storagePath: 'x' })));
+await check('photo create as unpublished is rejected',
+  assertFails(setDoc(doc(member, 'squads/s1/photos/p_new2'),
+    { uploadedByUid: 'm1', published: false, deletedAt: null, storagePath: 'x' })));
 
 await check('member CAN bump reactionCounts only',
   assertSucceeds(updateDoc(doc(member, 'squads/s1/photos/p_upd'),

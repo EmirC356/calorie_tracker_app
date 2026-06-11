@@ -29,23 +29,22 @@ void main() {
     service = make('me');
   });
 
-  test('uploadPhoto writes a pending doc + storage object', () async {
+  test('uploadPhoto writes a published doc + storage object', () async {
     final id = await service.uploadPhoto(squadId: 's1', bytes: jpeg, uploaderName: 'Me');
     final doc = await fs.doc('squads/s1/photos/$id').get();
     final d = doc.data()!;
     expect(d['uploadedByUid'], 'me');
-    expect(d['published'], false);
-    expect(d['publishedAt'], isNull);
+    expect(d['published'], true); // ships immediately
+    expect(d['publishedAt'], isNotNull);
     expect(d['deletedAt'], isNull);
-    expect(d['pendingPublishAt'], isNotNull);
     expect(d['width'], 640);
     expect(d['height'], 480);
     expect(puts.keys.single, 'squads/s1/photos/$id.jpg');
   });
 
-  test('upload-then-undo soft-deletes the doc, leaving no orphan + invisible to all', () async {
+  test('upload-then-delete soft-deletes the doc, leaving no orphan + invisible to all', () async {
     final id = await service.uploadPhoto(squadId: 's1', bytes: jpeg, uploaderName: 'Me');
-    await service.undoPhoto('s1', id);
+    await service.deletePhoto('s1', id);
     final doc = await fs.doc('squads/s1/photos/$id').get();
     expect(doc.exists, isTrue); // soft delete — doc remains (not orphaned)
     expect(doc.data()!['deletedAt'], isNotNull);
