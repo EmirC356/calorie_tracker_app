@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/squad.dart';
+import '../../models/squad_day_entry.dart';
+import '../../models/squad_goal.dart';
 import '../../providers/squad_provider.dart';
+import '../../services/snapshot_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
 import 'squad_settings_screen.dart';
@@ -23,7 +26,30 @@ class SquadHomeScreen extends StatelessWidget {
         appBar: AppBar(
           title: StreamBuilder<Squad?>(
             stream: service.watchSquad(squadId),
-            builder: (_, snap) => Text(snap.data?.name ?? 'Squad'),
+            builder: (_, snap) {
+              final squad = snap.data;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(squad?.name ?? 'Squad'),
+                  if (squad != null)
+                    StreamBuilder<List<SquadDayEntry>>(
+                      stream: service.watchDayEntries(
+                          squadId, SnapshotService.dateKey(DateTime.now())),
+                      builder: (_, eSnap) {
+                        final hits = (eSnap.data ?? const <SquadDayEntry>[])
+                            .where((e) => e.status == GoalStatus.hit && !e.paused)
+                            .length;
+                        return Text(
+                          '${squad.memberCount} members · $hits/${squad.memberCount} hit today',
+                          style: AppText.caption.copyWith(color: AppColors.textSecondary),
+                        );
+                      },
+                    ),
+                ],
+              );
+            },
           ),
           bottom: TabBar(
             labelColor: AppColors.squadBlue,
