@@ -25,6 +25,11 @@ class SquadMember {
   final bool muted;
   final SquadPause pause;
 
+  /// Presence: bumped by the snapshot/heartbeat on activity. [ghostedSince] is
+  /// set by the ghost-sweep Cloud Function after 72h of silence.
+  final DateTime? lastActivityAt;
+  final DateTime? ghostedSince;
+
   /// When true (default), the squad-effective goal is derived from
   /// [profileGoalSnapshot] (the user's profile Health Goals). When false, the
   /// explicit [goal] is an override for this squad.
@@ -40,6 +45,8 @@ class SquadMember {
     this.photoURL,
     this.muted = false,
     this.pause = const SquadPause(),
+    this.lastActivityAt,
+    this.ghostedSince,
     this.inheritedFromProfile = true,
     this.profileGoalSnapshot = const ProfileGoalSnapshot(),
   });
@@ -61,6 +68,8 @@ class SquadMember {
         photoURL: map['photoURL'] as String?,
         muted: (map['muted'] as bool?) ?? false,
         pause: SquadPause.fromMap(map['pause'] as Map<String, dynamic>?),
+        lastActivityAt: (map['lastActivityAt'] as Timestamp?)?.toDate(),
+        ghostedSince: (map['ghostedSince'] as Timestamp?)?.toDate(),
         inheritedFromProfile: (map['inheritedFromProfile'] as bool?) ?? true,
         profileGoalSnapshot: ProfileGoalSnapshot.fromMap(map['profileGoalSnapshot'] as Map<String, dynamic>?),
       );
