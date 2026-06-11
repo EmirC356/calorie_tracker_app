@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_theme.dart';
-import '../weight_tracker_screen.dart';
+
+import '../../theme/app_colors.dart';
+import '../../theme/app_text_styles.dart';
+import '../../widgets/ui/section_nav.dart';
 import '../meal_advice_screen.dart';
 import '../meal_prep_screen.dart';
+import '../weight_tracker_screen.dart';
 import 'dashboard_screen.dart';
-import 'meals_tab_screen.dart';
 import 'fitness_tab_screen.dart';
+import 'meals_tab_screen.dart';
 
 /// The Health tab. Collapses everything that used to live on the Home / Meals /
 /// Fitness / Weight / Advisor bottom-nav tabs into a single tab with a top
@@ -25,21 +28,27 @@ class HealthShellScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = SectionAccent.of(context);
     return DefaultTabController(
       length: _tabs.length,
       child: Scaffold(
-        backgroundColor: kBg,
+        backgroundColor: AppColors.surface0,
         body: SafeArea(
           bottom: false,
           child: Column(children: [
             Material(
-              color: kSurface,
-              child: const TabBar(
+              color: AppColors.surface0,
+              child: TabBar(
                 isScrollable: true,
-                indicatorColor: kRed,
-                labelColor: kRed,
-                unselectedLabelColor: kTextDim,
+                indicatorColor: accent,
+                indicatorWeight: 2,
+                labelColor: AppColors.textPrimary,
+                unselectedLabelColor: AppColors.textSecondary,
+                labelStyle: AppText.bodyS,
+                unselectedLabelStyle: AppText.bodyS,
                 indicatorSize: TabBarIndicatorSize.label,
+                dividerColor: AppColors.divider,
+                dividerHeight: 1,
                 tabs: _tabs,
               ),
             ),

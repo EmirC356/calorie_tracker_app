@@ -4,7 +4,10 @@ import 'package:provider/provider.dart';
 import '../models/index.dart';
 import '../providers/profile_provider.dart';
 import '../providers/weight_provider.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_motion.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_text_styles.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -82,64 +85,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('PROFILE & GOALS')),
+      appBar: AppBar(title: const Text('Profile & Goals')),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(Spacing.s16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(children: [
-            Expanded(child: _numField(_height, 'Height (cm)', kCyan)),
-            const SizedBox(width: 12),
-            Expanded(child: _numField(_age, 'Age', kCyan)),
+            Expanded(child: _numField(_height, 'Height (cm)')),
+            const SizedBox(width: Spacing.s12),
+            Expanded(child: _numField(_age, 'Age')),
           ]),
-          const SizedBox(height: 12),
-          _numField(_weight, 'Current weight (kg) — fallback if none logged', kNeonGreen),
-          const SizedBox(height: 18),
-          Text('SEX', style: neonLabel(kCyan, size: 12)),
-          const SizedBox(height: 8),
+          const SizedBox(height: Spacing.s12),
+          _numField(_weight, 'Current weight (kg) — fallback if none logged'),
+          const SizedBox(height: Spacing.s20),
+          Text('SEX', style: AppText.caption),
+          const SizedBox(height: Spacing.s8),
           _segmented<Sex>(
             values: Sex.values,
             current: _sex,
             label: (s) => s == Sex.male ? 'MALE' : 'FEMALE',
             onChanged: (s) => setState(() => _sex = s),
-            accent: kCyan,
           ),
-          const SizedBox(height: 18),
-          Text('ACTIVITY LEVEL', style: neonLabel(kCyan, size: 12)),
-          const SizedBox(height: 8),
+          const SizedBox(height: Spacing.s20),
+          Text('ACTIVITY LEVEL', style: AppText.caption),
+          const SizedBox(height: Spacing.s8),
           DropdownButtonFormField<ActivityLevel>(
             initialValue: _activity,
             isExpanded: true,
-            dropdownColor: kCard,
-            style: const TextStyle(color: kText, fontSize: 14),
-            decoration: _decoration(kCyan),
+            dropdownColor: AppColors.surface3,
+            style: AppText.bodyM,
+            decoration: const InputDecoration(isDense: true),
             items: ActivityLevel.values
                 .map((a) => DropdownMenuItem(
                     value: a, child: Text(_activityLabels[a]!, overflow: TextOverflow.ellipsis)))
                 .toList(),
             onChanged: (a) => setState(() => _activity = a ?? _activity),
           ),
-          const SizedBox(height: 18),
-          Text('GOAL', style: neonLabel(kCyan, size: 12)),
-          const SizedBox(height: 8),
+          const SizedBox(height: Spacing.s20),
+          Text('GOAL', style: AppText.caption),
+          const SizedBox(height: Spacing.s8),
           _segmented<DietGoal>(
             values: DietGoal.values,
             current: _goal,
             label: (g) => g.name.toUpperCase(),
             onChanged: (g) => setState(() => _goal = g),
-            accent: kNeonGreen,
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: Spacing.s20),
           _preview(),
-          const SizedBox(height: 20),
-          ElevatedButton(
+          const SizedBox(height: Spacing.s20),
+          OutlinedButton(
             onPressed: _save,
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              backgroundColor: kCyan,
-              foregroundColor: kBg,
-            ),
-            child: const Text('SAVE PROFILE',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+            child: const Text('Save profile'),
           ),
         ]),
       ),
@@ -150,106 +145,96 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final profile = _currentProfile();
     final weight = _effectiveWeight;
     if (!profile.isComplete || weight == null || weight <= 0) {
-      return Container(
-        padding: const EdgeInsets.all(14),
-        decoration: neonBox(kBorderDim),
-        child: const Text(
-          'Enter height, age and a weight (or log one) to see your targets.',
-          style: TextStyle(color: kTextDim, fontSize: 13),
-        ),
+      return Text(
+        'Enter height, age and a weight (or log one) to see your targets.',
+        style: AppText.bodyM.copyWith(color: AppColors.textSecondary),
       );
     }
     final tdee = profile.tdee(weight);
     final calTarget = profile.calorieTarget(weight);
     final proTarget = profile.proteinTargetGrams(weight);
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: neonBox(kCyan),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('YOUR TARGETS', style: neonLabel(kCyan, size: 13)),
-        const SizedBox(height: 4),
-        Text('Based on ${weight.toStringAsFixed(1)} kg',
-            style: const TextStyle(color: kTextDim, fontSize: 11)),
-        const SizedBox(height: 10),
-        Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-          _stat('TDEE', tdee.toStringAsFixed(0), 'kcal', kTextDim),
-          _stat('TARGET', calTarget.toStringAsFixed(0), 'kcal', kCyan),
-          _stat('PROTEIN', proTarget.toStringAsFixed(0), 'g', kNeonRed),
-        ]),
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text('YOUR TARGETS', style: AppText.caption),
+      const SizedBox(height: Spacing.s4),
+      Text('Based on ${weight.toStringAsFixed(1)} kg',
+          style: AppText.tabular(
+              AppText.caption.copyWith(color: AppColors.textTertiary))),
+      const SizedBox(height: Spacing.s12),
+      Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+        _stat('TDEE', tdee.toStringAsFixed(0), 'kcal',
+            AppColors.textSecondary),
+        _stat('TARGET', calTarget.toStringAsFixed(0), 'kcal',
+            AppColors.healthRed),
+        _stat('PROTEIN', proTarget.toStringAsFixed(0), 'g',
+            AppColors.textPrimary),
       ]),
-    );
+    ]);
   }
 
-  Widget _stat(String label, String value, String unit, Color color) => Column(children: [
-        Text(label, style: const TextStyle(color: kTextDim, fontSize: 10)),
-        const SizedBox(height: 2),
-        Text(value, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 18, shadows: textGlow(color))),
-        Text(unit, style: const TextStyle(color: kTextDim, fontSize: 10)),
+  Widget _stat(String label, String value, String unit, Color color) =>
+      Column(children: [
+        Text(label, style: AppText.caption),
+        const SizedBox(height: Spacing.s4),
+        Text(value,
+            style: AppText.tabular(AppText.displayM.copyWith(color: color))),
+        Text(unit, style: AppText.caption),
       ]);
 
-  Widget _numField(TextEditingController c, String label, Color accent) {
+  Widget _numField(TextEditingController c, String label) {
     return TextField(
       controller: c,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
-      style: const TextStyle(color: kText, fontSize: 14),
+      style: AppText.tabular(AppText.bodyM),
       onChanged: (_) => setState(() {}), // refresh preview
-      decoration: _decoration(accent).copyWith(
+      decoration: InputDecoration(
+        isDense: true,
         labelText: label,
-        labelStyle: const TextStyle(color: kTextDim, fontSize: 13),
       ),
     );
   }
-
-  InputDecoration _decoration(Color accent) => InputDecoration(
-        isDense: true,
-        enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: accent.withValues(alpha: 0.4))),
-        focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: accent)),
-        filled: true,
-        fillColor: kSurface,
-      );
 
   Widget _segmented<T>({
     required List<T> values,
     required T current,
     required String Function(T) label,
     required ValueChanged<T> onChanged,
-    required Color accent,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: kSurface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: kBorderDim),
-      ),
-      child: Row(
-        children: values.map((v) {
-          final selected = v == current;
-          return Expanded(
+    return Row(
+      children: [
+        for (final (i, v) in values.indexed) ...[
+          if (i > 0) const SizedBox(width: Spacing.s8),
+          Expanded(
             child: GestureDetector(
               onTap: () => onChanged(v),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 10),
+              child: AnimatedContainer(
+                duration: AppMotion.enter,
+                curve: Curves.easeOutCubic,
+                padding: const EdgeInsets.symmetric(vertical: Spacing.s8),
                 decoration: BoxDecoration(
-                  color: selected ? accent : Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
+                  color: AppColors.surface1,
+                  borderRadius: BorderRadius.circular(AppRadius.r8),
+                  border: Border.all(
+                    color: v == current
+                        ? AppColors.healthRed
+                        : AppColors.surface2,
+                    width: v == current ? AppMotion.focusBorderWidth : 1,
+                  ),
+                  boxShadow: v == current
+                      ? AppMotion.accentGlow(AppColors.healthRed)
+                      : null,
                 ),
                 child: Text(label(v),
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                        color: selected ? kBg : accent,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12)),
+                    style: AppText.bodyS.copyWith(
+                        color: v == current
+                            ? AppColors.healthRed
+                            : AppColors.textSecondary)),
               ),
             ),
-          );
-        }).toList(),
-      ),
+          ),
+        ],
+      ],
     );
   }
 }

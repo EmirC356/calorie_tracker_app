@@ -1,46 +1,64 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
-import '../../providers/meal_provider.dart';
+
 import '../../providers/exercise_provider.dart';
+import '../../providers/meal_provider.dart';
 import '../../providers/profile_provider.dart';
 import '../../providers/weight_provider.dart';
-import '../../theme/app_theme.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_motion.dart';
+import '../../theme/app_spacing.dart';
+import '../../theme/app_text_styles.dart';
 import '../../widgets/dashboard_charts.dart';
-import '../log_meal_screen.dart';
-import '../meal_prep_screen.dart';
+import '../../widgets/ui/section_nav.dart';
+import '../../widgets/ui/ui.dart';
 import '../exercise_logging_screen.dart';
-import '../meal_logs_screen.dart';
 import '../exercise_logs_screen.dart';
+import '../log_meal_screen.dart';
+import '../meal_logs_screen.dart';
+import '../meal_prep_screen.dart';
 import '../profile_screen.dart';
 import '../settings_screen.dart';
 
-/// Dashboard sub-tab of the Health shell. Calorie/protein progress, trend
-/// charts, and quick actions. The AppBar gear opens Settings (same as before);
-/// Meal Prep moved here as an AppBar action when the bottom nav collapsed to
-/// 3 tabs, and the Advisor chat icon was dropped because Advisor is now its
-/// own Health sub-tab.
+/// Dashboard sub-tab of the Health shell. Today's calories as the data-hero
+/// (AnimatedRing + HeroStat), supporting stats on ColoredLeftBorderCards,
+/// trend charts, and quick actions. The AppBar gear opens Settings (same as
+/// before); Meal Prep moved here as an AppBar action when the bottom nav
+/// collapsed to 3 tabs, and the Advisor chat icon was dropped because Advisor
+/// is now its own Health sub-tab.
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
 
+  void _push(BuildContext context, Widget page) =>
+      Navigator.push(context, HeroTransitionScaffold.route(page));
+
   @override
   Widget build(BuildContext context) {
+    final accent = SectionAccent.of(context);
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('DASHBOARD'),
+      appBar: SectionAppBar(
+        title: 'Dashboard',
+        caption: 'Health',
+        accent: accent,
         actions: [
-          IconButton(icon: const Icon(Icons.inventory_2), tooltip: 'Meal Prep',
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MealPrepScreen()))),
-          IconButton(icon: const Icon(Icons.person), tooltip: 'Profile & Goals',
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen()))),
-          IconButton(icon: const Icon(Icons.settings), tooltip: 'Settings',
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()))),
+          IconButton(
+              icon: const Icon(LucideIcons.package, size: 20),
+              tooltip: 'Meal Prep',
+              onPressed: () => _push(context, const MealPrepScreen())),
+          IconButton(
+              icon: const Icon(LucideIcons.user, size: 20),
+              tooltip: 'Profile & Goals',
+              onPressed: () => _push(context, const ProfileScreen())),
+          IconButton(
+              icon: const Icon(LucideIcons.settings, size: 20),
+              tooltip: 'Settings',
+              onPressed: () => _push(context, const SettingsScreen())),
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(Spacing.s16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text("TODAY'S SUMMARY", style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 14),
           Consumer4<MealProvider, ExerciseProvider, ProfileProvider, WeightProvider>(
             builder: (_, meals, exercises, profileP, weightP, __) {
               final cal = meals.todaysTotalCalories;
@@ -52,28 +70,64 @@ class DashboardScreen extends StatelessWidget {
               final hasTargets = profileP.hasProfile && weight != null && weight > 0;
               final calTarget = hasTargets ? profile!.calorieTarget(weight) : null;
               final proTarget = hasTargets ? profile!.proteinTargetGrams(weight) : null;
-              return Column(children: [
-                _ProgressCard(label: 'Calories', consumed: cal, target: calTarget, unit: 'kcal', color: kCyan),
-                const SizedBox(height: 8),
-                _ProgressCard(label: 'Protein', consumed: pro, target: proTarget, unit: 'g', color: kNeonGreen),
-                const SizedBox(height: 8),
-                _summaryTile('Calories Burned', '${burned.toStringAsFixed(0)} kcal', kOrange),
-                const SizedBox(height: 8),
-                _summaryTile('Net Calories', '${net.toStringAsFixed(0)} kcal', net > 0 ? kNeonRed : kNeonGreen),
+              final ringProgress = (calTarget != null && calTarget > 0)
+                  ? (cal / calTarget).clamp(0.0, 1.0)
+                  : 0.0;
+              return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                // ── The data hero: today's calories in the ring ─────────────
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: Spacing.s16),
+                    child: AnimatedRing(
+                      progress: ringProgress,
+                      accent: accent,
+                      size: 264,
+                      child: HeroStat(
+                        value: cal,
+                        target: calTarget,
+                        label: 'Calories today',
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: Spacing.s16),
+                _ProgressCard(
+                  label: 'Protein',
+                  consumed: pro,
+                  target: proTarget,
+                  unit: 'g',
+                  accent: accent,
+                ),
+                const SizedBox(height: Spacing.s8),
+                _SummaryCard(
+                    label: 'Calories burned',
+                    value: burned,
+                    unit: 'kcal',
+                    accent: accent),
+                const SizedBox(height: Spacing.s8),
+                _SummaryCard(
+                    label: 'Net calories',
+                    value: net,
+                    unit: 'kcal',
+                    accent: accent,
+                    valueColor:
+                        net > 0 ? AppColors.statusMissed : AppColors.statusHit),
                 if (!hasTargets) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: Spacing.s12),
                   GestureDetector(
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen())),
-                    child: Text('Set your profile to see calorie & protein targets →',
-                      style: TextStyle(color: kCyan.withValues(alpha: 0.8), fontSize: 12)),
+                    onTap: () => _push(context, const ProfileScreen()),
+                    child: Text(
+                      'Set your profile to see calorie & protein targets →',
+                      style: AppText.bodyS.copyWith(color: accent),
+                    ),
                   ),
                 ],
               ]);
             },
           ),
-          const SizedBox(height: 24),
-          Text('TRENDS', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 12),
+          const SizedBox(height: Spacing.s24),
+          Text('TRENDS', style: AppText.caption),
+          const SizedBox(height: Spacing.s8),
           Consumer3<MealProvider, ProfileProvider, WeightProvider>(
             builder: (_, meals, profileP, weightP, __) {
               final profile = profileP.profile;
@@ -84,18 +138,18 @@ class DashboardScreen extends StatelessWidget {
               return Column(children: [
                 CollapsibleChartSection(
                   title: 'CALORIES — LAST 14 DAYS',
-                  accent: kCyan,
+                  accent: accent,
                   initiallyExpanded: true,
                   child: CaloriesBarChart(totals: meals.dailyCalories(14), goal: goal),
                 ),
                 CollapsibleChartSection(
                   title: 'WEIGHT — LAST 90 DAYS',
-                  accent: kNeonGreen,
+                  accent: accent,
                   child: WeightLineChart(entries: weightP.entries),
                 ),
                 CollapsibleChartSection(
                   title: "TODAY'S MACROS",
-                  accent: kOrange,
+                  accent: accent,
                   child: MacrosDonut(
                     protein: meals.todaysTotalProtein,
                     carbs: meals.todaysTotalCarbs,
@@ -105,69 +159,66 @@ class DashboardScreen extends StatelessWidget {
               ]);
             },
           ),
-          const SizedBox(height: 12),
-          Text('QUICK ACTIONS', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 12),
+          const SizedBox(height: Spacing.s12),
+          Text('QUICK ACTIONS', style: AppText.caption),
+          const SizedBox(height: Spacing.s12),
           Row(children: [
-            Expanded(child: _neonButton('Log Meal', Icons.add, kCyan,
-              () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LogMealScreen())))),
-            const SizedBox(width: 12),
-            Expanded(child: _neonButton('Log Exercise', Icons.fitness_center, kPink,
-              () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ExerciseLoggingScreen())))),
+            Expanded(
+                child: _actionButton(context, 'Log Meal', LucideIcons.plus,
+                    () => _push(context, const LogMealScreen()), accent)),
+            const SizedBox(width: Spacing.s12),
+            Expanded(
+                child: _actionButton(context, 'Log Exercise',
+                    LucideIcons.dumbbell,
+                    () => _push(context, const ExerciseLoggingScreen()),
+                    accent)),
           ]),
-          const SizedBox(height: 16),
+          const SizedBox(height: Spacing.s16),
           Row(children: [
-            Expanded(child: _neonButton('Meal Logs', Icons.history, kNeonYellow,
-              () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MealLogsScreen())))),
-            const SizedBox(width: 12),
-            Expanded(child: _neonButton('Exercise Logs', Icons.history, kPurple,
-              () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ExerciseLogsScreen())))),
+            Expanded(
+                child: _actionButton(context, 'Meal Logs', LucideIcons.history,
+                    () => _push(context, const MealLogsScreen()), accent)),
+            const SizedBox(width: Spacing.s12),
+            Expanded(
+                child: _actionButton(context, 'Exercise Logs',
+                    LucideIcons.history,
+                    () => _push(context, const ExerciseLogsScreen()), accent)),
           ]),
         ]),
       ),
     );
   }
 
-  Widget _summaryTile(String label, String value, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: neonBox(color),
-      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Text(label, style: const TextStyle(color: kText, fontSize: 14)),
-        Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color, shadows: textGlow(color))),
-      ]),
-    );
-  }
-
-  Widget _neonButton(String label, IconData icon, Color color, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: neonBox(color),
-        child: Column(children: [
-          Icon(icon, color: color, size: 22),
-          const SizedBox(height: 4),
-          Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600)),
-        ]),
+  Widget _actionButton(BuildContext context, String label, IconData icon,
+      VoidCallback onTap, Color accent) {
+    return OutlinedButton.icon(
+      onPressed: onTap,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: accent,
+        side: BorderSide(color: accent, width: AppMotion.focusBorderWidth),
+        padding: const EdgeInsets.symmetric(vertical: Spacing.s12),
       ),
+      icon: Icon(icon, size: 18),
+      label: Text(label,
+          maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.bodyS),
     );
   }
 }
 
+/// Supporting stat row on a ColoredLeftBorderCard: caption label, tabular
+/// displayM number, optional thin progress fill toward the target.
 class _ProgressCard extends StatelessWidget {
   final String label;
   final double consumed;
   final double? target;
   final String unit;
-  final Color color;
+  final Color accent;
   const _ProgressCard({
     required this.label,
     required this.consumed,
     required this.target,
     required this.unit,
-    required this.color,
+    required this.accent,
   });
 
   @override
@@ -175,39 +226,78 @@ class _ProgressCard extends StatelessWidget {
     final hasTarget = target != null && target! > 0;
     final ratio = hasTarget ? (consumed / target!).clamp(0.0, 1.0) : 0.0;
     final over = hasTarget && consumed > target!;
-    final barColor = over ? kNeonRed : color;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: neonBox(color),
+    final fillColor = over ? AppColors.statusMissed : accent;
+    return ColoredLeftBorderCard(
+      accent: accent,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text(label, style: const TextStyle(color: kText, fontSize: 14)),
-          Text(
-            hasTarget
-                ? '${consumed.toStringAsFixed(0)} / ${target!.toStringAsFixed(0)} $unit'
-                : '${consumed.toStringAsFixed(label == 'Protein' ? 1 : 0)} $unit',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: barColor, shadows: textGlow(barColor)),
-          ),
-        ]),
+        Text(label.toUpperCase(), style: AppText.caption),
+        const SizedBox(height: Spacing.s4),
+        Row(crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                consumed.toStringAsFixed(label == 'Protein' ? 1 : 0),
+                style: AppText.tabular(AppText.displayM),
+              ),
+              const SizedBox(width: Spacing.s4),
+              Text(
+                hasTarget ? '/ ${target!.toStringAsFixed(0)} $unit' : unit,
+                style: AppText.tabular(
+                    AppText.bodyM.copyWith(color: AppColors.textTertiary)),
+              ),
+            ]),
         if (hasTarget) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: Spacing.s8),
           ClipRRect(
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(AppRadius.pill),
             child: LinearProgressIndicator(
               value: ratio,
-              minHeight: 7,
-              backgroundColor: kBg,
-              valueColor: AlwaysStoppedAnimation<Color>(barColor),
+              minHeight: 4,
+              backgroundColor: AppColors.surface2,
+              valueColor: AlwaysStoppedAnimation<Color>(fillColor),
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: Spacing.s4),
           Text(
             over
                 ? '${(consumed - target!).toStringAsFixed(0)} $unit over target'
                 : '${(target! - consumed).toStringAsFixed(0)} $unit left',
-            style: const TextStyle(color: kTextDim, fontSize: 11),
+            style: AppText.tabular(
+                AppText.caption.copyWith(color: AppColors.textTertiary)),
           ),
         ],
+      ]),
+    );
+  }
+}
+
+/// Plain stat row on a ColoredLeftBorderCard: caption label + tabular number.
+class _SummaryCard extends StatelessWidget {
+  final String label;
+  final double value;
+  final String unit;
+  final Color accent;
+  final Color? valueColor;
+  const _SummaryCard({
+    required this.label,
+    required this.value,
+    required this.unit,
+    required this.accent,
+    this.valueColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredLeftBorderCard(
+      accent: accent,
+      child: Row(children: [
+        Expanded(child: Text(label.toUpperCase(), style: AppText.caption)),
+        Text(value.toStringAsFixed(0),
+            style: AppText.tabular(AppText.displayM)
+                .copyWith(color: valueColor ?? AppColors.textPrimary)),
+        const SizedBox(width: Spacing.s4),
+        Text(unit,
+            style: AppText.bodyM.copyWith(color: AppColors.textTertiary)),
       ]),
     );
   }

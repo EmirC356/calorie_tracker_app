@@ -1,13 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
+
 import '../data/met_table.dart';
 import '../models/index.dart';
 import '../providers/exercise_provider.dart';
 import '../providers/profile_provider.dart';
 import '../providers/weight_provider.dart';
 import '../services/ai_service.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_motion.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_text_styles.dart';
+import '../widgets/ui/ui.dart';
 import 'settings/api_key_screen.dart';
 
 class ExerciseLoggingScreen extends StatefulWidget {
@@ -18,6 +24,8 @@ class ExerciseLoggingScreen extends StatefulWidget {
 }
 
 class _ExerciseLoggingScreenState extends State<ExerciseLoggingScreen> {
+  static const _accent = AppColors.healthRed;
+
   final _nameController = TextEditingController();
   final _durationController = TextEditingController();
   final _caloriesController = TextEditingController();
@@ -71,6 +79,16 @@ class _ExerciseLoggingScreenState extends State<ExerciseLoggingScreen> {
         met: activity.met, weightKg: weightKg, minutes: minutes, intensity: _intensity);
     _caloriesController.text = kcal.toStringAsFixed(0);
     setState(() => _autoFilled = true);
+  }
+
+  /// Same selection logic the old dropdown ran, now fired by the pill chips.
+  void _pickActivity(MetActivity a) {
+    setState(() => _selectedActivity = a);
+    if (_nameController.text.trim().isEmpty ||
+        MetTable.activities.any((m) => m.name == _nameController.text.trim())) {
+      _nameController.text = a.name;
+    }
+    _recalcCalories();
   }
 
   /// AI estimate for any free-text activity, factoring in intensity + weight.
@@ -144,25 +162,51 @@ class _ExerciseLoggingScreenState extends State<ExerciseLoggingScreen> {
   Widget _aiLockedCard(BuildContext context) {
     return InkWell(
       onTap: () => Navigator.push(
-          context, MaterialPageRoute(builder: (_) => const ApiKeyScreen())),
-      borderRadius: BorderRadius.circular(8),
+          context, HeroTransitionScaffold.route(const ApiKeyScreen())),
+      borderRadius: BorderRadius.circular(AppRadius.r8),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.symmetric(
+            horizontal: Spacing.s16, vertical: Spacing.s12),
         decoration: BoxDecoration(
-          color: kSurface,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: kAmber),
+          color: AppColors.surface1,
+          borderRadius: BorderRadius.circular(AppRadius.r8),
+          border: Border.all(
+              color: AppColors.statusInProgress,
+              width: AppMotion.focusBorderWidth),
         ),
         child: Row(children: [
-          const Icon(Icons.lock_outline, color: kAmber, size: 18),
-          const SizedBox(width: 10),
-          const Expanded(
+          const Icon(LucideIcons.lock,
+              color: AppColors.statusInProgress, size: 16),
+          const SizedBox(width: Spacing.s12),
+          Expanded(
             child: Text('AI estimate locked — add API key',
-                style: TextStyle(color: kAmber, fontWeight: FontWeight.bold, fontSize: 13)),
+                style: AppText.bodyS
+                    .copyWith(color: AppColors.statusInProgress)),
           ),
-          const Icon(Icons.chevron_right, color: kAmber, size: 18),
+          const Icon(LucideIcons.chevronRight,
+              color: AppColors.statusInProgress, size: 16),
         ]),
       ),
+    );
+  }
+
+  /// Horizontal scroll of MET pill chips. Selected = 1.5px healthRed border +
+  /// accent glow; never a solid fill (focus rule, design/system.md).
+  Widget _metPicker() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(children: [
+        for (final a in MetTable.activities)
+          Padding(
+            padding: const EdgeInsets.only(right: Spacing.s8),
+            child: _MetChip(
+              activity: a,
+              selected: _selectedActivity == a,
+              accent: _accent,
+              onTap: () => _pickActivity(a),
+            ),
+          ),
+      ]),
     );
   }
 
@@ -171,54 +215,45 @@ class _ExerciseLoggingScreenState extends State<ExerciseLoggingScreen> {
     final (weightKg, weightSource) = _weightInfo;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('LOG EXERCISE'),
-        titleTextStyle: const TextStyle(color: kPink, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.2, shadows: [Shadow(color: kPink, blurRadius: 8)]),
-        iconTheme: const IconThemeData(color: kPink),
+        title: const Text('Log Exercise'),
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(2),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Padding(
+              padding: EdgeInsets.only(left: Spacing.s16),
+              child: SizedBox(
+                  width: Spacing.s48,
+                  height: 2,
+                  child: ColoredBox(color: _accent)),
+            ),
+          ),
+        ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(Spacing.s16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text('QUICK ESTIMATE (MET)', style: neonLabel(kPink, size: 12)),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<MetActivity>(
-            initialValue: _selectedActivity,
-            isExpanded: true,
-            dropdownColor: kCard,
-            style: const TextStyle(color: kText, fontSize: 14),
-            hint: const Text('Pick an activity to auto-calc calories', style: TextStyle(color: kTextDim, fontSize: 13)),
-            decoration: _decoration('Activity', kPink),
-            items: MetTable.activities
-                .map((a) => DropdownMenuItem(
-                    value: a,
-                    child: Text('${a.name}  •  ${a.met} MET', overflow: TextOverflow.ellipsis)))
-                .toList(),
-            onChanged: (a) {
-              if (a == null) return;
-              _selectedActivity = a;
-              if (_nameController.text.trim().isEmpty ||
-                  MetTable.activities.any((m) => m.name == _nameController.text.trim())) {
-                _nameController.text = a.name;
-              }
-              _recalcCalories();
-            },
-          ),
-          const SizedBox(height: 6),
+          Text('QUICK ESTIMATE (MET)', style: AppText.caption),
+          const SizedBox(height: Spacing.s8),
+          _metPicker(),
+          const SizedBox(height: Spacing.s8),
           Text('Using $weightSource: ${weightKg.toStringAsFixed(1)} kg',
-              style: const TextStyle(color: kTextDim, fontSize: 11)),
-          const SizedBox(height: 18),
-          _field(_nameController, 'Exercise name', kPink),
-          const SizedBox(height: 14),
-          _field(_durationController, 'Duration (minutes)', kPink,
+              style: AppText.tabular(
+                  AppText.caption.copyWith(color: AppColors.textTertiary))),
+          const SizedBox(height: Spacing.s20),
+          _field(_nameController, 'Exercise name'),
+          const SizedBox(height: Spacing.s16),
+          _field(_durationController, 'Duration (minutes)',
               number: true, onChanged: (_) => _recalcCalories()),
-          const SizedBox(height: 14),
-          Text('INTENSITY', style: neonLabel(kPink, size: 12)),
-          const SizedBox(height: 8),
+          const SizedBox(height: Spacing.s16),
+          Text('INTENSITY', style: AppText.caption),
+          const SizedBox(height: Spacing.s8),
           DropdownButtonFormField<String>(
             initialValue: _intensity,
             isExpanded: true,
-            dropdownColor: kCard,
-            style: const TextStyle(color: kText, fontSize: 14),
-            decoration: _decoration('Intensity', kPink),
+            dropdownColor: AppColors.surface3,
+            style: AppText.bodyM,
+            decoration: const InputDecoration(isDense: true),
             items: _intensities
                 .map((i) => DropdownMenuItem(value: i, child: Text(i.toUpperCase())))
                 .toList(),
@@ -227,76 +262,117 @@ class _ExerciseLoggingScreenState extends State<ExerciseLoggingScreen> {
               _recalcCalories(); // intensity scales the MET estimate
             },
           ),
-          const SizedBox(height: 14),
-          _field(_caloriesController, 'Calories burned', kOrange,
+          const SizedBox(height: Spacing.s16),
+          _field(_caloriesController, 'Calories burned',
               number: true, onChanged: (_) => setState(() => _autoFilled = false),
               suffix: _autoFilled
-                  ? const Padding(
-                      padding: EdgeInsets.only(right: 8),
-                      child: Text('AUTO', style: TextStyle(color: kPink, fontSize: 11, fontWeight: FontWeight.bold)))
+                  ? Padding(
+                      padding: const EdgeInsets.only(right: Spacing.s8),
+                      child: Text('AUTO',
+                          style: AppText.caption.copyWith(color: _accent)))
                   : null),
-          const SizedBox(height: 10),
+          const SizedBox(height: Spacing.s12),
           if (context.watch<AiService>().hasValidKey)
             OutlinedButton.icon(
               onPressed: _aiLoading ? null : _estimateWithAi,
               style: OutlinedButton.styleFrom(
-                  foregroundColor: kPink, side: const BorderSide(color: kPink),
-                  padding: const EdgeInsets.symmetric(vertical: 12)),
-              icon: _aiLoading
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: kPink))
-                  : const Icon(Icons.auto_awesome, size: 18),
-              label: Text(_aiLoading ? 'ESTIMATING...' : 'ESTIMATE WITH AI',
-                  style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+                  foregroundColor: _accent,
+                  side: const BorderSide(
+                      color: _accent, width: AppMotion.focusBorderWidth),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: Spacing.s12)),
+              icon: const Icon(LucideIcons.sparkles, size: 16),
+              label: Text(_aiLoading ? 'ESTIMATING…' : 'ESTIMATE WITH AI'),
             )
           else
             _aiLockedCard(context),
-          const SizedBox(height: 6),
-          const Text('Works for any activity — uses the name, duration, intensity & your weight.',
-              style: TextStyle(color: kTextDim, fontSize: 11)),
-          const SizedBox(height: 14),
-          _field(_notesController, 'Notes (optional)', kPink, maxLines: 3),
-          const SizedBox(height: 24),
+          const SizedBox(height: Spacing.s8),
+          Text(
+              'Works for any activity — uses the name, duration, intensity & your weight.',
+              style: AppText.caption.copyWith(color: AppColors.textTertiary)),
+          const SizedBox(height: Spacing.s16),
+          _field(_notesController, 'Notes (optional)', maxLines: 3),
+          const SizedBox(height: Spacing.s24),
           ElevatedButton(
             onPressed: _saveExercise,
             style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              backgroundColor: kPink,
-              foregroundColor: kBg,
-            ),
-            child: const Text('SAVE EXERCISE',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                padding: const EdgeInsets.symmetric(vertical: Spacing.s16)),
+            child: const Text('SAVE EXERCISE'),
           ),
         ]),
       ),
     );
   }
 
-  InputDecoration _decoration(String label, Color accent, {Widget? suffix}) =>
-      InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: kTextDim, fontSize: 13),
-        isDense: true,
-        suffixIcon: suffix,
-        enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: accent.withValues(alpha: 0.4))),
-        focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: accent)),
-        filled: true,
-        fillColor: kSurface,
-      );
-
-  Widget _field(TextEditingController c, String label, Color accent,
+  Widget _field(TextEditingController c, String label,
       {bool number = false, int maxLines = 1, ValueChanged<String>? onChanged, Widget? suffix}) {
     return TextField(
       controller: c,
       maxLines: maxLines,
       keyboardType: number ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
       inputFormatters: number ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))] : null,
-      style: const TextStyle(color: kText, fontSize: 14),
+      style: number ? AppText.tabular(AppText.bodyM) : AppText.bodyM,
       onChanged: onChanged,
-      decoration: _decoration(label, accent, suffix: suffix),
+      decoration: InputDecoration(
+        labelText: label,
+        isDense: true,
+        suffixIcon: suffix,
+        suffixIconConstraints:
+            suffix == null ? null : const BoxConstraints(minWidth: 0, minHeight: 0),
+      ),
+    );
+  }
+}
+
+/// One MET activity pill: textSecondary label, surface1 body. Selection flips
+/// to a 1.5px healthRed border + the sanctioned 18% accent glow.
+class _MetChip extends StatelessWidget {
+  final MetActivity activity;
+  final bool selected;
+  final Color accent;
+  final VoidCallback onTap;
+
+  const _MetChip({
+    required this.activity,
+    required this.selected,
+    required this.accent,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: AppMotion.enter,
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(
+            horizontal: Spacing.s12, vertical: Spacing.s8),
+        decoration: BoxDecoration(
+          color: AppColors.surface1,
+          borderRadius: BorderRadius.circular(AppRadius.pill),
+          border: Border.all(
+            color: selected ? accent : AppColors.divider,
+            width: selected ? AppMotion.focusBorderWidth : 1,
+          ),
+          boxShadow: selected ? AppMotion.accentGlow(accent) : null,
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Text(
+            activity.name,
+            style: AppText.bodyS.copyWith(
+                color: selected
+                    ? AppColors.textPrimary
+                    : AppColors.textSecondary),
+          ),
+          const SizedBox(width: Spacing.s4),
+          Text(
+            '${activity.met} MET',
+            style: AppText.tabular(
+                AppText.caption.copyWith(color: AppColors.textTertiary)),
+          ),
+        ]),
+      ),
     );
   }
 }

@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+
 import '../models/index.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_motion.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_text_styles.dart';
 
 /// A compact "‹ [date] ›" day navigator. The left arrow steps one day back, the
 /// centre button shows the day ("Today" when current) and opens a date picker to
@@ -16,7 +21,7 @@ class DateNavBar extends StatelessWidget {
     super.key,
     required this.selected,
     required this.onChanged,
-    this.accent = kRed,
+    this.accent = AppColors.healthRed,
   });
 
   @override
@@ -28,7 +33,8 @@ class DateNavBar extends StatelessWidget {
     return Row(children: [
       IconButton(
         tooltip: 'Previous day',
-        icon: Icon(Icons.chevron_left, color: accent),
+        icon: const Icon(LucideIcons.chevronLeft,
+            size: 20, color: AppColors.textSecondary),
         onPressed: () => onChanged(sel.subtract(const Duration(days: 1))),
       ),
       Expanded(
@@ -44,16 +50,24 @@ class DateNavBar extends StatelessWidget {
           },
           style: OutlinedButton.styleFrom(
             foregroundColor: accent,
-            side: BorderSide(color: accent),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            side: BorderSide(color: accent, width: AppMotion.focusBorderWidth),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.r8)),
           ),
-          icon: const Icon(Icons.event, size: 16),
-          label: Text(sel == today ? 'Today' : DateFormat('EEE, MMM d').format(sel)),
+          icon: const Icon(LucideIcons.calendar, size: 16),
+          label: Text(
+            sel == today ? 'Today' : DateFormat('EEE, MMM d').format(sel),
+            style: AppText.tabular(AppText.bodyS),
+          ),
         ),
       ),
       IconButton(
         tooltip: 'Next day',
-        icon: Icon(Icons.chevron_right, color: canForward ? accent : kTextDim),
+        icon: Icon(LucideIcons.chevronRight,
+            size: 20,
+            color: canForward
+                ? AppColors.textSecondary
+                : AppColors.textDisabled),
         onPressed: canForward ? () => onChanged(sel.add(const Duration(days: 1))) : null,
       ),
     ]);

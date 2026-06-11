@@ -1,13 +1,20 @@
-import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+
 import '../models/index.dart';
 import '../providers/meal_provider.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_text_styles.dart';
 
-/// A dashboard section with a neon header that collapses its chart child.
+/// A dashboard section with an uppercase caption header that collapses its
+/// chart child. No card chrome — charts breathe directly on surface0
+/// (design/system.md: restraint everywhere except where data lives).
 class CollapsibleChartSection extends StatelessWidget {
   final String title;
+
+  /// Retained for call-site compatibility; headers are monochrome captions.
   final Color accent;
   final Widget child;
   final bool initiallyExpanded;
@@ -22,18 +29,18 @@ class CollapsibleChartSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: neonBox(accent),
-      clipBehavior: Clip.antiAlias,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: Spacing.s12),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
           initiallyExpanded: initiallyExpanded,
-          iconColor: accent,
-          collapsedIconColor: accent,
-          title: Text(title, style: neonLabel(accent, size: 14)),
-          childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+          tilePadding: EdgeInsets.zero,
+          iconColor: AppColors.textSecondary,
+          collapsedIconColor: AppColors.textTertiary,
+          title: Text(title.toUpperCase(), style: AppText.caption),
+          childrenPadding: const EdgeInsets.only(
+              top: Spacing.s8, bottom: Spacing.s16),
           children: [SizedBox(height: 200, child: child)],
         ),
       ),
@@ -42,7 +49,21 @@ class CollapsibleChartSection extends StatelessWidget {
 }
 
 Widget _emptyHint(String text) => Center(
-      child: Text(text, style: const TextStyle(color: kTextDim, fontSize: 12)),
+      child: Text(text,
+          style: AppText.bodyM.copyWith(color: AppColors.textTertiary)),
+    );
+
+/// Axis label style shared by every chart: textTertiary caption, tabular.
+final TextStyle _axisStyle = AppText.tabular(
+    AppText.caption.copyWith(color: AppColors.textTertiary, fontSize: 9));
+
+FlGridData _gridData({bool vertical = true}) => FlGridData(
+      show: true,
+      drawVerticalLine: vertical,
+      getDrawingHorizontalLine: (_) =>
+          const FlLine(color: AppColors.surface1, strokeWidth: 1),
+      getDrawingVerticalLine: (_) =>
+          const FlLine(color: AppColors.surface1, strokeWidth: 1),
     );
 
 /// Weight over the last 90 days with a 7-day moving-average overlay.
@@ -82,43 +103,41 @@ class WeightLineChart extends StatelessWidget {
     return LineChart(LineChartData(
       minY: minY,
       maxY: maxY,
-      backgroundColor: kSurface,
-      gridData: FlGridData(
-        show: true,
-        getDrawingHorizontalLine: (_) => const FlLine(color: kBorderDim, strokeWidth: 1),
-        getDrawingVerticalLine: (_) => const FlLine(color: kBorderDim, strokeWidth: 1),
-      ),
-      borderData: FlBorderData(show: true, border: Border.all(color: kBorderDim)),
+      gridData: _gridData(),
+      borderData: FlBorderData(show: false),
       titlesData: FlTitlesData(
         leftTitles: AxisTitles(sideTitles: SideTitles(
           showTitles: true, reservedSize: 36,
-          getTitlesWidget: (v, _) => Text(v.toStringAsFixed(0), style: const TextStyle(color: kTextDim, fontSize: 9)),
+          getTitlesWidget: (v, _) => Text(v.toStringAsFixed(0), style: _axisStyle),
         )),
         bottomTitles: AxisTitles(sideTitles: SideTitles(
           showTitles: true, reservedSize: 22,
           interval: 15,
           getTitlesWidget: (v, _) {
             final d = base.add(Duration(hours: (v * 24).toInt()));
-            return Text(DateFormat('d/M').format(d), style: const TextStyle(color: kTextDim, fontSize: 8));
+            return Text(DateFormat('d/M').format(d), style: _axisStyle);
           },
         )),
         topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
       ),
       lineBarsData: [
+        // Raw entries — the data line, in the Health room accent.
         LineChartBarData(
           spots: rawSpots,
           isCurved: false,
-          color: kNeonGreen,
+          color: AppColors.healthRed,
           barWidth: 1.5,
           dotData: FlDotData(getDotPainter: (_, __, ___, ____) =>
-            FlDotCirclePainter(radius: 2.5, color: kNeonGreen, strokeWidth: 0, strokeColor: kBg)),
+            FlDotCirclePainter(radius: 2.5, color: AppColors.healthRed,
+                strokeWidth: 0, strokeColor: AppColors.surface0)),
         ),
+        // 7-day moving average — quiet context line.
         LineChartBarData(
           spots: maSpots,
           isCurved: true,
-          color: kCyan,
-          barWidth: 2.5,
+          color: AppColors.textTertiary,
+          barWidth: 1.5,
           dotData: const FlDotData(show: false),
         ),
       ],
@@ -142,24 +161,19 @@ class CaloriesBarChart extends StatelessWidget {
 
     return BarChart(BarChartData(
       maxY: maxY,
-      backgroundColor: kSurface,
-      gridData: FlGridData(
-        show: true,
-        drawVerticalLine: false,
-        getDrawingHorizontalLine: (_) => const FlLine(color: kBorderDim, strokeWidth: 1),
-      ),
-      borderData: FlBorderData(show: true, border: Border.all(color: kBorderDim)),
+      gridData: _gridData(vertical: false),
+      borderData: FlBorderData(show: false),
       titlesData: FlTitlesData(
         leftTitles: AxisTitles(sideTitles: SideTitles(
           showTitles: true, reservedSize: 38,
-          getTitlesWidget: (v, _) => Text(v.toStringAsFixed(0), style: const TextStyle(color: kTextDim, fontSize: 9)),
+          getTitlesWidget: (v, _) => Text(v.toStringAsFixed(0), style: _axisStyle),
         )),
         bottomTitles: AxisTitles(sideTitles: SideTitles(
           showTitles: true, reservedSize: 22,
           getTitlesWidget: (v, _) {
             final i = v.toInt();
             if (i < 0 || i >= totals.length || i % 2 != 0) return const SizedBox.shrink();
-            return Text(DateFormat('d/M').format(totals[i].day), style: const TextStyle(color: kTextDim, fontSize: 8));
+            return Text(DateFormat('d/M').format(totals[i].day), style: _axisStyle);
           },
         )),
         topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -169,14 +183,14 @@ class CaloriesBarChart extends StatelessWidget {
           ? ExtraLinesData(horizontalLines: [
               HorizontalLine(
                 y: goal!,
-                color: kNeonGreen,
+                color: AppColors.statusHit,
                 strokeWidth: 1.5,
                 dashArray: [6, 4],
                 label: HorizontalLineLabel(
                   show: true,
                   alignment: Alignment.topRight,
-                  style: const TextStyle(color: kNeonGreen, fontSize: 9),
-                  labelResolver: (_) => 'Goal',
+                  style: AppText.caption.copyWith(color: AppColors.statusHit, fontSize: 9),
+                  labelResolver: (_) => 'GOAL',
                 ),
               ),
             ])
@@ -186,9 +200,11 @@ class CaloriesBarChart extends StatelessWidget {
           BarChartGroupData(x: i, barRods: [
             BarChartRodData(
               toY: totals[i].value,
-              color: (goal != null && totals[i].value > goal!) ? kNeonRed : kCyan,
+              color: (goal != null && totals[i].value > goal!)
+                  ? AppColors.statusMissed
+                  : AppColors.healthRed,
               width: 7,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(2)),
+              borderRadius: BorderRadius.zero,
             ),
           ]),
       ],
@@ -196,12 +212,17 @@ class CaloriesBarChart extends StatelessWidget {
   }
 }
 
-/// Donut of today's protein/carb/fat split in grams and %.
+/// Donut of today's protein/carb/fat split: surface2 background ring, three
+/// tinted segments (healthRed / calendarAmber / squadBlue) with thin 1.5px
+/// accent outlines, legend labels in caption style.
 class MacrosDonut extends StatelessWidget {
   final double protein;
   final double carbs;
   final double fat;
   const MacrosDonut({super.key, required this.protein, required this.carbs, required this.fat});
+
+  static const double _centerSpace = 48;
+  static const double _ringWidth = 18;
 
   @override
   Widget build(BuildContext context) {
@@ -210,52 +231,84 @@ class MacrosDonut extends StatelessWidget {
 
     double pct(double g) => g / total * 100;
     final sections = [
-      _section('P', protein, pct(protein), kNeonRed),
-      _section('C', carbs, pct(carbs), kNeonYellow),
-      _section('F', fat, pct(fat), kOrange),
+      _section(protein, AppColors.healthRed),
+      _section(carbs, AppColors.calendarAmber),
+      _section(fat, AppColors.squadBlue),
     ];
 
+    const donutSize = (_centerSpace + _ringWidth) * 2;
     return Row(children: [
       Expanded(
         flex: 3,
-        child: PieChart(PieChartData(
-          sectionsSpace: 2,
-          centerSpaceRadius: 38,
-          sections: sections,
-        )),
+        child: Center(
+          child: SizedBox(
+            width: donutSize,
+            height: donutSize,
+            child: Stack(alignment: Alignment.center, children: [
+              // Background ring on the surface ladder.
+              Container(
+                width: donutSize,
+                height: donutSize,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                      color: AppColors.surface2, width: _ringWidth),
+                ),
+              ),
+              PieChart(PieChartData(
+                sectionsSpace: 2,
+                centerSpaceRadius: _centerSpace,
+                startDegreeOffset: -90,
+                sections: sections,
+              )),
+            ]),
+          ),
+        ),
       ),
       Expanded(
         flex: 2,
         child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          _legend('Protein', protein, pct(protein), kNeonRed),
-          const SizedBox(height: 8),
-          _legend('Carbs', carbs, pct(carbs), kNeonYellow),
-          const SizedBox(height: 8),
-          _legend('Fat', fat, pct(fat), kOrange),
+          _legend('PROTEIN', protein, pct(protein), AppColors.healthRed),
+          const SizedBox(height: Spacing.s8),
+          _legend('CARBS', carbs, pct(carbs), AppColors.calendarAmber),
+          const SizedBox(height: Spacing.s8),
+          _legend('FAT', fat, pct(fat), AppColors.squadBlue),
         ]),
       ),
     ]);
   }
 
-  PieChartSectionData _section(String t, double grams, double pct, Color color) =>
+  PieChartSectionData _section(double grams, Color color) =>
       PieChartSectionData(
         value: grams,
-        color: color,
-        title: '${pct.toStringAsFixed(0)}%',
-        radius: 42,
-        titleStyle: const TextStyle(color: kBg, fontSize: 11, fontWeight: FontWeight.bold),
+        color: color.withValues(alpha: 0.18),
+        borderSide: BorderSide(color: color, width: 1.5),
+        showTitle: false,
+        radius: _ringWidth,
       );
 
   Widget _legend(String label, double grams, double pct, Color color) {
     return Row(children: [
-      Container(width: 10, height: 10, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
-      const SizedBox(width: 6),
-      Expanded(child: Text(
-        '$label  ${grams.toStringAsFixed(0)}g',
-        style: const TextStyle(color: kText, fontSize: 12),
-        overflow: TextOverflow.ellipsis,
-      )),
-      Text('${pct.toStringAsFixed(0)}%', style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold)),
+      Container(
+        width: 10,
+        height: 10,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.18),
+          border: Border.all(color: color, width: 1.5),
+          borderRadius: BorderRadius.circular(2),
+        ),
+      ),
+      const SizedBox(width: Spacing.s8),
+      Expanded(
+        child: Text(
+          '$label  ${grams.toStringAsFixed(0)}g',
+          style: AppText.tabular(AppText.caption),
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+      Text('${pct.toStringAsFixed(0)}%',
+          style: AppText.tabular(
+              AppText.caption.copyWith(color: AppColors.textPrimary))),
     ]);
   }
 }

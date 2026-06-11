@@ -1,17 +1,25 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import '../../providers/exercise_provider.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+import 'package:provider/provider.dart';
+
 import '../../models/index.dart';
-import '../../theme/app_theme.dart';
-import '../../widgets/edit_entry_sheets.dart';
-import '../../widgets/undo_delete.dart';
+import '../../providers/exercise_provider.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_motion.dart';
+import '../../theme/app_spacing.dart';
+import '../../theme/app_text_styles.dart';
 import '../../widgets/date_nav_bar.dart';
+import '../../widgets/edit_entry_sheets.dart';
+import '../../widgets/ui/section_nav.dart';
+import '../../widgets/ui/ui.dart';
+import '../../widgets/undo_delete.dart';
 import '../exercise_logging_screen.dart';
 import 'health_chips.dart';
 
-/// Fitness sub-tab of the Health shell — the selected day's exercises with a
-/// date navigator to browse previous days. The FAB always logs to today.
+/// Fitness sub-tab of the Health shell — the selected day's exercises as a
+/// timeline (same treatment as Meals) with a date navigator to browse
+/// previous days. The FAB always logs to today.
 class FitnessTabScreen extends StatefulWidget {
   const FitnessTabScreen({super.key});
 
@@ -51,70 +59,94 @@ class _FitnessTabScreenState extends State<FitnessTabScreen> {
   }
 
   Future<void> _logExercise() async {
-    await Navigator.push(context, MaterialPageRoute(builder: (_) => const ExerciseLoggingScreen()));
+    await Navigator.push(
+        context, HeroTransitionScaffold.route(const ExerciseLoggingScreen()));
     if (mounted) _setDate(dateOnly(DateTime.now()));
   }
 
   @override
   Widget build(BuildContext context) {
+    final accent = SectionAccent.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('FITNESS'),
-        titleTextStyle: const TextStyle(color: kPink, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.2, shadows: [Shadow(color: kPink, blurRadius: 8)])),
+      appBar: SectionAppBar(title: 'Fitness', accent: accent),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(Spacing.s16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          DateNavBar(selected: _date, accent: kPink, onChanged: _setDate),
-          const SizedBox(height: 12),
+          DateNavBar(selected: _date, accent: accent, onChanged: _setDate),
+          const SizedBox(height: Spacing.s12),
           if (_exercises.isEmpty)
-            Center(child: Padding(
-              padding: const EdgeInsets.all(40),
-              child: Text(_isToday ? 'No exercises logged today' : 'No exercises logged on this day',
-                  style: Theme.of(context).textTheme.bodySmall),
+            Center(
+                child: Padding(
+              padding: const EdgeInsets.all(Spacing.s48),
+              child: Text(
+                  _isToday
+                      ? 'No exercises logged today'
+                      : 'No exercises logged on this day',
+                  style:
+                      AppText.bodyM.copyWith(color: AppColors.textTertiary)),
             ))
           else
-            ..._exercises.map((ex) => _ExerciseCard(
-                  exercise: ex,
-                  onDelete: () => deleteExerciseWithUndo(ScaffoldMessenger.of(context), _provider, ex),
-                  onEdit: (updated) => _provider.updateExercise(updated),
-                )),
+            Container(
+              decoration: const BoxDecoration(
+                border: Border(
+                    left: BorderSide(color: AppColors.surface2, width: 2)),
+              ),
+              padding: const EdgeInsets.only(left: Spacing.s16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final ex in _exercises)
+                    _ExerciseTimelineEntry(
+                      exercise: ex,
+                      onDelete: () => deleteExerciseWithUndo(
+                          ScaffoldMessenger.of(context), _provider, ex),
+                      onEdit: (updated) => _provider.updateExercise(updated),
+                    ),
+                ],
+              ),
+            ),
         ]),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _logExercise,
-        backgroundColor: kPink,
-        foregroundColor: kBg,
-        child: const Icon(Icons.add),
+        backgroundColor: accent,
+        foregroundColor: AppColors.surface0,
+        child: const Icon(LucideIcons.plus),
       ),
     );
   }
 }
 
-class _ExerciseCard extends StatelessWidget {
+class _ExerciseTimelineEntry extends StatelessWidget {
   final Exercise exercise;
   final VoidCallback onDelete;
   final ValueChanged<Exercise> onEdit;
-  const _ExerciseCard({required this.exercise, required this.onDelete, required this.onEdit});
+  const _ExerciseTimelineEntry(
+      {required this.exercise, required this.onDelete, required this.onEdit});
 
   void _showDetail(BuildContext context) {
+    final accent = SectionAccent.of(context);
     showModalBottomSheet(
       context: context,
-      backgroundColor: kSurface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-        side: BorderSide(color: kPink, width: 1)),
       builder: (_) => Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(Spacing.s20),
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(exercise.name, style: neonLabel(kPink, size: 15)),
-          const SizedBox(height: 4),
-          Text(DateFormat('MMM d, HH:mm').format(exercise.timestamp), style: const TextStyle(color: kTextDim, fontSize: 12)),
-          const SizedBox(height: 16),
+          Text(exercise.name, style: AppText.titleM),
+          const SizedBox(height: Spacing.s4),
+          Text(
+              DateFormat('MMM d, HH:mm')
+                  .format(exercise.timestamp)
+                  .toUpperCase(),
+              style: AppText.tabular(AppText.caption)),
+          const SizedBox(height: Spacing.s16),
           Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-            DetailChip('Duration', '${exercise.durationMinutes} min', kPink),
-            DetailChip('Burned', '${exercise.caloriesBurned.toStringAsFixed(0)} kcal', kOrange),
-            DetailChip('Intensity', exercise.intensity.toUpperCase(), kNeonGreen),
+            DetailChip(
+                'Duration', '${exercise.durationMinutes} min', accent),
+            DetailChip('Burned',
+                '${exercise.caloriesBurned.toStringAsFixed(0)} kcal', accent),
+            DetailChip('Intensity', exercise.intensity.toUpperCase(), accent),
           ]),
-          const SizedBox(height: 20),
+          const SizedBox(height: Spacing.s20),
           Row(children: [
             Expanded(child: OutlinedButton.icon(
               onPressed: () async {
@@ -122,16 +154,23 @@ class _ExerciseCard extends StatelessWidget {
                 final edited = await showEditExerciseSheet(context, exercise);
                 if (edited != null) onEdit(edited);
               },
-              icon: const Icon(Icons.edit_outlined, size: 18),
+              icon: const Icon(LucideIcons.pencil, size: 16),
               label: const Text('EDIT'),
-              style: OutlinedButton.styleFrom(foregroundColor: kPink, side: const BorderSide(color: kPink)),
+              style: OutlinedButton.styleFrom(
+                  foregroundColor: accent,
+                  side: BorderSide(
+                      color: accent, width: AppMotion.focusBorderWidth)),
             )),
-            const SizedBox(width: 10),
-            Expanded(child: ElevatedButton.icon(
+            const SizedBox(width: Spacing.s8),
+            Expanded(child: OutlinedButton.icon(
               onPressed: () { Navigator.pop(context); onDelete(); },
-              icon: const Icon(Icons.delete_outline, size: 18),
+              icon: const Icon(LucideIcons.trash2, size: 16),
               label: const Text('DELETE'),
-              style: ElevatedButton.styleFrom(backgroundColor: kNeonRed, foregroundColor: Colors.white),
+              style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.statusMissed,
+                  side: const BorderSide(
+                      color: AppColors.statusMissed,
+                      width: AppMotion.focusBorderWidth)),
             )),
           ]),
         ]),
@@ -144,17 +183,42 @@ class _ExerciseCard extends StatelessWidget {
     return GestureDetector(
       onTap: () => _showDetail(context),
       onLongPress: () => _showDetail(context),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(12),
-        decoration: neonBox(kPink),
-        child: Row(children: [
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(exercise.name, style: const TextStyle(color: kText, fontSize: 14, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 4),
-            Text('${exercise.durationMinutes} min  •  ${exercise.intensity}', style: const TextStyle(color: kTextDim, fontSize: 12)),
-          ])),
-          StatBadge('${exercise.caloriesBurned.toStringAsFixed(0)} kcal', kOrange),
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: Spacing.s20),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+            padding: const EdgeInsets.symmetric(
+                horizontal: Spacing.s8, vertical: Spacing.s4),
+            decoration: BoxDecoration(
+              color: AppColors.surface2,
+              borderRadius: BorderRadius.circular(AppRadius.pill),
+            ),
+            child: Text(DateFormat('HH:mm').format(exercise.timestamp),
+                style: AppText.tabular(AppText.caption)),
+          ),
+          const SizedBox(height: Spacing.s8),
+          Text(exercise.name,
+              style: AppText.titleM, maxLines: 2, overflow: TextOverflow.ellipsis),
+          const SizedBox(height: Spacing.s4),
+          Row(crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Text(exercise.caloriesBurned.toStringAsFixed(0),
+                    style: AppText.tabular(AppText.displayM)),
+                const SizedBox(width: Spacing.s4),
+                Text('kcal',
+                    style:
+                        AppText.bodyM.copyWith(color: AppColors.textTertiary)),
+              ]),
+          const SizedBox(height: Spacing.s8),
+          Row(children: [
+            StatBadge('${exercise.durationMinutes} min',
+                AppColors.textSecondary),
+            const SizedBox(width: Spacing.s8),
+            StatBadge(exercise.intensity.toUpperCase(),
+                AppColors.textSecondary),
+          ]),
         ]),
       ),
     );

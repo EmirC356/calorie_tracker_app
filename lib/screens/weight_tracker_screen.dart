@@ -1,11 +1,18 @@
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+import 'package:provider/provider.dart';
+
 import '../models/index.dart';
 import '../providers/weight_provider.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_motion.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_text_styles.dart';
 import '../widgets/date_nav_bar.dart';
+import '../widgets/ui/section_nav.dart';
+import '../widgets/ui/ui.dart';
 
 class WeightTrackerScreen extends StatefulWidget {
   const WeightTrackerScreen({super.key});
@@ -51,105 +58,101 @@ class _WeightTrackerScreenState extends State<WeightTrackerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final accent = SectionAccent.of(context);
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('WEIGHT TRACKER'),
-        titleTextStyle: const TextStyle(color: kNeonGreen, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.2, shadows: [Shadow(color: kNeonGreen, blurRadius: 8)]),
-        iconTheme: const IconThemeData(color: kNeonGreen),
-      ),
+      appBar: SectionAppBar(title: 'Weight', accent: accent),
       body: Consumer<WeightProvider>(
         builder: (_, provider, __) => SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(Spacing.s16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            // Input card
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: neonBox(kNeonGreen),
-              child: Column(children: [
-                Row(children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _weightCtrl,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      style: const TextStyle(color: kText),
-                      decoration: InputDecoration(
-                        labelText: 'Weight (kg)',
-                        labelStyle: const TextStyle(color: kNeonGreen),
-                        suffixText: 'kg',
-                        suffixStyle: const TextStyle(color: kNeonGreen),
-                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: kNeonGreen, width: 1)),
-                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: kNeonGreen, width: 2)),
-                        filled: true, fillColor: kSurface,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  ElevatedButton(
-                    onPressed: _logWeight,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: kNeonGreen, foregroundColor: kBg,
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                    ),
-                    child: const Text('LOG', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
-                  ),
-                ]),
-                const SizedBox(height: 10),
-                InkWell(
-                  onTap: () => setState(() => _isEmptyStomach = !_isEmptyStomach),
-                  child: Row(children: [
-                    Container(
-                      width: 22, height: 22,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: kNeonGreen, width: 2),
-                        borderRadius: BorderRadius.circular(4),
-                        color: _isEmptyStomach ? kNeonGreen : kSurface,
-                      ),
-                      child: _isEmptyStomach ? const Icon(Icons.check, size: 14, color: kBg) : null,
-                    ),
-                    const SizedBox(width: 10),
-                    const Text('Empty stomach?', style: TextStyle(color: kText, fontSize: 15)),
-                    if (provider.latest != null) ...[
-                      const Spacer(),
-                      Text(
-                        'Last: ${provider.latest!.weight.toStringAsFixed(1)} kg',
-                        style: const TextStyle(color: kTextDim, fontSize: 12),
-                      ),
-                    ],
-                  ]),
-                ),
-              ]),
-            ),
-            const SizedBox(height: 20),
-
-            if (provider.entries.isNotEmpty) ...[
-              Text('WEIGHT HISTORY', style: neonLabel(kNeonGreen, size: 13)),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: neonBox(kNeonGreen),
-                child: SizedBox(height: 200, child: _WeightChart(entries: provider.entries)),
-              ),
-              const SizedBox(height: 8),
-              Row(children: [
-                Container(width: 10, height: 10, decoration: const BoxDecoration(color: kNeonGreen, shape: BoxShape.circle)),
-                const SizedBox(width: 6),
-                const Text('Normal', style: TextStyle(color: kTextDim, fontSize: 11)),
-                const SizedBox(width: 16),
-                Container(width: 10, height: 10, decoration: const BoxDecoration(color: kNeonYellow, shape: BoxShape.circle)),
-                const SizedBox(width: 6),
-                const Text('Empty stomach', style: TextStyle(color: kTextDim, fontSize: 11)),
-              ]),
-              const SizedBox(height: 20),
+            if (provider.latest != null) ...[
+              _CurrentWeightHero(entries: provider.entries),
+              const SizedBox(height: Spacing.s24),
             ],
 
-            Text('LOG HISTORY', style: neonLabel(kNeonGreen, size: 13)),
-            const SizedBox(height: 8),
+            // ── Input ───────────────────────────────────────────────────────
+            Row(children: [
+              Expanded(
+                child: TextField(
+                  controller: _weightCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  style: AppText.tabular(AppText.bodyL),
+                  decoration: const InputDecoration(
+                    labelText: 'Weight (kg)',
+                    suffixText: 'kg',
+                  ),
+                ),
+              ),
+              const SizedBox(width: Spacing.s12),
+              ElevatedButton(
+                onPressed: _logWeight,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: Spacing.s20, vertical: Spacing.s16),
+                ),
+                child: const Text('LOG'),
+              ),
+            ]),
+            const SizedBox(height: Spacing.s12),
+            InkWell(
+              onTap: () => setState(() => _isEmptyStomach = !_isEmptyStomach),
+              child: Row(children: [
+                // Focus rule: 1.5px accent border, never a solid accent fill.
+                Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                        color: _isEmptyStomach
+                            ? accent
+                            : AppColors.textTertiary,
+                        width: AppMotion.focusBorderWidth),
+                    borderRadius: BorderRadius.circular(4),
+                    boxShadow:
+                        _isEmptyStomach ? AppMotion.accentGlow(accent) : null,
+                  ),
+                  child: _isEmptyStomach
+                      ? Icon(LucideIcons.check, size: 14, color: accent)
+                      : null,
+                ),
+                const SizedBox(width: Spacing.s12),
+                Text('Empty stomach?', style: AppText.bodyM),
+                if (provider.latest != null) ...[
+                  const Spacer(),
+                  Text(
+                    'LAST ${provider.latest!.weight.toStringAsFixed(1)} KG',
+                    style: AppText.tabular(AppText.caption),
+                  ),
+                ],
+              ]),
+            ),
+            const SizedBox(height: Spacing.s24),
+
+            if (provider.entries.isNotEmpty) ...[
+              Text('WEIGHT HISTORY', style: AppText.caption),
+              const SizedBox(height: Spacing.s12),
+              SizedBox(height: 200, child: _WeightChart(entries: provider.entries)),
+              const SizedBox(height: Spacing.s8),
+              Row(children: [
+                _legendDot(AppColors.healthRed),
+                const SizedBox(width: Spacing.s4),
+                Text('NORMAL', style: AppText.caption),
+                const SizedBox(width: Spacing.s16),
+                _legendDot(AppColors.calendarAmber),
+                const SizedBox(width: Spacing.s4),
+                Text('EMPTY STOMACH', style: AppText.caption),
+              ]),
+              const SizedBox(height: Spacing.s24),
+            ],
+
+            Text('LOG HISTORY', style: AppText.caption),
+            const SizedBox(height: Spacing.s8),
             DateNavBar(
               selected: _date,
-              accent: kNeonGreen,
+              accent: accent,
               onChanged: (d) => setState(() => _date = d),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: Spacing.s8),
             ...() {
               final dayEntries = provider.entries
                   .where((e) => dateOnly(e.timestamp) == _date)
@@ -160,10 +163,11 @@ class _WeightTrackerScreenState extends State<WeightTrackerScreen> {
               if (dayEntries.isEmpty) {
                 return [
                   Center(child: Padding(
-                    padding: const EdgeInsets.all(32),
+                    padding: const EdgeInsets.all(Spacing.s32),
                     child: Text(
                         isToday ? 'No weight entries today' : 'No weight entries on this day',
-                        style: Theme.of(context).textTheme.bodySmall),
+                        style: AppText.bodyM
+                            .copyWith(color: AppColors.textTertiary)),
                   )),
                 ];
               }
@@ -179,11 +183,99 @@ class _WeightTrackerScreenState extends State<WeightTrackerScreen> {
       ),
     );
   }
+
+  Widget _legendDot(Color color) => Container(
+        width: 8,
+        height: 8,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      );
+}
+
+/// The data hero: current weight as a tabular displayL number with the delta
+/// from the previous entry below.
+class _CurrentWeightHero extends StatelessWidget {
+  final List<WeightEntry> entries;
+  const _CurrentWeightHero({required this.entries});
+
+  @override
+  Widget build(BuildContext context) {
+    final sorted = [...entries]..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    final latest = sorted.last;
+    final previous = sorted.length > 1 ? sorted[sorted.length - 2] : null;
+    final delta = previous != null ? latest.weight - previous.weight : null;
+
+    // TODO(ui): clarify goal direction — profile goal data isn't available in
+    // this screen, so loss reads as statusHit per the conservative default.
+    Color deltaColor(double d) => d < 0
+        ? AppColors.statusHit
+        : (d > 0 ? AppColors.statusInProgress : AppColors.textSecondary);
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text('CURRENT WEIGHT', style: AppText.caption),
+      const SizedBox(height: Spacing.s4),
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.baseline,
+        textBaseline: TextBaseline.alphabetic,
+        children: [
+          AnimatedNumber(
+            value: latest.weight,
+            decimals: 1,
+            style: AppText.displayL,
+          ),
+          const SizedBox(width: Spacing.s4),
+          Text('kg',
+              style: AppText.tabular(
+                  AppText.titleM.copyWith(color: AppColors.textTertiary))),
+        ],
+      ),
+      if (delta != null) ...[
+        const SizedBox(height: Spacing.s4),
+        Row(children: [
+          Icon(
+            delta < 0
+                ? LucideIcons.arrowDown
+                : (delta > 0 ? LucideIcons.arrowUp : LucideIcons.minus),
+            size: 16,
+            color: deltaColor(delta),
+          ),
+          const SizedBox(width: Spacing.s4),
+          Text(
+            '${delta.abs().toStringAsFixed(1)} kg since last entry',
+            style: AppText.tabular(
+                AppText.titleM.copyWith(color: deltaColor(delta))),
+          ),
+          if (latest.isEmptyStomach) ...[
+            const SizedBox(width: Spacing.s8),
+            const _EmptyStomachChip(),
+          ],
+        ]),
+      ],
+    ]);
+  }
+}
+
+/// Empty-stomach flag chip in caption style.
+class _EmptyStomachChip extends StatelessWidget {
+  const _EmptyStomachChip();
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(
+            horizontal: Spacing.s8, vertical: Spacing.s4),
+        decoration: BoxDecoration(
+          color: AppColors.surface2,
+          borderRadius: BorderRadius.circular(AppRadius.pill),
+        ),
+        child: Text('EMPTY STOMACH', style: AppText.caption),
+      );
 }
 
 class _WeightChart extends StatelessWidget {
   final List<WeightEntry> entries;
   const _WeightChart({required this.entries});
+
+  static final TextStyle _axisStyle = AppText.tabular(
+      AppText.caption.copyWith(color: AppColors.textTertiary, fontSize: 9));
 
   @override
   Widget build(BuildContext context) {
@@ -205,23 +297,24 @@ class _WeightChart extends StatelessWidget {
     return LineChart(LineChartData(
       minY: minY,
       maxY: maxY,
-      backgroundColor: kSurface,
       gridData: FlGridData(
         show: true,
-        getDrawingHorizontalLine: (_) => const FlLine(color: kBorderDim, strokeWidth: 1),
-        getDrawingVerticalLine: (_) => const FlLine(color: kBorderDim, strokeWidth: 1),
+        getDrawingHorizontalLine: (_) =>
+            const FlLine(color: AppColors.surface1, strokeWidth: 1),
+        getDrawingVerticalLine: (_) =>
+            const FlLine(color: AppColors.surface1, strokeWidth: 1),
       ),
-      borderData: FlBorderData(show: true, border: Border.all(color: kBorderDim)),
+      borderData: FlBorderData(show: false),
       titlesData: FlTitlesData(
         leftTitles: AxisTitles(sideTitles: SideTitles(
           showTitles: true, reservedSize: 38,
-          getTitlesWidget: (v, _) => Text(v.toStringAsFixed(1), style: const TextStyle(color: kTextDim, fontSize: 9)),
+          getTitlesWidget: (v, _) => Text(v.toStringAsFixed(1), style: _axisStyle),
         )),
         bottomTitles: AxisTitles(sideTitles: SideTitles(
           showTitles: true, reservedSize: 24,
           getTitlesWidget: (v, _) {
             final d = base.add(Duration(hours: v.toInt()));
-            return Text(DateFormat('d/M').format(d), style: const TextStyle(color: kTextDim, fontSize: 8));
+            return Text(DateFormat('d/M').format(d), style: _axisStyle);
           },
         )),
         topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -232,21 +325,21 @@ class _WeightChart extends StatelessWidget {
           LineChartBarData(
             spots: normalSpots,
             isCurved: true,
-            color: kNeonGreen,
-            barWidth: 2,
-            shadow: const Shadow(color: kNeonGreen, blurRadius: 6),
+            color: AppColors.healthRed,
+            barWidth: 1.5,
             dotData: FlDotData(getDotPainter: (_, __, ___, ____) =>
-              FlDotCirclePainter(radius: 4, color: kNeonGreen, strokeWidth: 1, strokeColor: kBg)),
+              FlDotCirclePainter(radius: 2.5, color: AppColors.healthRed,
+                  strokeWidth: 0, strokeColor: AppColors.surface0)),
           ),
         if (emptySpots.isNotEmpty)
           LineChartBarData(
             spots: emptySpots,
             isCurved: true,
-            color: kNeonYellow,
-            barWidth: 2,
-            shadow: const Shadow(color: kNeonYellow, blurRadius: 6),
+            color: AppColors.calendarAmber,
+            barWidth: 1.5,
             dotData: FlDotData(getDotPainter: (_, __, ___, ____) =>
-              FlDotCirclePainter(radius: 5, color: kNeonYellow, strokeWidth: 1.5, strokeColor: kBg)),
+              FlDotCirclePainter(radius: 2.5, color: AppColors.calendarAmber,
+                  strokeWidth: 0, strokeColor: AppColors.surface0)),
           ),
       ],
     ));
@@ -260,24 +353,31 @@ class _WeightTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = entry.isEmptyStomach ? kNeonYellow : kNeonGreen;
     return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: neonBox(color),
+      padding: const EdgeInsets.symmetric(vertical: Spacing.s8),
+      decoration: const BoxDecoration(
+        border:
+            Border(bottom: BorderSide(color: AppColors.surface2, width: 1)),
+      ),
       child: Row(children: [
-        Icon(entry.isEmptyStomach ? Icons.nightlight_round : Icons.fiber_manual_record, color: color, size: 16),
-        const SizedBox(width: 10),
-        Text('${entry.weight.toStringAsFixed(1)} kg', style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 16, shadows: textGlow(color))),
-        const SizedBox(width: 12),
-        Expanded(child: Text(DateFormat('MMM d, HH:mm').format(entry.timestamp), style: const TextStyle(color: kTextDim, fontSize: 12))),
-        if (entry.isEmptyStomach)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(color: kNeonYellow.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4), border: Border.all(color: kNeonYellow.withValues(alpha: 0.5))),
-            child: const Text('empty', style: TextStyle(color: kNeonYellow, fontSize: 10)),
-          ),
-        IconButton(icon: const Icon(Icons.delete_outline, color: kNeonRed, size: 18), onPressed: onDelete, constraints: const BoxConstraints(minWidth: 32, minHeight: 32), padding: EdgeInsets.zero),
+        Text('${entry.weight.toStringAsFixed(1)} kg',
+            style: AppText.tabular(AppText.titleM)),
+        const SizedBox(width: Spacing.s12),
+        Expanded(
+          child: Text(
+              DateFormat('MMM d, HH:mm').format(entry.timestamp).toUpperCase(),
+              style: AppText.tabular(AppText.caption)),
+        ),
+        if (entry.isEmptyStomach) ...[
+          const _EmptyStomachChip(),
+          const SizedBox(width: Spacing.s8),
+        ],
+        IconButton(
+            icon: const Icon(LucideIcons.trash2,
+                color: AppColors.statusMissed, size: 16),
+            onPressed: onDelete,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            padding: EdgeInsets.zero),
       ]),
     );
   }

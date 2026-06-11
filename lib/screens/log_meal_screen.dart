@@ -4,9 +4,14 @@ import '../data/food_database.dart';
 import '../models/index.dart';
 import '../providers/meal_provider.dart';
 import '../providers/meal_prep_provider.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import '../services/ai_service.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_motion.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_text_styles.dart';
 import '../widgets/ai/blocked_ai_overlay.dart';
+import '../widgets/ui/shimmer_placeholder.dart';
 
 class _FoodRow {
   FoodItem food;
@@ -141,21 +146,20 @@ class _LogMealScreenState extends State<LogMealScreen> {
     }
     final chosen = await showModalBottomSheet<MealPrep>(
       context: context,
-      backgroundColor: kSurface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-        side: BorderSide(color: kCyan, width: 1)),
       builder: (_) => ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(Spacing.s16),
         children: [
-          Text('Select Meal Prep', style: neonLabel(kCyan, size: 18)),
-          const SizedBox(height: 12),
+          Text('Select Meal Prep', style: AppText.titleM),
+          const SizedBox(height: Spacing.s12),
           ...available.map((p) => ListTile(
-            title: Text(p.name, style: const TextStyle(color: kText)),
+            contentPadding: EdgeInsets.zero,
+            title: Text(p.name, style: AppText.bodyL),
             subtitle: Text(
               '${p.remainingCount}/${p.totalMealCount} left  •  ${p.perMealNutrients.calories.toStringAsFixed(0)} kcal per meal',
-              style: const TextStyle(color: kTextDim, fontSize: 12)),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: kCyan),
+              style: AppText.tabular(
+                  AppText.bodyM.copyWith(color: AppColors.textSecondary))),
+            trailing: const Icon(LucideIcons.chevronRight,
+                size: 18, color: AppColors.textTertiary),
             onTap: () => Navigator.pop(context, p),
           )),
         ],
@@ -250,24 +254,19 @@ class _LogMealScreenState extends State<LogMealScreen> {
   Widget build(BuildContext context) {
     final totals = _totals;
     return Scaffold(
-      appBar: AppBar(title: const Text('LOG MEAL')),
+      appBar: AppBar(title: const Text('Log Meal')),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(Spacing.s16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           // Load prep button — available in both modes
           OutlinedButton.icon(
             onPressed: _showLoadPrepDialog,
-            icon: const Icon(Icons.inventory_2_outlined, size: 18),
-            label: const Text('LOAD FROM MEAL PREP'),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              foregroundColor: kNeonYellow,
-              side: const BorderSide(color: kNeonYellow),
-            ),
+            icon: const Icon(LucideIcons.package, size: 18),
+            label: const Text('Load from meal prep'),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: Spacing.s16),
           _buildModeToggle(),
-          const SizedBox(height: 16),
+          const SizedBox(height: Spacing.s16),
           if (_quickMode)
             BlockedAiOverlay(
               isBlocked: !context.watch<AiService>().hasValidKey,
@@ -277,19 +276,12 @@ class _LogMealScreenState extends State<LogMealScreen> {
             )
           else
             _buildDetailedMode(),
-          const SizedBox(height: 16),
+          const SizedBox(height: Spacing.s16),
           _buildTotals(totals),
-          const SizedBox(height: 16),
-          ElevatedButton(
+          const SizedBox(height: Spacing.s16),
+          OutlinedButton(
             onPressed: _logMeal,
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              backgroundColor: kCyan,
-              foregroundColor: kBg,
-              shadowColor: kCyan,
-              elevation: 8,
-            ),
-            child: const Text('LOG MEAL', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+            child: const Text('Log meal'),
           ),
         ]),
       ),
@@ -297,42 +289,38 @@ class _LogMealScreenState extends State<LogMealScreen> {
   }
 
   Widget _buildModeToggle() {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: kSurface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: kBorderDim),
-      ),
-      child: Row(children: [
-        _modeTab('QUICK', Icons.auto_awesome, true),
-        _modeTab('DETAILED', Icons.tune, false),
-      ]),
-    );
+    return Row(children: [
+      _modeTab('QUICK', LucideIcons.sparkles, true),
+      const SizedBox(width: Spacing.s8),
+      _modeTab('DETAILED', LucideIcons.slidersHorizontal, false),
+    ]);
   }
 
   Widget _modeTab(String label, IconData icon, bool quick) {
     final selected = _quickMode == quick;
-    final accent = quick ? kCyan : kNeonGreen;
+    final color =
+        selected ? AppColors.healthRed : AppColors.textSecondary;
     return Expanded(
       child: GestureDetector(
         onTap: () => setState(() => _quickMode = quick),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
+        child: AnimatedContainer(
+          duration: AppMotion.enter,
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(vertical: Spacing.s8),
           decoration: BoxDecoration(
-            color: selected ? accent : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: selected ? [BoxShadow(color: accent.withValues(alpha: 0.4), blurRadius: 8)] : null,
+            color: AppColors.surface1,
+            borderRadius: BorderRadius.circular(AppRadius.r8),
+            border: Border.all(
+              color: selected ? AppColors.healthRed : AppColors.surface2,
+              width: selected ? AppMotion.focusBorderWidth : 1,
+            ),
+            boxShadow:
+                selected ? AppMotion.accentGlow(AppColors.healthRed) : null,
           ),
           child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Icon(icon, size: 16, color: selected ? kBg : accent),
-            const SizedBox(width: 6),
-            Text(label, style: TextStyle(
-              color: selected ? kBg : accent,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.2,
-              fontSize: 13,
-            )),
+            Icon(icon, size: 16, color: color),
+            const SizedBox(width: Spacing.s4),
+            Text(label, style: AppText.bodyS.copyWith(color: color)),
           ]),
         ),
       ),
@@ -340,215 +328,193 @@ class _LogMealScreenState extends State<LogMealScreen> {
   }
 
   Widget _buildQuickMode() {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: neonBox(kCyan),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text('DESCRIBE YOUR MEAL', style: AppText.caption),
+      const SizedBox(height: Spacing.s4),
+      Text('AI gives a fast estimate. Use DETAILED for exact grams.',
+          style: AppText.bodyM.copyWith(color: AppColors.textSecondary)),
+      const SizedBox(height: Spacing.s8),
+      TextField(
+        controller: _quickCtrl,
+        maxLines: 3,
+        // Editing invalidates a previous estimate so we never log stale numbers.
+        onChanged: (_) { if (_quickResult != null) setState(() => _quickResult = null); },
+        decoration: const InputDecoration(
+          hintText: 'e.g. chicken shawarma wrap with garlic sauce and a side of fries',
+        ),
+      ),
+      const SizedBox(height: Spacing.s12),
+      OutlinedButton.icon(
+        onPressed: _quickLoading ? null : _estimateQuick,
+        icon: _quickLoading
+            ? const ShimmerPlaceholder.line(width: 16)
+            : const Icon(LucideIcons.zap, size: 18),
+        label: Text(_quickLoading ? 'Estimating…' : 'Estimate with AI'),
+      ),
+      if (_quickLoading) ...[
+        const SizedBox(height: Spacing.s12),
+        const ShimmerPlaceholder.card(height: 72),
+      ],
+      if (_quickResult != null) ...[
+        const SizedBox(height: Spacing.s12),
         Row(children: [
-          const Icon(Icons.auto_awesome, color: kCyan, size: 18),
-          const SizedBox(width: 8),
-          Text('DESCRIBE YOUR MEAL', style: neonLabel(kCyan)),
+          const Icon(LucideIcons.checkCircle2,
+              color: AppColors.statusHit, size: 16),
+          const SizedBox(width: Spacing.s8),
+          Expanded(
+              child: Text('AI estimate ready — tap LOG MEAL to save',
+                  style: AppText.bodyS
+                      .copyWith(color: AppColors.textSecondary))),
         ]),
-        const SizedBox(height: 4),
-        const Text('AI gives a fast estimate. Use DETAILED for exact grams.',
-          style: TextStyle(color: kTextDim, fontSize: 11)),
-        const SizedBox(height: 10),
-        TextField(
-          controller: _quickCtrl,
-          maxLines: 3,
-          style: const TextStyle(color: kText, fontSize: 14),
-          // Editing invalidates a previous estimate so we never log stale numbers.
-          onChanged: (_) { if (_quickResult != null) setState(() => _quickResult = null); },
-          decoration: InputDecoration(
-            hintText: 'e.g. chicken shawarma wrap with garlic sauce and a side of fries',
-            hintStyle: const TextStyle(color: kTextDim, fontSize: 13),
-            filled: true,
-            fillColor: kSurface,
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: kCyan.withValues(alpha: 0.4))),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: kCyan)),
-          ),
-        ),
-        const SizedBox(height: 10),
-        ElevatedButton.icon(
-          onPressed: _quickLoading ? null : _estimateQuick,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: kCyan,
-            foregroundColor: kBg,
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            shadowColor: kCyan,
-            elevation: 6,
-          ),
-          icon: _quickLoading
-              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: kBg))
-              : const Icon(Icons.bolt, size: 18),
-          label: Text(_quickLoading ? 'ESTIMATING...' : 'ESTIMATE WITH AI',
-            style: const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2)),
-        ),
-        if (_quickResult != null) ...[
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: kSurface,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: kCyan.withValues(alpha: 0.5)),
-            ),
-            child: Row(children: [
-              const Icon(Icons.check_circle, color: kNeonGreen, size: 16),
-              const SizedBox(width: 8),
-              const Expanded(child: Text('AI estimate ready — tap LOG MEAL to save',
-                style: TextStyle(color: kTextDim, fontSize: 12))),
-            ]),
-          ),
-        ],
-      ]),
-    );
+      ],
+    ]);
   }
 
   Widget _buildDetailedMode() {
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      _buildSection('PROTEIN', kNeonRed, Icons.egg_alt, 'protein', _proteins),
-      const SizedBox(height: 12),
-      _buildSection('CARBS', kNeonYellow, Icons.grain, 'carb', _carbs),
-      const SizedBox(height: 12),
-      _buildSection('VEGGIES', kNeonGreen, Icons.eco, 'veggie', _veggies),
-      const SizedBox(height: 12),
+      _buildSection('PROTEIN', LucideIcons.beef, 'protein', _proteins),
+      const SizedBox(height: Spacing.s12),
+      _buildSection('CARBS', LucideIcons.wheat, 'carb', _carbs),
+      const SizedBox(height: Spacing.s12),
+      _buildSection('VEGGIES', LucideIcons.salad, 'veggie', _veggies),
+      const SizedBox(height: Spacing.s12),
       _buildOilSection(),
-      const SizedBox(height: 12),
+      const SizedBox(height: Spacing.s12),
       _buildAlcoholSection(),
     ]);
   }
 
-  Widget _buildSection(String label, Color accent, IconData icon, String cat, List<_FoodRow> rows) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: neonBox(accent),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Icon(icon, color: accent, size: 18),
-          const SizedBox(width: 8),
-          Text(label, style: neonLabel(accent)),
-        ]),
-        const SizedBox(height: 8),
-        ...rows.asMap().entries.map((e) => _FoodRowWidget(
-          row: e.value,
-          foods: _foodsFor(cat),
-          onRemove: () { rows.removeAt(e.key); setState(() {}); },
-          onChanged: () => setState(() {}),
-          accent: accent,
-        )),
-        TextButton.icon(
-          onPressed: () => _addRow(cat),
-          icon: Icon(Icons.add, size: 16, color: accent),
-          label: Text('Add $label', style: TextStyle(color: accent, fontSize: 12)),
-          style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-        ),
+  Widget _buildSection(String label, IconData icon, String cat, List<_FoodRow> rows) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Icon(icon, color: AppColors.textSecondary, size: 16),
+        const SizedBox(width: Spacing.s8),
+        Text(label, style: AppText.caption),
       ]),
-    );
+      const SizedBox(height: Spacing.s8),
+      ...rows.asMap().entries.map((e) => _FoodRowWidget(
+        row: e.value,
+        foods: _foodsFor(cat),
+        onRemove: () { rows.removeAt(e.key); setState(() {}); },
+        onChanged: () => setState(() {}),
+      )),
+      TextButton.icon(
+        onPressed: () => _addRow(cat),
+        icon: const Icon(LucideIcons.plus, size: 16, color: AppColors.healthRed),
+        label: Text('Add ${label.toLowerCase()}',
+            style: AppText.bodyS.copyWith(color: AppColors.healthRed)),
+        style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+      ),
+    ]);
   }
 
   Widget _buildOilSection() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: neonBox(kOrange),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          const Icon(Icons.opacity, color: kOrange, size: 18),
-          const SizedBox(width: 8),
-          Text('OLIVE OIL SPRAY', style: neonLabel(kOrange)),
-        ]),
-        const SizedBox(height: 10),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [3, 5, 10, 20].map((s) {
-            final sel = _oilSprays == s;
-            return GestureDetector(
-              onTap: () => setState(() => _oilSprays = sel ? null : s),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: sel ? kOrange : kSurface,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: kOrange),
-                  boxShadow: sel ? [BoxShadow(color: kOrange.withValues(alpha: 0.4), blurRadius: 8)] : null,
-                ),
-                child: Text('$s×', style: TextStyle(color: sel ? kBg : kOrange, fontWeight: FontWeight.bold)),
-              ),
-            );
-          }).toList(),
-        ),
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        const Icon(LucideIcons.droplet, color: AppColors.textSecondary, size: 16),
+        const SizedBox(width: Spacing.s8),
+        Text('OLIVE OIL SPRAY', style: AppText.caption),
       ]),
-    );
+      const SizedBox(height: Spacing.s8),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [3, 5, 10, 20].map((s) {
+          final sel = _oilSprays == s;
+          return GestureDetector(
+            onTap: () => setState(() => _oilSprays = sel ? null : s),
+            child: AnimatedContainer(
+              duration: AppMotion.enter,
+              curve: Curves.easeOutCubic,
+              padding: const EdgeInsets.symmetric(
+                  horizontal: Spacing.s16, vertical: Spacing.s8),
+              decoration: BoxDecoration(
+                color: AppColors.surface1,
+                borderRadius: BorderRadius.circular(AppRadius.pill),
+                border: Border.all(
+                  color: sel ? AppColors.healthRed : AppColors.surface2,
+                  width: sel ? AppMotion.focusBorderWidth : 1,
+                ),
+                boxShadow:
+                    sel ? AppMotion.accentGlow(AppColors.healthRed) : null,
+              ),
+              child: Text('$s×',
+                  style: AppText.tabular(AppText.bodyS.copyWith(
+                      color: sel
+                          ? AppColors.healthRed
+                          : AppColors.textSecondary))),
+            ),
+          );
+        }).toList(),
+      ),
+    ]);
   }
 
   Widget _buildAlcoholSection() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: neonBox(kPurple),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          const Icon(Icons.local_bar, color: kPurple, size: 18),
-          const SizedBox(width: 8),
-          Text('ALCOHOL', style: neonLabel(kPurple)),
-        ]),
-        const SizedBox(height: 10),
-        Row(children: [
-          Expanded(
-            child: DropdownButtonFormField<String>(
-              value: _alcoholType,
-              isExpanded: true,
-              dropdownColor: kCard,
-              style: const TextStyle(color: kText, fontSize: 13),
-              hint: const Text('Select drink', style: TextStyle(color: kTextDim, fontSize: 13)),
-              decoration: InputDecoration(
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: kBorderDim)),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: kPurple)),
-                filled: true, fillColor: kSurface,
-              ),
-              items: FoodDatabase.alcoholOptions
-                  .map((a) => DropdownMenuItem(value: a.name, child: Text(a.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13))))
-                  .toList(),
-              onChanged: (v) => setState(() { _alcoholType = v; if (_alcoholQty == 0) _alcoholQty = 1; }),
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        const Icon(LucideIcons.wine, color: AppColors.textSecondary, size: 16),
+        const SizedBox(width: Spacing.s8),
+        Text('ALCOHOL', style: AppText.caption),
+      ]),
+      const SizedBox(height: Spacing.s8),
+      Row(children: [
+        Expanded(
+          child: DropdownButtonFormField<String>(
+            value: _alcoholType,
+            isExpanded: true,
+            dropdownColor: AppColors.surface3,
+            style: AppText.bodyS,
+            hint: Text('Select drink',
+                style:
+                    AppText.bodyS.copyWith(color: AppColors.textTertiary)),
+            decoration: const InputDecoration(
+              isDense: true,
+              contentPadding: EdgeInsets.symmetric(
+                  horizontal: Spacing.s12, vertical: Spacing.s8),
             ),
+            items: FoodDatabase.alcoholOptions
+                .map((a) => DropdownMenuItem(value: a.name, child: Text(a.name, overflow: TextOverflow.ellipsis)))
+                .toList(),
+            onChanged: (v) => setState(() { _alcoholType = v; if (_alcoholQty == 0) _alcoholQty = 1; }),
           ),
-          const SizedBox(width: 8),
-          Row(mainAxisSize: MainAxisSize.min, children: [
-            IconButton(
-              onPressed: _alcoholQty > 0 ? () => setState(() => _alcoholQty--) : null,
-              icon: const Icon(Icons.remove_circle_outline, size: 22, color: kPurple),
-              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-              padding: EdgeInsets.zero,
-            ),
-            SizedBox(width: 28, child: Text('$_alcoholQty', textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kText))),
-            IconButton(
-              onPressed: () => setState(() => _alcoholQty++),
-              icon: const Icon(Icons.add_circle_outline, size: 22, color: kPurple),
-              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-              padding: EdgeInsets.zero,
-            ),
-          ]),
+        ),
+        const SizedBox(width: Spacing.s8),
+        Row(mainAxisSize: MainAxisSize.min, children: [
+          IconButton(
+            onPressed: _alcoholQty > 0 ? () => setState(() => _alcoholQty--) : null,
+            icon: const Icon(LucideIcons.minusCircle,
+                size: 22, color: AppColors.textSecondary),
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            padding: EdgeInsets.zero,
+          ),
+          SizedBox(
+              width: 28,
+              child: Text('$_alcoholQty',
+                  textAlign: TextAlign.center,
+                  style: AppText.tabular(AppText.titleM))),
+          IconButton(
+            onPressed: () => setState(() => _alcoholQty++),
+            icon: const Icon(LucideIcons.plusCircle,
+                size: 22, color: AppColors.textSecondary),
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            padding: EdgeInsets.zero,
+          ),
         ]),
       ]),
-    );
+    ]);
   }
 
   Widget _buildTotals(NutrientInfo t) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: neonBox(kCyan),
-      child: Column(children: [
-        Text('TOTALS', style: neonLabel(kCyan, size: 15)),
-        const SizedBox(height: 10),
-        Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-          Expanded(child: _Chip('CAL', t.calories.toStringAsFixed(0), kCyan)),
-          Expanded(child: _Chip('PRO', '${t.protein.toStringAsFixed(1)}g', kNeonRed)),
-          Expanded(child: _Chip('CARB', '${t.carbohydrates.toStringAsFixed(1)}g', kNeonYellow)),
-          Expanded(child: _Chip('FAT', '${t.fat.toStringAsFixed(1)}g', kOrange)),
-        ]),
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text('TOTALS', style: AppText.caption),
+      const SizedBox(height: Spacing.s8),
+      Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+        Expanded(child: _Chip('CAL', t.calories.toStringAsFixed(0))),
+        Expanded(child: _Chip('PRO', '${t.protein.toStringAsFixed(1)}g')),
+        Expanded(child: _Chip('CARB', '${t.carbohydrates.toStringAsFixed(1)}g')),
+        Expanded(child: _Chip('FAT', '${t.fat.toStringAsFixed(1)}g')),
       ]),
-    );
+    ]);
   }
 }
 
@@ -557,9 +523,8 @@ class _FoodRowWidget extends StatefulWidget {
   final List<FoodItem> foods;
   final VoidCallback onRemove;
   final VoidCallback onChanged;
-  final Color accent;
 
-  const _FoodRowWidget({required this.row, required this.foods, required this.onRemove, required this.onChanged, required this.accent});
+  const _FoodRowWidget({required this.row, required this.foods, required this.onRemove, required this.onChanged});
 
   @override
   State<_FoodRowWidget> createState() => _FoodRowWidgetState();
@@ -580,48 +545,46 @@ class _FoodRowWidgetState extends State<_FoodRowWidget> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: Spacing.s8),
       child: Row(children: [
         Expanded(
           flex: 3,
           child: DropdownButtonFormField<FoodItem>(
             value: widget.row.food,
             isExpanded: true,
-            dropdownColor: kCard,
-            style: const TextStyle(color: kText, fontSize: 13),
-            decoration: InputDecoration(
+            dropdownColor: AppColors.surface3,
+            style: AppText.bodyS,
+            decoration: const InputDecoration(
               isDense: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: widget.accent.withValues(alpha: 0.4))),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: widget.accent)),
-              filled: true, fillColor: kSurface,
+              contentPadding: EdgeInsets.symmetric(
+                  horizontal: Spacing.s8, vertical: Spacing.s8),
             ),
-            items: widget.foods.map((f) => DropdownMenuItem(value: f, child: Text(f.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13)))).toList(),
+            items: widget.foods.map((f) => DropdownMenuItem(value: f, child: Text(f.name, overflow: TextOverflow.ellipsis))).toList(),
             onChanged: (f) { if (f != null) { setState(() => widget.row.food = f); widget.onChanged(); } },
           ),
         ),
-        const SizedBox(width: 6),
+        const SizedBox(width: Spacing.s8),
         SizedBox(
           width: 68,
           child: TextField(
             controller: _gramCtrl,
             keyboardType: TextInputType.number,
-            style: const TextStyle(color: kText, fontSize: 13),
+            style: AppText.tabular(AppText.bodyS),
             decoration: InputDecoration(
               suffixText: 'g',
-              suffixStyle: const TextStyle(color: kTextDim, fontSize: 12),
+              suffixStyle:
+                  AppText.bodyS.copyWith(color: AppColors.textTertiary),
               isDense: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: const BorderSide(color: kBorderDim)),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: widget.accent)),
-              filled: true, fillColor: kSurface,
+              contentPadding: const EdgeInsets.symmetric(
+                  horizontal: Spacing.s8, vertical: Spacing.s8),
             ),
             onChanged: (v) { widget.row.grams = double.tryParse(v) ?? widget.row.grams; widget.onChanged(); },
           ),
         ),
         IconButton(
           onPressed: widget.onRemove,
-          icon: const Icon(Icons.close, color: kNeonRed, size: 18),
+          icon: const Icon(LucideIcons.x,
+              color: AppColors.textTertiary, size: 18),
           constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
           padding: EdgeInsets.zero,
         ),
@@ -633,13 +596,12 @@ class _FoodRowWidgetState extends State<_FoodRowWidget> {
 class _Chip extends StatelessWidget {
   final String label;
   final String value;
-  final Color color;
-  const _Chip(this.label, this.value, this.color);
+  const _Chip(this.label, this.value);
 
   @override
   Widget build(BuildContext context) => Column(children: [
-    Text(label, style: const TextStyle(fontSize: 10, color: kTextDim)),
-    const SizedBox(height: 2),
-    Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color, shadows: textGlow(color))),
+    Text(label, style: AppText.caption),
+    const SizedBox(height: Spacing.s4),
+    Text(value, style: AppText.tabular(AppText.titleM)),
   ]);
 }

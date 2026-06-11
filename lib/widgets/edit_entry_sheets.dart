@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+
 import '../models/index.dart';
-import '../theme/app_theme.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_text_styles.dart';
 
 /// Opens a modal sheet to edit [meal]. Resolves to the edited [Meal]
 /// (same id/timestamp/portion) or null if the user cancels.
@@ -9,11 +13,6 @@ Future<Meal?> showEditMealSheet(BuildContext context, Meal meal) {
   return showModalBottomSheet<Meal>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: kSurface,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      side: BorderSide(color: kCyan, width: 1),
-    ),
     builder: (ctx) => Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
       child: _MealEditForm(meal: meal),
@@ -27,11 +26,6 @@ Future<Exercise?> showEditExerciseSheet(BuildContext context, Exercise exercise)
   return showModalBottomSheet<Exercise>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: kSurface,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      side: BorderSide(color: kPink, width: 1),
-    ),
     builder: (ctx) => Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
       child: _ExerciseEditForm(exercise: exercise),
@@ -105,29 +99,31 @@ class _MealEditFormState extends State<_MealEditForm> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(Spacing.s20),
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('EDIT MEAL', style: neonLabel(kCyan, size: 15)),
-        const SizedBox(height: 14),
-        _field(_name, 'Name', kCyan),
-        const SizedBox(height: 10),
+        Text('EDIT MEAL', style: AppText.caption),
+        const SizedBox(height: Spacing.s4),
+        Text(widget.meal.name,
+            style: AppText.titleM, maxLines: 2, overflow: TextOverflow.ellipsis),
+        const SizedBox(height: Spacing.s16),
+        _field(_name, 'Name'),
+        const SizedBox(height: Spacing.s12),
         Row(children: [
-          Expanded(child: _field(_cal, 'Calories', kCyan, number: true)),
-          const SizedBox(width: 8),
-          Expanded(child: _field(_pro, 'Protein g', kNeonRed, number: true)),
+          Expanded(child: _field(_cal, 'Calories', number: true)),
+          const SizedBox(width: Spacing.s8),
+          Expanded(child: _field(_pro, 'Protein g', number: true)),
         ]),
-        const SizedBox(height: 10),
+        const SizedBox(height: Spacing.s12),
         Row(children: [
-          Expanded(child: _field(_carb, 'Carbs g', kNeonYellow, number: true)),
-          const SizedBox(width: 8),
-          Expanded(child: _field(_fat, 'Fat g', kOrange, number: true)),
+          Expanded(child: _field(_carb, 'Carbs g', number: true)),
+          const SizedBox(width: Spacing.s8),
+          Expanded(child: _field(_fat, 'Fat g', number: true)),
         ]),
-        const SizedBox(height: 18),
+        const SizedBox(height: Spacing.s20),
         SizedBox(width: double.infinity, child: ElevatedButton.icon(
           onPressed: _save,
-          icon: const Icon(Icons.check),
+          icon: const Icon(LucideIcons.check, size: 18),
           label: const Text('SAVE CHANGES'),
-          style: ElevatedButton.styleFrom(backgroundColor: kCyan, foregroundColor: kBg),
         )),
       ]),
     );
@@ -191,67 +187,54 @@ class _ExerciseEditFormState extends State<_ExerciseEditForm> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(Spacing.s20),
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text('EDIT EXERCISE', style: neonLabel(kPink, size: 15)),
-        const SizedBox(height: 14),
-        _field(_name, 'Name', kPink),
-        const SizedBox(height: 10),
+        Text('EDIT EXERCISE', style: AppText.caption),
+        const SizedBox(height: Spacing.s4),
+        Text(widget.exercise.name,
+            style: AppText.titleM, maxLines: 2, overflow: TextOverflow.ellipsis),
+        const SizedBox(height: Spacing.s16),
+        _field(_name, 'Name'),
+        const SizedBox(height: Spacing.s12),
         Row(children: [
-          Expanded(child: _field(_duration, 'Duration min', kPink, number: true)),
-          const SizedBox(width: 8),
-          Expanded(child: _field(_burned, 'Burned kcal', kOrange, number: true)),
+          Expanded(child: _field(_duration, 'Duration min', number: true)),
+          const SizedBox(width: Spacing.s8),
+          Expanded(child: _field(_burned, 'Burned kcal', number: true)),
         ]),
-        const SizedBox(height: 10),
+        const SizedBox(height: Spacing.s12),
         DropdownButtonFormField<String>(
           initialValue: _intensity,
-          dropdownColor: kCard,
-          style: const TextStyle(color: kText, fontSize: 14),
-          decoration: _decoration('Intensity', kNeonGreen),
+          dropdownColor: AppColors.surface3,
+          style: AppText.bodyM,
+          decoration: const InputDecoration(labelText: 'Intensity', isDense: true),
           items: _intensities
               .map((i) => DropdownMenuItem(value: i, child: Text(i.toUpperCase())))
               .toList(),
           onChanged: (v) => setState(() => _intensity = v ?? _intensity),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: Spacing.s20),
         SizedBox(width: double.infinity, child: ElevatedButton.icon(
           onPressed: _save,
-          icon: const Icon(Icons.check),
+          icon: const Icon(LucideIcons.check, size: 18),
           label: const Text('SAVE CHANGES'),
-          style: ElevatedButton.styleFrom(backgroundColor: kPink, foregroundColor: kBg),
         )),
       ]),
     );
   }
 }
 
-// Shared field helpers (top-level so both forms can use them).
-InputDecoration _decoration(String label, Color accent) => InputDecoration(
-      labelText: label,
-      labelStyle: const TextStyle(color: kTextDim, fontSize: 13),
-      isDense: true,
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide(color: accent.withValues(alpha: 0.4)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide(color: accent),
-      ),
-      filled: true,
-      fillColor: kBg,
-    );
-
-Widget _field(TextEditingController c, String label, Color accent, {bool number = false}) {
+// Shared field helper (top-level so both forms can use it). Visuals come from
+// the app-level InputDecorationTheme (surface1 fill, healthRed focus border).
+Widget _field(TextEditingController c, String label, {bool number = false}) {
   return TextField(
     controller: c,
-    style: const TextStyle(color: kText, fontSize: 14),
+    style: number ? AppText.tabular(AppText.bodyM) : AppText.bodyM,
     keyboardType: number
         ? const TextInputType.numberWithOptions(decimal: true)
         : TextInputType.text,
     inputFormatters: number
         ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]
         : null,
-    decoration: _decoration(label, accent),
+    decoration: InputDecoration(labelText: label, isDense: true),
   );
 }

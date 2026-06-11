@@ -3,8 +3,13 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import '../../services/ai_service.dart';
-import '../../theme/app_theme.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_spacing.dart';
+import '../../theme/app_text_styles.dart';
+import '../../widgets/ui/shimmer_placeholder.dart';
+import '../../widgets/ui/status_pill.dart';
 
 /// Strict BYO API-key configuration: pick a provider + model, enter your key,
 /// and test it before it's saved. Keys live on-device only.
@@ -123,7 +128,8 @@ class _ApiKeyScreenState extends State<ApiKeyScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           TextButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Clear', style: TextStyle(color: kNeonRed))),
+              child: const Text('Clear',
+                  style: TextStyle(color: AppColors.statusMissed))),
         ],
       ),
     );
@@ -140,13 +146,13 @@ class _ApiKeyScreenState extends State<ApiKeyScreen> {
     final pk = ai.activeProviderKey;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('AI PROVIDER')),
+      appBar: AppBar(title: const Text('AI Provider')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(Spacing.s16),
         children: [
           // ── Active provider ────────────────────────────────────────────────
-          Text('ACTIVE PROVIDER', style: neonLabel(kCyan, size: 12)),
-          const SizedBox(height: 10),
+          Text('ACTIVE PROVIDER', style: AppText.caption),
+          const SizedBox(height: Spacing.s8),
           SizedBox(
             width: double.infinity,
             child: SegmentedButton<String>(
@@ -159,22 +165,22 @@ class _ApiKeyScreenState extends State<ApiKeyScreen> {
               onSelectionChanged: (s) => _onProviderChanged(s.first),
             ),
           ),
-          const SizedBox(height: 14),
-          Text('MODEL', style: neonLabel(kCyan, size: 12)),
-          const SizedBox(height: 6),
+          const SizedBox(height: Spacing.s16),
+          Text('MODEL', style: AppText.caption),
+          const SizedBox(height: Spacing.s8),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: Spacing.s12),
             decoration: BoxDecoration(
-              color: kSurface,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: kBorderDim),
+              color: AppColors.surface1,
+              borderRadius: BorderRadius.circular(AppRadius.r8),
+              border: Border.all(color: AppColors.surface2),
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
                 isExpanded: true,
-                dropdownColor: kCard,
+                dropdownColor: AppColors.surface3,
                 value: ai.activeModel,
-                style: const TextStyle(color: kText, fontSize: 14),
+                style: AppText.bodyM,
                 items: [
                   for (final m in ai.modelsFor(pk))
                     DropdownMenuItem(value: m, child: Text(m)),
@@ -184,72 +190,78 @@ class _ApiKeyScreenState extends State<ApiKeyScreen> {
             ),
           ),
 
-          const SizedBox(height: 28),
+          const SizedBox(height: Spacing.s32),
           // ── API key ────────────────────────────────────────────────────────
           Row(children: [
-            Text('API KEY', style: neonLabel(kCyan, size: 12)),
+            Text('API KEY', style: AppText.caption),
             const Spacer(),
-            _statusPill(configured),
+            StatusPill(
+              status: configured ? PillStatus.hit : PillStatus.inProgress,
+              label: configured ? 'Configured' : 'Not configured',
+            ),
           ]),
-          const SizedBox(height: 10),
+          const SizedBox(height: Spacing.s8),
           TextField(
             controller: _keyCtrl,
             obscureText: _obscure,
             autocorrect: false,
             enableSuggestions: false,
-            style: const TextStyle(color: kText, fontFamily: 'monospace'),
+            style: const TextStyle(
+                color: AppColors.textPrimary, fontFamily: 'monospace'),
             onChanged: (_) => _resetResult(),
             decoration: InputDecoration(
               hintText: 'Paste your ${_shortName[pk]} key',
-              filled: true,
-              fillColor: kSurface,
               suffixIcon: IconButton(
-                icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off, color: kTextDim),
+                icon: Icon(_obscure ? LucideIcons.eye : LucideIcons.eyeOff,
+                    size: 18, color: AppColors.textSecondary),
                 onPressed: () => setState(() => _obscure = !_obscure),
               ),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: Spacing.s8),
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
               onPressed: _pasteFromClipboard,
-              icon: const Icon(Icons.content_paste, size: 16, color: kCyan),
-              label: const Text('Paste from clipboard', style: TextStyle(color: kCyan)),
+              style: TextButton.styleFrom(
+                  foregroundColor: AppColors.healthRed),
+              icon: const Icon(LucideIcons.clipboard, size: 16),
+              label: const Text('Paste from clipboard'),
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: Spacing.s4),
           ValueListenableBuilder<TextEditingValue>(
             valueListenable: _keyCtrl,
             builder: (_, value, __) {
               final canTest = value.text.trim().isNotEmpty && !_testing;
               return SizedBox(
                 width: double.infinity,
-                child: ElevatedButton.icon(
+                child: OutlinedButton.icon(
                   onPressed: canTest ? _testKey : null,
-                  style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
                   icon: _testing
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.wifi_tethering, size: 18),
-                  label: Text(_testing ? 'TESTING…' : 'TEST KEY', style: const TextStyle(letterSpacing: 1.2)),
+                      ? const ShimmerPlaceholder.line(width: 16)
+                      : const Icon(LucideIcons.radioTower, size: 18),
+                  label: Text(_testing ? 'Testing…' : 'Test key'),
                 ),
               );
             },
           ),
           if (_lastMessage != null) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: Spacing.s8),
             _testResultRow(),
           ],
           if (configured) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: Spacing.s8),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
                 onPressed: _clearKey,
                 style: OutlinedButton.styleFrom(
-                    foregroundColor: kNeonRed, side: const BorderSide(color: kNeonRed)),
-                icon: const Icon(Icons.delete_outline, size: 18),
-                label: const Text('CLEAR KEY'),
+                    foregroundColor: AppColors.statusMissed,
+                    side: const BorderSide(
+                        color: AppColors.statusMissed, width: 1.5)),
+                icon: const Icon(LucideIcons.trash2, size: 18),
+                label: const Text('Clear key'),
               ),
             ),
           ],
@@ -261,31 +273,16 @@ class _ApiKeyScreenState extends State<ApiKeyScreen> {
     );
   }
 
-  Widget _statusPill(bool configured) {
-    final color = configured ? kNeonGreen : kNeonYellow;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color),
-      ),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(configured ? Icons.check_circle : Icons.warning_amber, size: 14, color: color),
-        const SizedBox(width: 6),
-        Text(configured ? 'Configured' : 'Not configured',
-            style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold)),
-      ]),
-    );
-  }
-
   Widget _testResultRow() {
     final ok = _lastOk == true;
-    final color = ok ? kNeonGreen : kNeonRed;
+    final color = ok ? AppColors.statusHit : AppColors.statusMissed;
     return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Icon(ok ? Icons.check_circle : Icons.cancel, color: color, size: 18),
-      const SizedBox(width: 8),
-      Expanded(child: Text(_lastMessage!, style: TextStyle(color: color, fontSize: 13))),
+      Icon(ok ? LucideIcons.checkCircle2 : LucideIcons.xCircle,
+          color: color, size: 18),
+      const SizedBox(width: Spacing.s8),
+      Expanded(
+          child: Text(_lastMessage!,
+              style: AppText.bodyS.copyWith(color: color))),
     ]);
   }
 
@@ -295,32 +292,35 @@ class _ApiKeyScreenState extends State<ApiKeyScreen> {
     if (!ok) messenger.showSnackBar(SnackBar(content: Text('Could not open $url')));
   }
 
-  static const _body = TextStyle(color: kText, fontSize: 13, height: 1.4);
+  TextStyle get _body =>
+      AppText.bodyM.copyWith(color: AppColors.textPrimary, height: 1.4);
 
   Widget _stepText(int n, String text) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 3),
+        padding: const EdgeInsets.symmetric(vertical: Spacing.s4 / 2),
         child: Text('$n. $text', style: _body),
       );
 
   Widget _stepLink(int n, String label, String url) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 3),
+        padding: const EdgeInsets.symmetric(vertical: Spacing.s4 / 2),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('$n. $label', style: _body),
           Padding(
-            padding: const EdgeInsets.only(left: 16, top: 3),
+            padding: const EdgeInsets.only(left: Spacing.s16, top: Spacing.s4),
             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Flexible(
                 child: SelectableText.rich(TextSpan(
                   text: url,
-                  style: const TextStyle(
-                      color: kAmber, decoration: TextDecoration.underline, fontSize: 12.5),
+                  style: AppText.bodyS.copyWith(
+                      color: AppColors.healthRed,
+                      decoration: TextDecoration.underline),
                   recognizer: TapGestureRecognizer()..onTap = () => _launch(url),
                 )),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: Spacing.s4),
               GestureDetector(
                 onTap: () => _launch(url),
-                child: const Icon(Icons.open_in_new, color: kAmber, size: 14),
+                child: const Icon(LucideIcons.externalLink,
+                    color: AppColors.healthRed, size: 14),
               ),
             ]),
           ),
@@ -328,9 +328,10 @@ class _ApiKeyScreenState extends State<ApiKeyScreen> {
       );
 
   Widget _footer(String note) => Padding(
-        padding: const EdgeInsets.only(top: 8),
+        padding: const EdgeInsets.only(top: Spacing.s8),
         child: Text(note,
-            style: const TextStyle(color: kTextDim, fontSize: 11.5, fontStyle: FontStyle.italic)),
+            style: AppText.caption
+                .copyWith(fontStyle: FontStyle.italic)),
       );
 
   Widget _providerCard({
@@ -339,22 +340,23 @@ class _ApiKeyScreenState extends State<ApiKeyScreen> {
     required List<Widget> children,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: Spacing.s8),
       child: ExpansionTile(
-        backgroundColor: kCard,
-        collapsedBackgroundColor: kCard,
-        iconColor: kAmber,
-        collapsedIconColor: kTextDim,
-        textColor: kAmber,
-        collapsedTextColor: kText,
+        backgroundColor: AppColors.surface1,
+        collapsedBackgroundColor: AppColors.surface1,
+        iconColor: AppColors.healthRed,
+        collapsedIconColor: AppColors.textSecondary,
+        textColor: AppColors.textPrimary,
+        collapsedTextColor: AppColors.textPrimary,
         shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10), side: const BorderSide(color: kAmber)),
+            borderRadius: BorderRadius.circular(AppRadius.r12)),
         collapsedShape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10), side: const BorderSide(color: kBorderDim)),
+            borderRadius: BorderRadius.circular(AppRadius.r12)),
         leading: Icon(icon),
-        title: Text(header, style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(header, style: AppText.titleM),
         expandedCrossAxisAlignment: CrossAxisAlignment.start,
-        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        childrenPadding:
+            const EdgeInsets.fromLTRB(Spacing.s16, 0, Spacing.s16, Spacing.s16),
         children: children,
       ),
     );
@@ -362,15 +364,15 @@ class _ApiKeyScreenState extends State<ApiKeyScreen> {
 
   Widget _instructionsSection(BuildContext context) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const SizedBox(height: 28),
-      const Divider(color: kBorderDim),
-      const SizedBox(height: 12),
-      Text('NEED A KEY?', style: neonLabel(kAmber, size: 14)),
-      const SizedBox(height: 4),
-      const Text('Pick a provider above, then follow its steps to create a key.',
-          style: TextStyle(color: kTextDim, fontSize: 12)),
-      const SizedBox(height: 14),
-      _providerCard(icon: Icons.auto_awesome, header: 'Google Gemini', children: [
+      const SizedBox(height: Spacing.s32),
+      const Divider(color: AppColors.surface2),
+      const SizedBox(height: Spacing.s12),
+      Text('NEED A KEY?', style: AppText.caption),
+      const SizedBox(height: Spacing.s4),
+      Text('Pick a provider above, then follow its steps to create a key.',
+          style: AppText.bodyM.copyWith(color: AppColors.textSecondary)),
+      const SizedBox(height: Spacing.s16),
+      _providerCard(icon: LucideIcons.sparkles, header: 'Google Gemini', children: [
         _stepLink(1, 'Open the API keys page:', 'https://aistudio.google.com/apikey'),
         _stepText(2, 'Sign in with your Google account.'),
         _stepText(3, 'Click "Create API key" → "Create API key in new project".'),
@@ -378,7 +380,7 @@ class _ApiKeyScreenState extends State<ApiKeyScreen> {
         _stepText(5, 'Paste it above and tap "Test key".'),
         _footer('Free tier: 60 requests/min, 1500/day on gemini-2.5-flash.'),
       ]),
-      _providerCard(icon: Icons.smart_toy, header: 'OpenAI', children: [
+      _providerCard(icon: LucideIcons.bot, header: 'OpenAI', children: [
         _stepLink(1, 'Open the API keys page:', 'https://platform.openai.com/api-keys'),
         _stepText(2, 'Sign in or create an OpenAI account.'),
         _stepText(3, 'Click "Create new secret key" — give it any name.'),
@@ -388,7 +390,7 @@ class _ApiKeyScreenState extends State<ApiKeyScreen> {
         _stepText(6, 'Paste the key above and tap "Test key".'),
         _footer('Pay-as-you-go. gpt-4o-mini is the cheapest option for meal analysis.'),
       ]),
-      _providerCard(icon: Icons.psychology, header: 'Anthropic Claude', children: [
+      _providerCard(icon: LucideIcons.brain, header: 'Anthropic Claude', children: [
         _stepLink(1, 'Open the API keys page:', 'https://console.anthropic.com/settings/keys'),
         _stepText(2, 'Sign in or create an Anthropic account.'),
         _stepText(3, 'Click "Create Key" — give it any name and select your workspace.'),

@@ -10,7 +10,10 @@ import '../services/backup_service.dart';
 import '../services/streak_warning_service.dart';
 import '../providers/auth_provider.dart';
 import '../providers/squad_provider.dart';
-import '../theme/app_theme.dart';
+import 'package:lucide_icons/lucide_icons.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_text_styles.dart';
 import 'settings/api_key_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -56,14 +59,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final choice = await showDialog<int>(
       context: context,
       builder: (ctx) => SimpleDialog(
-        backgroundColor: kSurface,
-        title: const Text('Streak warning time', style: TextStyle(color: kText, fontSize: 16)),
+        title: Text('Streak warning time', style: AppText.titleM),
         children: [
           for (final h in [-1, 20, 21, 22])
             SimpleDialogOption(
               onPressed: () => Navigator.pop(ctx, h),
-              child: Text(_hourLabel(h),
-                  style: TextStyle(color: h == _streakWarnHour ? kAmber : kText)),
+              child: Text(
+                _hourLabel(h),
+                style: AppText.bodyL.copyWith(
+                    color: h == _streakWarnHour
+                        ? AppColors.healthRed
+                        : AppColors.textPrimary),
+              ),
             ),
         ],
       ),
@@ -114,7 +121,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           TextButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Restore', style: TextStyle(color: kNeonRed))),
+              child: const Text('Restore',
+                  style: TextStyle(color: AppColors.statusMissed))),
         ],
       ),
     );
@@ -143,110 +151,136 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('SETTINGS')),
+      appBar: AppBar(title: const Text('Settings')),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(Spacing.s16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('AI PROVIDER', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 8),
+          Text('AI PROVIDER', style: AppText.caption),
+          const SizedBox(height: Spacing.s8),
           Consumer<AiService>(builder: (_, ai, __) {
             final configured = ai.hasValidKey;
-            return Container(
-              decoration: neonBox(configured ? kNeonGreen : kNeonYellow),
-              child: ListTile(
-                leading: Icon(configured ? Icons.smart_toy : Icons.warning_amber,
-                    color: configured ? kNeonGreen : kNeonYellow),
-                title: const Text('AI Provider', style: TextStyle(color: kText, fontSize: 15)),
-                subtitle: Text(
-                  configured
-                      ? 'Configured (${ai.displayNameFor(ai.activeProviderKey)} · ${ai.activeModel})'
-                      : 'Not configured — required for AI features',
-                  style: TextStyle(color: configured ? kTextDim : kNeonYellow, fontSize: 12),
-                ),
-                trailing: const Icon(Icons.chevron_right, color: kTextDim),
-                onTap: () => Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => const ApiKeyScreen())),
-              ),
+            return _SettingsRow(
+              icon: configured ? LucideIcons.bot : LucideIcons.alertTriangle,
+              iconColor: configured
+                  ? AppColors.textSecondary
+                  : AppColors.statusInProgress,
+              title: 'AI Provider',
+              subtitle: configured
+                  ? 'Configured (${ai.displayNameFor(ai.activeProviderKey)} · ${ai.activeModel})'
+                  : 'Not configured — required for AI features',
+              subtitleColor:
+                  configured ? null : AppColors.statusInProgress,
+              onTap: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const ApiKeyScreen())),
             );
           }),
-          const SizedBox(height: 32),
-          Text('DATA & BACKUP', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: neonBox(kCyan),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text(
-                'Export all meals, exercises, weight and goals to a JSON file you '
-                'can save or move to a new phone. Your API key is never included. '
-                'Importing replaces everything on this device.',
-                style: TextStyle(color: kTextDim, fontSize: 12, height: 1.4),
+          const SizedBox(height: Spacing.s32),
+          Text('DATA & BACKUP', style: AppText.caption),
+          const SizedBox(height: Spacing.s8),
+          Text(
+            'Export all meals, exercises, weight and goals to a JSON file you '
+            'can save or move to a new phone. Your API key is never included. '
+            'Importing replaces everything on this device.',
+            style: AppText.bodyM
+                .copyWith(color: AppColors.textSecondary, height: 1.4),
+          ),
+          const SizedBox(height: Spacing.s12),
+          Row(children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _exportBackup,
+                icon: const Icon(LucideIcons.upload, size: 18),
+                label: const Text('Export'),
               ),
-              const SizedBox(height: 12),
-              Row(children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _exportBackup,
-                    icon: const Icon(Icons.upload_file, size: 18),
-                    label: const Text('EXPORT'),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _importBackup,
-                    icon: const Icon(Icons.download, size: 18),
-                    label: const Text('IMPORT'),
-                  ),
-                ),
-              ]),
-            ]),
-          ),
-          const SizedBox(height: 32),
-          Text('NOTIFICATIONS', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 8),
-          Container(
-            decoration: neonBox(kAmber),
-            child: SwitchListTile(
-              activeThumbColor: kAmber,
-              title: const Text('Goal notifications', style: TextStyle(color: kText, fontSize: 15)),
-              subtitle: const Text('Morning brief at 8:00 and goal reminders',
-                  style: TextStyle(color: kTextDim, fontSize: 12)),
-              value: _goalNotifs,
-              onChanged: _setGoalNotifs,
             ),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            decoration: neonBox(kAmber),
-            child: ListTile(
-              leading: const Icon(Icons.local_fire_department, color: kAmber),
-              title: const Text('Streak warning', style: TextStyle(color: kText, fontSize: 15)),
-              subtitle: Text(
-                _streakWarnHour < 0
-                    ? 'Off'
-                    : 'Daily nudge at ${_hourLabel(_streakWarnHour)} if a squad streak is at risk',
-                style: const TextStyle(color: kTextDim, fontSize: 12)),
-              trailing: Text(_hourLabel(_streakWarnHour),
-                  style: const TextStyle(color: kAmber, fontWeight: FontWeight.bold)),
-              onTap: _pickStreakWarnTime,
+            const SizedBox(width: Spacing.s12),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _importBackup,
+                icon: const Icon(LucideIcons.download, size: 18),
+                label: const Text('Import'),
+              ),
             ),
+          ]),
+          const SizedBox(height: Spacing.s32),
+          Text('NOTIFICATIONS', style: AppText.caption),
+          const SizedBox(height: Spacing.s8),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            activeThumbColor: AppColors.healthRed,
+            title: Text('Goal notifications', style: AppText.bodyL),
+            subtitle: Text('Morning brief at 8:00 and goal reminders',
+                style: AppText.bodyM
+                    .copyWith(color: AppColors.textSecondary)),
+            value: _goalNotifs,
+            onChanged: _setGoalNotifs,
           ),
-          const SizedBox(height: 32),
-          Text('ABOUT', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: neonBox(kBorderDim),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Calorie Tracker v2.0', style: neonLabel(kCyan)),
-              const SizedBox(height: 8),
-              const Text('Track meals, meal preps, exercises, and weight.\nPowered by Google Gemini for nutrition advice.',
-                style: TextStyle(color: kTextDim, fontSize: 13, height: 1.5)),
-            ]),
+          const Divider(color: AppColors.surface2),
+          _SettingsRow(
+            icon: LucideIcons.flame,
+            title: 'Streak warning',
+            subtitle: _streakWarnHour < 0
+                ? 'Off'
+                : 'Daily nudge at ${_hourLabel(_streakWarnHour)} if a squad streak is at risk',
+            trailing: Text(
+              _hourLabel(_streakWarnHour),
+              style: AppText.tabular(
+                  AppText.bodyM.copyWith(color: AppColors.healthRed)),
+            ),
+            onTap: _pickStreakWarnTime,
+          ),
+          const SizedBox(height: Spacing.s32),
+          Text('ABOUT', style: AppText.caption),
+          const SizedBox(height: Spacing.s12),
+          Text('Calorie Tracker v2.0', style: AppText.titleM),
+          const SizedBox(height: Spacing.s8),
+          Text(
+            'Track meals, meal preps, exercises, and weight.\nPowered by Google Gemini for nutrition advice.',
+            style: AppText.bodyM
+                .copyWith(color: AppColors.textSecondary, height: 1.5),
           ),
         ]),
       ),
+    );
+  }
+}
+
+/// Canonical settings row: bodyL title, bodyM textSecondary subtitle, lucide
+/// chevron trailing, no card container (design/system.md settings pattern).
+class _SettingsRow extends StatelessWidget {
+  final IconData icon;
+  final Color? iconColor;
+  final String title;
+  final String? subtitle;
+  final Color? subtitleColor;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+
+  const _SettingsRow({
+    required this.icon,
+    this.iconColor,
+    required this.title,
+    this.subtitle,
+    this.subtitleColor,
+    this.trailing,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(icon, size: 20, color: iconColor ?? AppColors.textSecondary),
+      title: Text(title, style: AppText.bodyL),
+      subtitle: subtitle == null
+          ? null
+          : Text(subtitle!,
+              style: AppText.bodyM.copyWith(
+                  color: subtitleColor ?? AppColors.textSecondary)),
+      trailing: trailing ??
+          const Icon(LucideIcons.chevronRight,
+              size: 18, color: AppColors.textTertiary),
+      onTap: onTap,
     );
   }
 }
