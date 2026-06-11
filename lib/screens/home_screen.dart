@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../theme/app_colors.dart';
+import '../widgets/ui/section_nav.dart';
 import '../providers/meal_provider.dart';
 import '../providers/exercise_provider.dart';
 import '../providers/profile_provider.dart';
@@ -68,16 +71,24 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: _buildBody(),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.groups), label: 'Squads'),
-          BottomNavigationBarItem(icon: Icon(Icons.favorite), label: 'Health'),
-          BottomNavigationBarItem(icon: Icon(Icons.calendar_month), label: 'Calendar'),
-        ],
-        currentIndex: _selectedIndex,
-        onTap: (i) => setState(() => _selectedIndex = i),
+    // System chrome stays surface0 in every section; only the in-app accent
+    // (SectionAccent) shifts between rooms.
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: AppColors.surface0,
+        statusBarIconBrightness: Brightness.light,
+        systemNavigationBarColor: AppColors.surface0,
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
+      child: Scaffold(
+        body: SectionAccent(
+          color: AppSection.values[_selectedIndex].accent,
+          child: _buildBody(),
+        ),
+        bottomNavigationBar: SectionNav(
+          currentIndex: _selectedIndex,
+          onChanged: (i) => setState(() => _selectedIndex = i),
+        ),
       ),
     );
   }
