@@ -280,6 +280,50 @@ service cloud.firestore {
         allow delete: if isSignedIn()
           && (uid() == resource.data.fromUid || uid() == resource.data.toUid);
       }
+
+      // ── photos/{id}: Proof — instant photo sharing ──────────────────────────
+      // Visibility: a member reads a photo only when it isn't soft-deleted AND
+      // (it is published OR it is their own). The `published` boolean (mirrors
+      // publishedAt != null, flipped by the promoter function) is used instead
+      // of a publishedAt-null check so the squadmate query stays rules-
+      // expressible — Firestore can't gate an OR query, so the client runs two
+      // queries (published, and own) that each match one read-rule branch.
+      match /photos/{photoId} {
+        allow read: if isMemberOf(squadId)
+          && resource.data.deletedAt == null
+          && (resource.data.published == true || resource.data.uploadedByUid == uid());
+        // Create is always pending (published false, no publishedAt); promotion
+        // is function-only.
+        allow create: if isMemberOf(squadId)
+          && request.resource.data.uploadedByUid == uid()
+          && request.resource.data.published == false
+          && request.resource.data.publishedAt == null
+          && request.resource.data.deletedAt == null
+          && request.resource.data.storagePath is string;
+        // Owner soft-deletes (deletedAt only); ANY member may bump reactionCounts
+        // inside the reaction transaction. publishedAt/published/thumbStoragePath
+        // are function-only (admin SDK bypasses rules). Letting any member write
+        // reactionCounts is a tolerated tampering risk at personal-app scale.
+        allow update: if isMemberOf(squadId) && (
+          (resource.data.uploadedByUid == uid()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deletedAt']))
+          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactionCounts'])
+        );
+        allow delete: if false; // soft delete only
+      }
+
+      // ── photoReactions/{photoId_uid_emoji}: one-of-each per user per photo ───
+      // The composite id makes a duplicate physically impossible (the doc can't
+      // exist twice), so no transaction is needed at the rule layer.
+      match /photoReactions/{compositeId} {
+        allow read: if isMemberOf(squadId);
+        allow create: if isMemberOf(squadId)
+          && compositeId == request.resource.data.photoId + '_' + uid() + '_' + request.resource.data.emoji
+          && request.resource.data.fromUid == uid()
+          && request.resource.data.emoji in ['fire', 'flex', 'clap'];
+        allow update: if false;
+        allow delete: if resource.data.fromUid == uid();
+      }
     }
   }
 }

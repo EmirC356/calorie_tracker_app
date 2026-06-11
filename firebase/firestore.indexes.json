@@ -9,6 +9,54 @@
         { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "expiresAt", "order": "ASCENDING" }
       ]
+    },
+    {
+      "//": "Proof: promoter sweep across all squads' pending photos.",
+      "collectionGroup": "photos",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "published", "order": "ASCENDING" },
+        { "fieldPath": "deletedAt", "order": "ASCENDING" },
+        { "fieldPath": "pendingPublishAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "//": "Proof: published photos for a squad, newest first.",
+      "collectionGroup": "photos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "published", "order": "ASCENDING" },
+        { "fieldPath": "deletedAt", "order": "ASCENDING" },
+        { "fieldPath": "uploadedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "Proof: my own photos (incl. pending) for a squad, newest first.",
+      "collectionGroup": "photos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "uploadedByUid", "order": "ASCENDING" },
+        { "fieldPath": "deletedAt", "order": "ASCENDING" },
+        { "fieldPath": "uploadedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "//": "Proof: my reactions on a photo.",
+      "collectionGroup": "photoReactions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "photoId", "order": "ASCENDING" },
+        { "fieldPath": "fromUid", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "//": "Proof: reactors for one emoji on a photo.",
+      "collectionGroup": "photoReactions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "photoId", "order": "ASCENDING" },
+        { "fieldPath": "emoji", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

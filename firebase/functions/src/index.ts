@@ -26,6 +26,15 @@ export {scheduledBirthdayCheck} from "./birthdays";
 // Activity-feed nightly trim (keeps the latest 100 events per squad).
 export {scheduledActivityPrune} from "./feed_prune";
 
+// Proof — instant photo sharing (thumbnail, 60s-delayed publish, soft-delete
+// reap, reaction push). Deploy only after confirming the sharp dependency.
+export {
+  onPhotoCreated,
+  scheduledPhotoPromote,
+  onPhotoSoftDeleted,
+  onPhotoReactionCreated,
+} from "./photos";
+
 // Social/accountability functions (streak-loss + full-squad-day broadcasts,
 // ghost sweep + aggregate nudge, weekly retro). All push via sendSquadPush.
 export {

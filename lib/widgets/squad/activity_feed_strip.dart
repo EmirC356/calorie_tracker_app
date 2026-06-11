@@ -12,11 +12,11 @@ import '../ui/member_avatar.dart';
 
 /// Accent color for an event type (status colors + section accent).
 Color activityAccent(SquadActivity a) => switch (a.normalizedType) {
-      'goalHit' || 'pauseEnded' || 'fullSquadDay' => AppColors.statusHit,
+      'goalHit' || 'pauseEnded' || 'fullSquadDay' || 'goalProvedWithPhoto' => AppColors.statusHit,
       'streakBroken' => AppColors.statusMissed,
       'streakMilestone' || 'birthday' => AppColors.calendarAmber,
       'pauseStarted' => AppColors.statusPaused,
-      'memberLeft' => AppColors.textTertiary,
+      'memberLeft' || 'photoDeleted' => AppColors.textTertiary,
       _ => AppColors.squadBlue,
     };
 
@@ -42,6 +42,10 @@ const _typeLabels = {
   'fullSquadDay': 'Squad',
   'groupGoalHit': 'Squad',
   'birthday': 'Birthdays',
+  'photoShared': 'Photos',
+  'goalProvedWithPhoto': 'Photos',
+  'photoReaction': 'Photos',
+  'photoDeleted': 'Photos',
 };
 
 /// Compact one-line activity strip for the Today tab. Auto-cycles every 6s when

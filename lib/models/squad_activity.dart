@@ -93,6 +93,15 @@ class SquadActivity {
         return "🎯 Group goal hit: ${p['title'] ?? 'a group goal'}";
       case 'birthday':
         return "🎂 Today is $_actor's birthday";
+      case 'photoShared':
+        return '$_actor shared a photo';
+      case 'goalProvedWithPhoto':
+        return '$_actor proved "${p['title'] ?? 'a goal'}" with a photo';
+      case 'photoReaction':
+        final g = _reactionGlyphs[p['emoji']] ?? '👏';
+        return "$_actor sent $g on $_subject's photo";
+      case 'photoDeleted':
+        return '$_actor removed a photo';
       default:
         return p['text'] as String? ?? 'Squad activity';
     }
@@ -112,6 +121,10 @@ class SquadActivity {
         'fullSquadDay' => '🔥',
         'groupGoalHit' => '🎯',
         'birthday' => '🎂',
+        'photoShared' => '📸',
+        'goalProvedWithPhoto' => '✅',
+        'photoReaction' => _reactionGlyphs[payload['emoji']] ?? '👏',
+        'photoDeleted' => '🗑️',
         _ => '•',
       };
 }

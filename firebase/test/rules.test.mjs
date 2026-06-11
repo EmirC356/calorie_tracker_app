@@ -10,7 +10,7 @@ import {
   assertSucceeds,
 } from '@firebase/rules-unit-testing';
 import {
-  doc, getDoc, setDoc, updateDoc, arrayUnion, arrayRemove, setLogLevel,
+  doc, getDoc, setDoc, updateDoc, deleteDoc, arrayUnion, arrayRemove, setLogLevel,
   collection, query, where, getDocs, addDoc, writeBatch, increment,
 } from 'firebase/firestore';
 
@@ -48,6 +48,21 @@ await testEnv.withSecurityRulesDisabled(async (ctx) => {
     fromUid: 'owner', fromName: 'O', toUid: 'm1', payloadJson: '{}',
     createdAt: new Date(), expiresAt: new Date(Date.now() + week), status: 'pending',
   });
+
+  // Proof photos: a published one (m1), an owner pending one, a deleted one, and
+  // a published one reserved for the mutation tests, plus a seed reaction.
+  const photo = (over) => ({
+    uploadedByUid: 'm1', uploadedByName: 'M', storagePath: 'squads/s1/photos/x.jpg',
+    width: 100, height: 100, uploadedAt: new Date(), publishedAt: new Date(), published: true,
+    pendingPublishAt: new Date(), reactionCounts: { fire: 0, flex: 0, clap: 0 }, deletedAt: null, ...over,
+  });
+  await setDoc(doc(db, 'squads/s1/photos/p_pub'), photo());
+  await setDoc(doc(db, 'squads/s1/photos/p_pend_owner'),
+    photo({ uploadedByUid: 'owner', published: false, publishedAt: null, pendingPublishAt: new Date(Date.now() + 60000) }));
+  await setDoc(doc(db, 'squads/s1/photos/p_del'), photo({ deletedAt: new Date() }));
+  await setDoc(doc(db, 'squads/s1/photos/p_upd'), photo({ uploadedByUid: 'owner' }));
+  await setDoc(doc(db, 'squads/s1/photoReactions/p_pub_owner_fire'),
+    { photoId: 'p_pub', fromUid: 'owner', fromName: 'O', emoji: 'fire', createdAt: new Date() });
 });
 
 const owner = testEnv.authenticatedContext('owner').firestore();
@@ -226,6 +241,51 @@ await check('squadmate CAN read a birthday event (readerUids)',
 await check('outsider CANNOT read a birthday event',
   assertFails(getDoc(doc(outsider, 'users/m1/goalsVisible/birthday_06-09'))));
 
+// ── Proof: photo visibility + write rules ─────────────────────────────────────
+await check('member CAN read a published, non-deleted photo',
+  assertSucceeds(getDoc(doc(member, 'squads/s1/photos/p_pub'))));
+await check('non-member CANNOT read a published photo',
+  assertFails(getDoc(doc(outsider, 'squads/s1/photos/p_pub'))));
+await check("member CANNOT read another member's PENDING photo",
+  assertFails(getDoc(doc(member, 'squads/s1/photos/p_pend_owner'))));
+await check('uploader CAN read their own pending photo',
+  assertSucceeds(getDoc(doc(owner, 'squads/s1/photos/p_pend_owner'))));
+await check('member CANNOT read a soft-deleted photo',
+  assertFails(getDoc(doc(member, 'squads/s1/photos/p_del'))));
+
+await check('photo create with published:true is rejected',
+  assertFails(setDoc(doc(member, 'squads/s1/photos/p_new1'),
+    { uploadedByUid: 'm1', published: true, publishedAt: new Date(), deletedAt: null, storagePath: 'x' })));
+await check('valid pending photo create succeeds',
+  assertSucceeds(setDoc(doc(member, 'squads/s1/photos/p_new2'),
+    { uploadedByUid: 'm1', published: false, publishedAt: null, deletedAt: null, storagePath: 'x' })));
+
+await check('member CAN bump reactionCounts only',
+  assertSucceeds(updateDoc(doc(member, 'squads/s1/photos/p_upd'),
+    { reactionCounts: { fire: 1, flex: 0, clap: 0 } })));
+await check('updating a non-allowed field (storagePath) is rejected',
+  assertFails(updateDoc(doc(owner, 'squads/s1/photos/p_upd'), { storagePath: 'y' })));
+await check('hard delete of a photo is rejected (soft delete only)',
+  assertFails(deleteDoc(doc(owner, 'squads/s1/photos/p_upd'))));
+await check('owner CAN soft-delete (deletedAt only)',
+  assertSucceeds(updateDoc(doc(owner, 'squads/s1/photos/p_upd'), { deletedAt: new Date() })));
+
+await check('valid reaction create succeeds',
+  assertSucceeds(setDoc(doc(member, 'squads/s1/photoReactions/p_pub_m1_flex'),
+    { photoId: 'p_pub', fromUid: 'm1', fromName: 'M', emoji: 'flex', createdAt: new Date() })));
+await check('reaction with mismatched composite id is rejected',
+  assertFails(setDoc(doc(member, 'squads/s1/photoReactions/wrong_id'),
+    { photoId: 'p_pub', fromUid: 'm1', emoji: 'fire', createdAt: new Date() })));
+await check('reaction with an invalid emoji is rejected',
+  assertFails(setDoc(doc(member, 'squads/s1/photoReactions/p_pub_m1_nope'),
+    { photoId: 'p_pub', fromUid: 'm1', emoji: 'nope', createdAt: new Date() })));
+await check('non-member CANNOT react',
+  assertFails(setDoc(doc(outsider, 'squads/s1/photoReactions/p_pub_out_fire'),
+    { photoId: 'p_pub', fromUid: 'out', emoji: 'fire', createdAt: new Date() })));
+await check('double-react (overwrite existing reaction doc) is rejected',
+  assertFails(setDoc(doc(owner, 'squads/s1/photoReactions/p_pub_owner_fire'),
+    { photoId: 'p_pub', fromUid: 'owner', fromName: 'O', emoji: 'fire', createdAt: new Date() })));
+
 await testEnv.cleanup();
 console.log(`\nALL ${n} RULES TESTS PASSED`);
-assert(n === 65);
+assert(n === 81);

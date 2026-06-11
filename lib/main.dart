@@ -15,6 +15,7 @@ import 'providers/auth_provider.dart';
 import 'providers/squad_provider.dart';
 import 'providers/snapshot_provider.dart';
 import 'providers/activity_feed_provider.dart';
+import 'providers/photo_provider.dart';
 import 'providers/goal_provider.dart';
 import 'screens/auth_gate.dart';
 import 'services/ai_service.dart';
@@ -94,6 +95,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => SquadProvider(), lazy: false),
         ChangeNotifierProvider(create: (_) => SnapshotProvider(), lazy: false),
         ChangeNotifierProvider(create: (_) => ActivityFeedProvider()),
+        ChangeNotifierProvider(create: (_) => PhotoProvider()),
       ],
       child: MaterialApp(
         title: 'Lanabuzer',

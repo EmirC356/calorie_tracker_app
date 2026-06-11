@@ -1,0 +1,35 @@
+rules_version = '2';
+
+// Firebase Storage rules for the Proof feature (instant photo sharing).
+// Full images are uploaded by squad members; 400×400 thumbnails are written
+// ONLY by the thumbnail Cloud Function (admin/service identity bypasses rules).
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() { return request.auth != null; }
+
+    // Reads the squad doc from Firestore to check membership (same trust model
+    // as the Firestore rules).
+    function isSquadMember(squadId) {
+      return isSignedIn()
+        && request.auth.uid in
+           firestore.get(/databases/(default)/documents/squads/$(squadId)).data.memberUids;
+    }
+
+    // Full proof image — squad members read; uploader (tagged in custom
+    // metadata) writes, ≤5 MB, image/* only.
+    match /squads/{squadId}/photos/{photoId} {
+      allow read: if isSquadMember(squadId);
+      allow write: if isSquadMember(squadId)
+        && request.auth.uid == request.resource.metadata.uploadedByUid
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Generated thumbnail — members read; only the Cloud Function writes.
+    match /squads/{squadId}/thumbs/{photoId} {
+      allow read: if isSquadMember(squadId);
+      allow write: if false;
+    }
+  }
+}
