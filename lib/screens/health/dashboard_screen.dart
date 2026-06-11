@@ -12,7 +12,6 @@ import '../../theme/app_motion.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_text_styles.dart';
 import '../../widgets/dashboard_charts.dart';
-import '../../widgets/ui/section_nav.dart';
 import '../../widgets/ui/ui.dart';
 import '../exercise_logging_screen.dart';
 import '../exercise_logs_screen.dart';

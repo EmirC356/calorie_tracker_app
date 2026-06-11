@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../models/index.dart';
-import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_text_styles.dart';
 import 'calendar_status.dart';

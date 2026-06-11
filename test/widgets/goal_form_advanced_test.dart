@@ -8,24 +8,25 @@ void main() {
       (tester) async {
     await tester.pumpWidget(MaterialApp(home: GoalFormScreen(onSubmit: (_) async {})));
 
-    // Simple zone shows Title / Color / Recurrence, but not the advanced fields.
-    expect(find.text('Color'), findsOneWidget);
-    expect(find.text('Recurrence'), findsOneWidget);
-    expect(find.text('Priority'), findsNothing);
-    expect(find.text('Goal type'), findsNothing);
+    // Simple zone shows Title / Color / Recurrence, but not the advanced
+    // fields. Field labels render in the uppercase caption style.
+    expect(find.text('COLOR'), findsOneWidget);
+    expect(find.text('RECURRENCE'), findsOneWidget);
+    expect(find.text('PRIORITY'), findsNothing);
+    expect(find.text('GOAL TYPE'), findsNothing);
     expect(find.text('More options'), findsOneWidget);
 
     // Expand.
     await tester.tap(find.text('More options'));
     await tester.pumpAndSettle();
     expect(find.text('Fewer options'), findsOneWidget);
-    expect(find.text('Priority'), findsOneWidget);
-    expect(find.text('Goal type'), findsOneWidget);
+    expect(find.text('PRIORITY'), findsOneWidget);
+    expect(find.text('GOAL TYPE'), findsOneWidget);
 
     // Collapse again.
     await tester.tap(find.text('Fewer options'));
     await tester.pumpAndSettle();
-    expect(find.text('Priority'), findsNothing);
+    expect(find.text('PRIORITY'), findsNothing);
   });
 
   testWidgets('saving with only the simple fields applies the documented defaults',

@@ -22,7 +22,7 @@ void main() {
     await tester.pumpWidget(wrap(ai));
 
     expect(find.text('Not configured'), findsOneWidget);
-    expect(find.text('CLEAR KEY'), findsNothing);
+    expect(find.text('Clear key'), findsNothing);
   });
 
   testWidgets('successful test flips pill to Configured and reveals Clear', (tester) async {
@@ -40,12 +40,12 @@ void main() {
     await tester.pumpWidget(wrap(ai));
     await tester.enterText(find.byType(TextField), 'AIzaGOODKEY');
     await tester.pump();
-    await tester.tap(find.text('TEST KEY'));
+    await tester.tap(find.text('Test key'));
     await tester.pumpAndSettle();
 
     expect(ai.hasValidKey, isTrue);
     expect(find.text('Configured'), findsOneWidget);
-    expect(find.text('CLEAR KEY'), findsOneWidget);
+    expect(find.text('Clear key'), findsOneWidget);
     expect(find.text('Key works'), findsWidgets);
   });
 
@@ -57,7 +57,7 @@ void main() {
     await tester.pumpWidget(wrap(ai));
     await tester.enterText(find.byType(TextField), 'AIzaBADKEY');
     await tester.pump();
-    await tester.tap(find.text('TEST KEY'));
+    await tester.tap(find.text('Test key'));
     await tester.pumpAndSettle();
 
     expect(ai.hasValidKey, isFalse);

@@ -83,6 +83,7 @@ class _CommentThreadState extends State<CommentThread> {
             onTap: () => Navigator.pop(ctx, 'delete')),
       ]),
     );
+    if (!mounted) return;
     if (action == 'delete') {
       await service.deleteComment(widget.squadId, widget.dateKey, c.id);
     } else if (action == 'edit') {

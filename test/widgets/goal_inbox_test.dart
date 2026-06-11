@@ -37,12 +37,13 @@ void main() {
         onDismiss: (_) {},
       ),
     );
-    expect(find.text('Alex suggested a goal'), findsOneWidget);
+    // Header renders in the uppercase caption style.
+    expect(find.text('ALEX SUGGESTED A GOAL'), findsOneWidget);
     expect(find.text('Gym 3x/week'), findsOneWidget);
     expect(find.textContaining('3× per week'), findsOneWidget);
-    expect(find.text('ACCEPT'), findsOneWidget);
-    expect(find.text('REJECT'), findsOneWidget);
-    expect(find.text('DISMISS'), findsOneWidget);
+    expect(find.text('Accept'), findsOneWidget);
+    expect(find.text('Reject'), findsOneWidget);
+    expect(find.text('Dismiss'), findsOneWidget);
   });
 
   testWidgets('Accept / Reject / Dismiss fire their callbacks', (tester) async {
@@ -56,11 +57,11 @@ void main() {
         onDismiss: (s) => dismissed = s,
       ),
     );
-    await tester.tap(find.text('ACCEPT'));
+    await tester.tap(find.text('Accept'));
     expect(accepted?.id, 'sug1');
-    await tester.tap(find.text('REJECT'));
+    await tester.tap(find.text('Reject'));
     expect(rejected?.id, 'sug1');
-    await tester.tap(find.text('DISMISS'));
+    await tester.tap(find.text('Dismiss'));
     expect(dismissed?.id, 'sug1');
   });
 

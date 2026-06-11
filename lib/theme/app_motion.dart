@@ -39,7 +39,7 @@ class AppMotion {
   /// Exit transitions.
   static const Duration exit = Duration(milliseconds: 160);
 
-  /// Number "ticker" — TweenAnimationBuilder<double> over stat changes.
+  /// Number "ticker" — `TweenAnimationBuilder<double>` over stat changes.
   static const Duration numberTicker = Duration(milliseconds: 600);
   static const Curve numberTickerCurve = Curves.easeOutCubic;
 

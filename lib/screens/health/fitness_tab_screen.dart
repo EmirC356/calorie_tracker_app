@@ -11,7 +11,6 @@ import '../../theme/app_spacing.dart';
 import '../../theme/app_text_styles.dart';
 import '../../widgets/date_nav_bar.dart';
 import '../../widgets/edit_entry_sheets.dart';
-import '../../widgets/ui/section_nav.dart';
 import '../../widgets/ui/ui.dart';
 import '../../widgets/undo_delete.dart';
 import '../exercise_logging_screen.dart';

@@ -462,7 +462,7 @@ class _LogMealScreenState extends State<LogMealScreen> {
       Row(children: [
         Expanded(
           child: DropdownButtonFormField<String>(
-            value: _alcoholType,
+            initialValue: _alcoholType,
             isExpanded: true,
             dropdownColor: AppColors.surface3,
             style: AppText.bodyS,
@@ -552,7 +552,7 @@ class _FoodRowWidgetState extends State<_FoodRowWidget> {
         Expanded(
           flex: 3,
           child: DropdownButtonFormField<FoodItem>(
-            value: widget.row.food,
+            initialValue: widget.row.food,
             isExpanded: true,
             dropdownColor: AppColors.surface3,
             style: AppText.bodyS,
