@@ -51,6 +51,12 @@ dependencies:
   fl_chart: ^0.67.0
   http: ^1.2.0
 
+  # Design system (athletic-editorial refactor)
+  google_fonts: ^6.2.1
+  lucide_icons: ^0.257.0
+  flutter_staggered_animations: ^1.1.1
+  shimmer: ^3.0.0
+
   # Backup export/import (share sheet + file pick)
   share_plus: ^10.1.2
   file_picker: ^8.1.4

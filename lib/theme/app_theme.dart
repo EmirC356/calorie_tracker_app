@@ -1,33 +1,51 @@
 import 'package:flutter/material.dart';
 
-// ── "Furnace" palette ────────────────────────────────────────────────────────
-// Really-dark neutral gray base, a single confident scarlet red as the primary
-// accent (matches the flame logo), and white + grays for hierarchy.
-const kBg = Color(0xFF0C0C0D); // app background — near-black neutral gray
-const kSurface = Color(0xFF161617); // app bars, inputs
-const kCard = Color(0xFF1C1C1E); // cards, sheets
-const kBorderDim = Color(0xFF2A2A2D);
+import 'app_colors.dart';
+import 'app_motion.dart';
+import 'app_spacing.dart';
+import 'app_text_styles.dart';
 
-const kText = Color(0xFFF4F4F5); // near-white body text
-const kTextDim = Color(0xFF8A8A90); // muted labels
-const kWhite = Color(0xFFFFFFFF); // sparing high-emphasis accent
+export 'app_colors.dart';
+export 'app_motion.dart';
+export 'app_spacing.dart';
+export 'app_text_styles.dart';
 
-// Primary accent + a deeper shade for shadows/secondary emphasis.
-const kRed = Color(0xFFE5342E);
-const kRedDeep = Color(0xFFB3271F);
+// ─────────────────────────────────────────────────────────────────────────────
+// DEPRECATED — legacy "furnace" palette aliases.
+//
+// The app moved to the athletic-editorial token system (design/system.md):
+// AppColors / AppText / Spacing / AppMotion. These aliases keep existing
+// feature code compiling while screens are migrated phase by phase; they map
+// each furnace identifier onto its nearest semantic token. New code must use
+// the token classes directly. Remove this block once no screen references it.
+// ─────────────────────────────────────────────────────────────────────────────
+const kBg = AppColors.surface0; // app background
+const kSurface = AppColors.surface1; // app bars, inputs
+const kCard = AppColors.surface2; // cards, sheets (nearest rung on the ladder)
+const kBorderDim = AppColors.divider;
 
-// Squad (cloud/social) section accent — navy blue, distinct from the red
-// primary, readable on the near-black base.
-const kNavy = Color(0xFF4A6CF7);
+const kText = AppColors.textPrimary;
+const kTextDim = AppColors.textSecondary;
+const kWhite = AppColors.textPrimary; // no pure white in the new system
 
-// Calendar / Goals section accent — amber. Distinct from the red primary and
-// the navy Squad accent, so the Goals surface reads as its own area.
-const kAmber = Color(0xFFF5A524);
+const kRed = AppColors.healthRed; // Health room accent
+const kRedDeep = AppColors.healthRed;
 
-// Curated category palette for Goals. Each hue is chosen to sit clearly against
-// the near-black furnace base (kBg); contrast is tightened in Phase 9. Used for
-// goal chips and the Calendar legend.
-const kCatHealth = kAmber; // amber
+const kNavy = AppColors.squadBlue; // Squad room accent
+const kAmber = AppColors.calendarAmber; // Calendar room accent
+
+const kCyan = AppColors.healthRed; // former primary
+const kNeonRed = AppColors.statusMissed; // delete / error
+const kPink = AppColors.healthRed; // fitness / exercise
+const kNeonGreen = AppColors.statusHit; // success / positive
+const kNeonYellow = AppColors.calendarAmber; // carbs
+const kOrange = AppColors.textTertiary; // fat / oil / burned
+const kPurple = AppColors.textTertiary; // alcohol / advisor
+
+const kStreakGold = AppColors.streakGold;
+
+// ── Goal category palette (functional, re-toned onto the new tokens) ─────────
+const kCatHealth = AppColors.calendarAmber;
 const kCatStudy = Color(0xFF4A90E2); // blue
 const kCatHome = Color(0xFF4CC38A); // green
 const kCatPersonal = Color(0xFFB57EDC); // lavender
@@ -35,9 +53,9 @@ const kCatCustom = Color(0xFF9AA0A6); // neutral gray
 
 /// Curated 8-color goal palette offered in the color picker. Each is a light/
 /// saturated hue with high relative luminance, so it clears the WCAG AA 4.5:1
-/// contrast ratio against the near-black furnace base (kBg ≈ #0C0C0D).
+/// contrast ratio against the app background (surface0 ≈ #0A0A0B).
 const kGoalPalette = <Color>[
-  kAmber, // amber
+  AppColors.calendarAmber, // amber
   Color(0xFF4A90E2), // blue
   Color(0xFF4CC38A), // green
   Color(0xFFB57EDC), // lavender
@@ -63,145 +81,210 @@ Color goalCategoryColor(String categoryName) {
   }
 }
 
-// ── Legacy aliases ───────────────────────────────────────────────────────────
-// The screens were built against the old cyberpunk constant names. They are
-// remapped here onto the red / white / gray system so the whole app restyles
-// from this one file. New code should prefer kRed / kWhite / the grays.
-const kCyan = kRed; // former primary (dashboard, meals, primary buttons)
-const kNeonRed = Color(0xFFFF453A); // delete / error / protein — brighter red
-const kPink = Color(0xFFFF6B66); // fitness / exercise — light red
-const kNeonGreen = Color(0xFFEDEDEF); // success / weight / positive — white
-const kNeonYellow = Color(0xFFE6E6EA); // carbs — near-white
-const kOrange = Color(0xFF8E8E94); // fat / oil / burned — mid gray
-const kPurple = Color(0xFF6E6E76); // alcohol / advisor — gray
-
-// ── Decoration helpers ───────────────────────────────────────────────────────
-BoxDecoration neonBox(Color accent, {double radius = 12, Color bg = kCard}) =>
+// ── DEPRECATED decoration helpers ─────────────────────────────────────────────
+// Re-toned onto the new focus rule (1.5px accent border + 18% glow) so legacy
+// screens soften immediately. New code uses AppMotion.accentGlow + explicit
+// borders; these go away as Phases 3–5 migrate the screens.
+BoxDecoration neonBox(Color accent, {double radius = AppRadius.r12, Color bg = AppColors.surface1}) =>
     BoxDecoration(
       color: bg,
       borderRadius: BorderRadius.circular(radius),
       border: Border.all(color: accent.withValues(alpha: 0.45), width: 1),
-      boxShadow: [
-        BoxShadow(color: accent.withValues(alpha: 0.10), blurRadius: 9, spreadRadius: 0),
-      ],
+      boxShadow: AppMotion.accentGlow(accent),
     );
 
 List<Shadow> textGlow(Color c) => [
-      Shadow(color: c.withValues(alpha: 0.45), blurRadius: 6),
       Shadow(color: c.withValues(alpha: 0.18), blurRadius: 12),
     ];
 
-TextStyle neonLabel(Color c, {double size = 13, FontWeight w = FontWeight.w700}) =>
-    TextStyle(color: c, fontSize: size, fontWeight: w, letterSpacing: 0.6, shadows: textGlow(c));
+TextStyle neonLabel(Color c, {double size = 13, FontWeight w = FontWeight.w600}) =>
+    AppText.bodyS.copyWith(color: c, fontSize: size, fontWeight: w);
 
 // ── Theme ────────────────────────────────────────────────────────────────────
+
+/// The app theme — dark only, built entirely from the design-system tokens.
+/// Canon: design/system.md. Cards get depth from the surface ladder (no
+/// borders, no shadows); accents appear only on CTAs, focus borders, and
+/// active indicators.
 ThemeData buildAppTheme() {
+  final buttonShape =
+      RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.r8));
+  final buttonTextStyle = AppText.bodyL.copyWith(fontWeight: FontWeight.w600);
+
   return ThemeData(
     brightness: Brightness.dark,
-    scaffoldBackgroundColor: kBg,
+    scaffoldBackgroundColor: AppColors.surface0,
     colorScheme: const ColorScheme.dark(
-      primary: kRed,
-      onPrimary: kBg,
-      secondary: kWhite,
-      surface: kSurface,
-      error: kNeonRed,
+      primary: AppColors.healthRed,
+      onPrimary: AppColors.surface0,
+      secondary: AppColors.squadBlue,
+      onSecondary: AppColors.surface0,
+      tertiary: AppColors.calendarAmber,
+      onTertiary: AppColors.surface0,
+      surface: AppColors.surface1,
+      onSurface: AppColors.textPrimary,
+      surfaceContainerHighest: AppColors.surface2,
+      outline: AppColors.divider,
+      error: AppColors.statusMissed,
+      onError: AppColors.textPrimary,
     ),
-    appBarTheme: const AppBarTheme(
-      backgroundColor: kSurface,
-      foregroundColor: kRed,
+    textTheme: TextTheme(
+      displayLarge: AppText.displayXL,
+      displayMedium: AppText.displayL,
+      displaySmall: AppText.displayM,
+      headlineMedium: AppText.displayL,
+      headlineSmall: AppText.displayM,
+      titleLarge: AppText.titleL,
+      titleMedium: AppText.titleM,
+      bodyLarge: AppText.bodyL,
+      bodyMedium: AppText.bodyM,
+      bodySmall: AppText.bodyS.copyWith(color: AppColors.textSecondary),
+      labelLarge: AppText.bodyS,
+      labelMedium: AppText.bodyS.copyWith(color: AppColors.textSecondary),
+      labelSmall: AppText.caption,
+    ),
+    appBarTheme: AppBarTheme(
+      backgroundColor: AppColors.surface0,
+      foregroundColor: AppColors.textPrimary,
       elevation: 0,
+      scrolledUnderElevation: 0,
       centerTitle: false,
-      titleTextStyle: TextStyle(
-        color: kRed,
-        fontSize: 18,
-        fontWeight: FontWeight.bold,
-        letterSpacing: 1.4,
-        shadows: [Shadow(color: kRed, blurRadius: 6)],
-      ),
-      iconTheme: IconThemeData(color: kRed),
+      titleTextStyle: AppText.titleL,
+      iconTheme: const IconThemeData(color: AppColors.textPrimary),
     ),
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-      backgroundColor: kSurface,
-      selectedItemColor: kRed,
-      unselectedItemColor: kTextDim,
+      backgroundColor: AppColors.surface0,
+      selectedItemColor: AppColors.textPrimary,
+      unselectedItemColor: AppColors.textSecondary,
       type: BottomNavigationBarType.fixed,
       elevation: 0,
     ),
     cardTheme: CardThemeData(
-      color: kCard,
+      color: AppColors.surface1,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: const BorderSide(color: kBorderDim, width: 1),
+        borderRadius: BorderRadius.circular(AppRadius.r12),
       ),
       elevation: 0,
+      margin: const EdgeInsets.symmetric(
+          horizontal: Spacing.s16, vertical: Spacing.s8),
+    ),
+    chipTheme: ChipThemeData(
+      backgroundColor: AppColors.surface2,
+      selectedColor: AppColors.surface2,
+      disabledColor: AppColors.surface1,
+      labelStyle: AppText.bodyS,
+      secondaryLabelStyle: AppText.bodyS.copyWith(color: AppColors.textSecondary),
+      padding: const EdgeInsets.symmetric(
+          horizontal: Spacing.s8, vertical: Spacing.s4),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.r8),
+      ),
+      side: BorderSide.none,
+      showCheckmark: false,
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        backgroundColor: kRed,
-        foregroundColor: kWhite,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-        textStyle:
-            const TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.8),
+        backgroundColor: AppColors.healthRed,
+        foregroundColor: AppColors.surface0,
+        disabledBackgroundColor: AppColors.surface2,
+        disabledForegroundColor: AppColors.textDisabled,
+        elevation: 0,
+        shadowColor: Colors.transparent,
+        shape: buttonShape,
+        textStyle: buttonTextStyle,
+        padding: const EdgeInsets.symmetric(
+            horizontal: Spacing.s20, vertical: Spacing.s12),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        foregroundColor: kRed,
-        side: const BorderSide(color: kRed),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+        foregroundColor: AppColors.healthRed,
+        disabledForegroundColor: AppColors.textDisabled,
+        side: const BorderSide(
+            color: AppColors.healthRed, width: AppMotion.focusBorderWidth),
+        shape: buttonShape,
+        textStyle: buttonTextStyle,
+        padding: const EdgeInsets.symmetric(
+            horizontal: Spacing.s20, vertical: Spacing.s12),
       ),
     ),
     textButtonTheme: TextButtonThemeData(
-      style: TextButton.styleFrom(foregroundColor: kRed),
+      style: TextButton.styleFrom(
+        foregroundColor: AppColors.textPrimary,
+        textStyle: buttonTextStyle,
+      ),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: kSurface,
-      labelStyle: const TextStyle(color: kTextDim),
-      hintStyle: const TextStyle(color: kTextDim),
+      fillColor: AppColors.surface1,
+      labelStyle: AppText.bodyM.copyWith(color: AppColors.textSecondary),
+      hintStyle: AppText.bodyM.copyWith(color: AppColors.textTertiary),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: kBorderDim),
+        borderRadius: BorderRadius.circular(AppRadius.r8),
+        borderSide: const BorderSide(color: AppColors.surface2),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: kRed, width: 1.5),
+        borderRadius: BorderRadius.circular(AppRadius.r8),
+        borderSide: const BorderSide(
+            color: AppColors.healthRed, width: AppMotion.focusBorderWidth),
       ),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppRadius.r8),
+        borderSide: const BorderSide(
+            color: AppColors.statusMissed, width: AppMotion.focusBorderWidth),
+      ),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppRadius.r8),
+      ),
     ),
-    textTheme: const TextTheme(
-      bodyMedium: TextStyle(color: kText),
-      bodyLarge: TextStyle(color: kText),
-      bodySmall: TextStyle(color: kTextDim),
-      titleMedium: TextStyle(color: kText, fontWeight: FontWeight.bold),
-      titleLarge: TextStyle(color: kText, fontWeight: FontWeight.bold),
-      headlineSmall: TextStyle(color: kRed, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+    dividerTheme: const DividerThemeData(
+      color: AppColors.divider,
+      thickness: 1,
+      space: 1,
     ),
-    dividerTheme: const DividerThemeData(color: kBorderDim),
     checkboxTheme: CheckboxThemeData(
-      fillColor: WidgetStateProperty.resolveWith(
-          (s) => s.contains(WidgetState.selected) ? kRed : kSurface),
-      checkColor: WidgetStateProperty.all(kWhite),
-      side: const BorderSide(color: kRed),
+      fillColor: WidgetStateProperty.resolveWith((s) =>
+          s.contains(WidgetState.selected)
+              ? AppColors.healthRed
+              : AppColors.surface1),
+      checkColor: WidgetStateProperty.all(AppColors.surface0),
+      side: const BorderSide(color: AppColors.textTertiary),
     ),
     snackBarTheme: SnackBarThemeData(
-      backgroundColor: kCard,
-      contentTextStyle: const TextStyle(color: kText),
+      backgroundColor: AppColors.surface3,
+      contentTextStyle: AppText.bodyM,
+      behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-          side: const BorderSide(color: kRed, width: 1)),
+        borderRadius: BorderRadius.circular(AppRadius.r12),
+      ),
     ),
     dialogTheme: DialogThemeData(
-      backgroundColor: kSurface,
+      backgroundColor: AppColors.surface3,
       shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: const BorderSide(color: kRed, width: 1)),
+        borderRadius: BorderRadius.circular(AppRadius.r16),
+      ),
+      titleTextStyle: AppText.titleM,
+      contentTextStyle: AppText.bodyM,
+    ),
+    bottomSheetTheme: const BottomSheetThemeData(
+      backgroundColor: AppColors.surface3,
+      modalBackgroundColor: AppColors.surface3,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.r16)),
+      ),
+    ),
+    popupMenuTheme: PopupMenuThemeData(
+      color: AppColors.surface3,
+      textStyle: AppText.bodyM,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.r12),
+      ),
     ),
   );
 }
 
 // ── Streak avatar tiers (feature: "make streaks loud") ───────────────────────
-const Color kStreakGold = Color(0xFFFFD54A);
 
 /// Visual treatment for a member avatar at a given streak length. The flame
 /// grows and the ring escalates amber → scarlet → gold; the top tiers animate.
@@ -228,7 +311,21 @@ StreakTier streakTierFor(double streak) {
   if (s < 1) return const StreakTier(flameSize: 0);
   if (s < 3) return const StreakTier(flameSize: 12);
   if (s < 7) return const StreakTier(flameSize: 16);
-  if (s < 14) return const StreakTier(flameSize: 20, ringColor: kAmber, ringWidth: 2);
-  if (s < 30) return const StreakTier(flameSize: 20, ringColor: kRed, ringWidth: 2, animated: true);
-  return const StreakTier(flameSize: 22, ringColor: kStreakGold, ringWidth: 3, animated: true, strong: true);
+  if (s < 14) {
+    return const StreakTier(
+        flameSize: 20, ringColor: AppColors.calendarAmber, ringWidth: 2);
+  }
+  if (s < 30) {
+    return const StreakTier(
+        flameSize: 20,
+        ringColor: AppColors.healthRed,
+        ringWidth: 2,
+        animated: true);
+  }
+  return const StreakTier(
+      flameSize: 22,
+      ringColor: AppColors.streakGold,
+      ringWidth: 3,
+      animated: true,
+      strong: true);
 }
