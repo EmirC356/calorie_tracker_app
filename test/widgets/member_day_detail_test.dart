@@ -85,7 +85,7 @@ void main() {
     );
     await pumpDetail(tester, member: member, entry: totalsEntry);
     expect(find.text('CONSUMED'), findsNothing);
-    expect(find.text('BURNED'), findsOneWidget);
+    expect(find.text('BURNED'), findsNothing); // redesign collapsed BURNED into the EXERCISE stat
     expect(find.text('EXERCISE'), findsOneWidget);
   });
 }
