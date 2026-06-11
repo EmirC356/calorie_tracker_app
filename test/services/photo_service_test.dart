@@ -86,4 +86,19 @@ void main() {
     expect(ids.contains('my_pend'), isTrue);
     expect(ids.contains('oth_pend'), isFalse);
   });
+
+  test('streamForUser returns only that member\'s published photos, newest first', () async {
+    Map<String, dynamic> base(String uid, int minute) => {
+          'uploadedByUid': uid, 'uploadedByName': uid, 'published': true,
+          'publishedAt': Timestamp.now(), 'deletedAt': null,
+          'uploadedAt': Timestamp.fromDate(DateTime(2026, 6, 12, 12, minute)),
+          'storagePath': 'x', 'reactionCounts': {'fire': 0, 'flex': 0, 'clap': 0},
+        };
+    await fs.doc('squads/s1/photos/a1').set(base('alice', 1));
+    await fs.doc('squads/s1/photos/a2').set(base('alice', 2));
+    await fs.doc('squads/s1/photos/b1').set(base('bob', 1));
+
+    final list = await service.streamForUser('s1', 'alice').first;
+    expect(list.map((p) => p.id).toList(), ['a2', 'a1']); // newest first, alice only
+  });
 }

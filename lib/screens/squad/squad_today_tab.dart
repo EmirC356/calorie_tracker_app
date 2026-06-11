@@ -7,6 +7,7 @@ import '../../models/squad_reaction.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/snapshot_provider.dart';
 import '../../providers/squad_provider.dart';
+import '../../providers/photo_provider.dart';
 import '../../services/snapshot_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
@@ -18,6 +19,7 @@ import '../../widgets/squad/intentions_strip.dart';
 import '../../widgets/squad/group_goals_strip.dart';
 import '../../widgets/squad/activity_feed_strip.dart';
 import 'member_day_detail_screen.dart';
+import 'photo_story_viewer.dart';
 
 /// Today tab: activity + intentions strips, a compact check-in chip, a vertical
 /// stack of compact member cards (with embedded reactions), and a whole-squad
@@ -38,7 +40,9 @@ class _SquadTodayTabState extends State<SquadTodayTab> {
     super.initState();
     _dateKey = SnapshotService.dateKey(DateTime.now());
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       context.read<SnapshotProvider>().pushNow();
+      context.read<PhotoProvider>().bind(widget.squadId);
     });
   }
 
@@ -47,6 +51,8 @@ class _SquadTodayTabState extends State<SquadTodayTab> {
     final service = context.read<SquadProvider>().service;
     final auth = context.read<AuthProvider>();
     final myUid = auth.firebaseUser?.uid;
+    // Members who have shared photos get a tappable story ring.
+    final storyUids = context.watch<PhotoProvider>().recentPhotos.map((p) => p.uploadedByUid).toSet();
 
     return StreamBuilder<List<SquadMember>>(
       stream: service.watchMembers(widget.squadId),
@@ -84,6 +90,11 @@ class _SquadTodayTabState extends State<SquadTodayTab> {
                           entry: entries[m.uid],
                           isMe: m.uid == myUid,
                           receivedEmoji: emojiByUid[m.uid],
+                          hasStory: storyUids.contains(m.uid),
+                          onAvatarTap: storyUids.contains(m.uid)
+                              ? () => showPhotoStory(context, widget.squadId,
+                                  uploaderUid: m.uid, name: m.displayName, photoURL: m.photoURL)
+                              : null,
                           onTap: () => Navigator.push(
                               context,
                               HeroTransitionScaffold.route(MemberDayDetailScreen(

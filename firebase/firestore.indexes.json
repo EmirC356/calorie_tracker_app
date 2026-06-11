@@ -41,6 +41,17 @@
       ]
     },
     {
+      "//": "Proof: one member's published photos (per-user story viewer).",
+      "collectionGroup": "photos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "uploadedByUid", "order": "ASCENDING" },
+        { "fieldPath": "published", "order": "ASCENDING" },
+        { "fieldPath": "deletedAt", "order": "ASCENDING" },
+        { "fieldPath": "uploadedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
       "//": "Proof: my reactions on a photo.",
       "collectionGroup": "photoReactions",
       "queryScope": "COLLECTION",

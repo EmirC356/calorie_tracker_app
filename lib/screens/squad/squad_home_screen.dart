@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
 import '../../models/squad.dart';
 import '../../models/squad_day_entry.dart';
@@ -74,8 +75,13 @@ class SquadHomeScreen extends StatelessWidget {
           SquadBoardTab(squadId: squadId),
           SquadSettingsScreen(squadId: squadId),
         ]),
-        // Proof — Instagram-instant camera FAB (shows the latest squad photo).
-        floatingActionButton: CameraFab(squadId: squadId),
+        // Proof — camera to take a photo; viewing is per-member (tap an avatar).
+        floatingActionButton: FloatingActionButton(
+          backgroundColor: AppColors.squadBlue,
+          foregroundColor: AppColors.surface0,
+          onPressed: () => launchProofCamera(context, squadId),
+          child: const Icon(LucideIcons.camera),
+        ),
       ),
     );
   }

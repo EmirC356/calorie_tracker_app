@@ -181,6 +181,17 @@ class PhotoService {
       .snapshots()
       .map((qs) => qs.docs.map((d) => Photo.fromMap(d.id, d.data())).toList());
 
+  /// One member's published photos, newest first — for the per-user story viewer.
+  Stream<List<Photo>> streamForUser(String squadId, String uploaderUid, {int limit = 50}) =>
+      _photos(squadId)
+          .where('uploadedByUid', isEqualTo: uploaderUid)
+          .where('published', isEqualTo: true)
+          .where('deletedAt', isNull: true)
+          .orderBy('uploadedAt', descending: true)
+          .limit(limit)
+          .snapshots()
+          .map((qs) => qs.docs.map((d) => Photo.fromMap(d.id, d.data())).toList());
+
   /// Combined visible stream: published + my own (incl. pending), deduped and
   /// sorted by uploadedAt desc.
   Stream<List<Photo>> streamForSquad(String squadId, {int limit = 30}) =>

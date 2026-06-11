@@ -21,6 +21,11 @@ class MemberCardCompact extends StatelessWidget {
   final bool isMe;
   final ReactionEmoji? receivedEmoji;
   final VoidCallback onTap;
+
+  /// Tapping the avatar opens this member's photo story; [hasStory] draws the
+  /// story ring around it.
+  final VoidCallback? onAvatarTap;
+  final bool hasStory;
   const MemberCardCompact({
     super.key,
     required this.member,
@@ -28,6 +33,8 @@ class MemberCardCompact extends StatelessWidget {
     required this.isMe,
     required this.onTap,
     this.receivedEmoji,
+    this.onAvatarTap,
+    this.hasStory = false,
   });
 
   @override
@@ -62,17 +69,29 @@ class MemberCardCompact extends StatelessWidget {
     );
   }
 
-  Widget _avatar(bool paused) => Stack(clipBehavior: Clip.none, children: [
-        Hero(
-          tag: 'squad-member-${member.uid}',
-          child: MemberAvatar(
-            photoURL: member.photoURL,
-            displayName: member.displayName,
-            lastActiveDate: member.lastActivityAt,
-            paused: paused,
-            size: 64,
-          ),
+  Widget _avatar(bool paused) {
+    Widget avatar = MemberAvatar(
+      photoURL: member.photoURL,
+      displayName: member.displayName,
+      lastActiveDate: member.lastActivityAt,
+      paused: paused,
+      size: 64,
+    );
+    // Story ring (Snapchat-style) when this member has shared photos.
+    if (hasStory) {
+      avatar = Container(
+        padding: const EdgeInsets.all(2),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: AppColors.squadBlue, width: 2),
         ),
+        child: avatar,
+      );
+    }
+    return GestureDetector(
+      onTap: onAvatarTap,
+      child: Stack(clipBehavior: Clip.none, children: [
+        Hero(tag: 'squad-member-${member.uid}', child: avatar),
         if (!paused)
           Positioned(
             right: -1, bottom: -1,
@@ -82,7 +101,9 @@ class MemberCardCompact extends StatelessWidget {
               child: PresenceIndicator(lastActive: member.lastActivityAt, showLabel: false, dotSize: 9),
             ),
           ),
-      ]);
+      ]),
+    );
+  }
 
   Widget _identity(SquadGoal goal, bool paused, bool noGoals, GoalStatus status) {
     return Column(
