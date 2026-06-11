@@ -49,7 +49,20 @@ class UserProfile {
     goal: DietGoal.maintain,
   );
 
-  bool get isComplete => heightCm > 0 && age > 0;
+  bool get isComplete => heightCm > 0 && effectiveAge > 0;
+
+  /// Age used for TDEE: derived from [birthday] when set, else the manual [age]
+  /// (a fallback for users who don't disclose a birthday).
+  int get effectiveAge {
+    final b = birthday != null ? DateTime.tryParse(birthday!) : null;
+    if (b != null) {
+      final now = DateTime.now();
+      var a = now.year - b.year;
+      if (now.month < b.month || (now.month == b.month && now.day < b.day)) a--;
+      return a < 0 ? 0 : a;
+    }
+    return age;
+  }
 
   /// The Health Goals denormalized to squad member docs.
   ProfileGoalSnapshot get healthGoalSnapshot => ProfileGoalSnapshot(
@@ -81,9 +94,10 @@ class UserProfile {
     }
   }
 
-  /// Basal metabolic rate (Mifflin-St Jeor).
+  /// Basal metabolic rate (Mifflin-St Jeor). Uses [effectiveAge] so a set
+  /// birthday auto-updates the age that feeds the calculation.
   double bmr(double weightKg) =>
-      10 * weightKg + 6.25 * heightCm - 5 * age + (sex == Sex.male ? 5 : -161);
+      10 * weightKg + 6.25 * heightCm - 5 * effectiveAge + (sex == Sex.male ? 5 : -161);
 
   /// Total daily energy expenditure.
   double tdee(double weightKg) => bmr(weightKg) * activityFactor;

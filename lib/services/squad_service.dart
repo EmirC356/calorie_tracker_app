@@ -168,6 +168,12 @@ class SquadService {
       rethrow;
     }
 
+    // The squad set changed — refresh any birthday event's audience so the new
+    // squadmates can read it (best-effort; never blocks the join).
+    try {
+      await refreshBirthdayEventReaders(uid);
+    } catch (_) {/* best-effort */}
+
     final snap = await squadRef.get(); // now a member → read allowed
     return Squad.fromMap(snap.id, snap.data()!);
   }
@@ -300,6 +306,63 @@ class SquadService {
   /// Writes the member's pause/vacation object (merge — keeps goal/sharing).
   Future<void> setPause(String squadId, String uid, SquadPause pause) =>
       _memberRef(squadId, uid).set({'pause': pause.toMap()}, SetOptions(merge: true));
+
+  // ── Birthday event (a non-graded annual marker in goalsVisible) ─────────────
+
+  static String birthdayDocId(int month, int day) =>
+      'birthday_${month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}';
+
+  /// Computes the readerUids union (self + every squadmate) for the user's
+  /// current squads, so squad members can read a goalsVisible doc under the
+  /// existing `uid() in readerUids` rule.
+  Future<(List<String> squadIds, List<String> readerUids)> _shareAudience(String uid) async {
+    final squads = await getMySquadsOnce(uid);
+    final readers = <String>{uid};
+    for (final s in squads) {
+      readers.addAll(s.memberUids);
+    }
+    return (squads.map((s) => s.id).toList(), readers.toList());
+  }
+
+  /// Writes / updates / clears the user's birthday event in goalsVisible. Pass
+  /// month+day null to clear. Removes any prior birthday doc first (handles a
+  /// changed date). The event is non-graded (type='event', subtype='birthday').
+  Future<void> syncBirthdayEvent(String uid, {int? month, int? day, String? displayName}) async {
+    final existing = await _goalsVisibleCol(uid).where('subtype', isEqualTo: 'birthday').get();
+    final batch = _db.batch();
+    for (final d in existing.docs) {
+      batch.delete(d.reference);
+    }
+    if (month != null && day != null) {
+      final (squadIds, readerUids) = await _shareAudience(uid);
+      batch.set(_goalsVisibleCol(uid).doc(birthdayDocId(month, day)), {
+        'ownerUid': uid,
+        'type': 'event',
+        'subtype': 'birthday',
+        'dateRecurrence': 'annual',
+        'month': month,
+        'day': day,
+        'displayName': displayName ?? 'A squadmate',
+        'squadIds': squadIds,
+        'readerUids': readerUids,
+        // GoalVisible-shaped defaults so it loads cleanly + reads under the rule.
+        'goalTitle': 'Birthday', 'category': 'event', 'colorArgb': 0,
+        'priority': 'low', 'date': '', 'status': 'event',
+      });
+    }
+    await batch.commit();
+  }
+
+  /// Refreshes an existing birthday event's audience after the user's squad set
+  /// changes (join/leave). No-op if no birthday event is set.
+  Future<void> refreshBirthdayEventReaders(String uid) async {
+    final existing =
+        await _goalsVisibleCol(uid).where('subtype', isEqualTo: 'birthday').limit(1).get();
+    if (existing.docs.isEmpty) return;
+    final (squadIds, readerUids) = await _shareAudience(uid);
+    await existing.docs.first.reference
+        .set({'squadIds': squadIds, 'readerUids': readerUids}, SetOptions(merge: true));
+  }
 
   /// Stamps `lastActivityAt` and clears any `ghostedSince` — called by the
   /// snapshot on a today push so the ghost-sweep Cloud Function can detect
@@ -621,6 +684,18 @@ class SquadService {
           .snapshots()
           .map((qs) =>
               qs.docs.map((d) => GoalVisible.fromMap(d.id, d.data())).toList());
+
+  /// Every birthday event [viewerUid] can read (own + squadmates'), across all
+  /// owners — a collectionGroup query gated by the same `readerUids` rule.
+  Stream<List<GoalVisible>> watchReadableBirthdays(String viewerUid) =>
+      _db
+          .collectionGroup('goalsVisible')
+          .where('readerUids', arrayContains: viewerUid)
+          .snapshots()
+          .map((qs) => qs.docs
+              .map((d) => GoalVisible.fromMap(d.id, d.data()))
+              .where((g) => g.isBirthday)
+              .toList());
 
   // ── goal suggestions (Phase 6) ───────────────────────────────────────────────
 

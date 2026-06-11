@@ -38,6 +38,12 @@ await testEnv.withSecurityRulesDisabled(async (ctx) => {
     priority: 'high', date: '2026-06-09', status: 'open', period: null,
     metricSummary: null, squadIds: ['s1'], readerUids: ['owner', 'm1'],
   });
+  // A birthday event (non-graded) shares the goalsVisible readerUids gating.
+  await setDoc(doc(db, 'users/m1/goalsVisible/birthday_06-09'), {
+    ownerUid: 'm1', type: 'event', subtype: 'birthday', dateRecurrence: 'annual',
+    month: 6, day: 9, displayName: 'M', squadIds: ['s1'], readerUids: ['owner', 'm1'],
+    goalTitle: 'Birthday', category: 'event', colorArgb: 0, priority: 'low', date: '', status: 'event',
+  });
   await setDoc(doc(db, 'squads/s1/suggestions/sug1'), {
     fromUid: 'owner', fromName: 'O', toUid: 'm1', payloadJson: '{}',
     createdAt: new Date(), expiresAt: new Date(Date.now() + week), status: 'pending',
@@ -210,6 +216,12 @@ await check('owner CAN write own notification prefs',
 await check("outsider CANNOT read another's notification prefs",
   assertFails(getDoc(doc(outsider, 'users/m1/notificationPrefs/master'))));
 
+// ── Birthday events (non-graded) reuse the goalsVisible readerUids rule ───────
+await check('squadmate CAN read a birthday event (readerUids)',
+  assertSucceeds(getDoc(doc(owner, 'users/m1/goalsVisible/birthday_06-09'))));
+await check('outsider CANNOT read a birthday event',
+  assertFails(getDoc(doc(outsider, 'users/m1/goalsVisible/birthday_06-09'))));
+
 await testEnv.cleanup();
 console.log(`\nALL ${n} RULES TESTS PASSED`);
-assert(n === 62);
+assert(n === 64);

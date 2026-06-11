@@ -21,6 +21,14 @@ class GoalVisible {
   final List<String> squadIds;
   final List<String> readerUids;
 
+  // ── Non-graded events (type='event'), e.g. 🎂 birthdays (Task 6) ──────────
+  final String type; // 'goal' | 'event'
+  final String? subtype; // 'birthday'
+  final String? dateRecurrence; // 'annual'
+  final int? month; // 1-12 (annual events)
+  final int? day; // 1-31
+  final String? displayName; // who the event is about
+
   const GoalVisible({
     required this.id,
     required this.ownerUid,
@@ -34,7 +42,16 @@ class GoalVisible {
     this.metricSummary,
     this.squadIds = const [],
     this.readerUids = const [],
+    this.type = 'goal',
+    this.subtype,
+    this.dateRecurrence,
+    this.month,
+    this.day,
+    this.displayName,
   });
+
+  bool get isEvent => type == 'event';
+  bool get isBirthday => isEvent && subtype == 'birthday';
 
   Map<String, dynamic> toMap() => {
         'ownerUid': ownerUid,
@@ -48,6 +65,12 @@ class GoalVisible {
         'metricSummary': metricSummary,
         'squadIds': squadIds,
         'readerUids': readerUids,
+        'type': type,
+        'subtype': subtype,
+        'dateRecurrence': dateRecurrence,
+        'month': month,
+        'day': day,
+        'displayName': displayName,
       };
 
   factory GoalVisible.fromMap(String id, Map<String, dynamic> m) => GoalVisible(
@@ -63,5 +86,11 @@ class GoalVisible {
         metricSummary: m['metricSummary'] as String?,
         squadIds: (m['squadIds'] as List?)?.cast<String>() ?? const [],
         readerUids: (m['readerUids'] as List?)?.cast<String>() ?? const [],
+        type: (m['type'] as String?) ?? 'goal',
+        subtype: m['subtype'] as String?,
+        dateRecurrence: m['dateRecurrence'] as String?,
+        month: (m['month'] as num?)?.toInt(),
+        day: (m['day'] as num?)?.toInt(),
+        displayName: m['displayName'] as String?,
       );
 }

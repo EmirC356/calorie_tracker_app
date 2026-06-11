@@ -19,6 +19,9 @@ import {
 // Goals/Calendar functions (suggestion pushes, morning brief, reminders).
 export * from "./calendar";
 
+// Birthday celebration push (daily 09:00 UTC).
+export {scheduledBirthdayCheck} from "./birthdays";
+
 // Social/accountability functions (streak-loss + full-squad-day broadcasts,
 // ghost sweep + aggregate nudge, weekly retro). All push via sendSquadPush.
 export {

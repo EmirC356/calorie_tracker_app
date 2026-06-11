@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../models/index.dart';
 import '../providers/profile_provider.dart';
@@ -103,12 +104,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     // updates only where the member still inherits from the profile.
     if (mounted) {
       try {
-        final uid = context.read<AuthProvider>().firebaseUser?.uid;
+        final auth = context.read<AuthProvider>();
+        final uid = auth.firebaseUser?.uid;
         if (uid != null) {
-          await context
-              .read<SquadProvider>()
-              .service
-              .syncProfileGoalsToAllSquads(uid, profile.healthGoalSnapshot);
+          final svc = context.read<SquadProvider>().service;
+          await svc.syncProfileGoalsToAllSquads(uid, profile.healthGoalSnapshot);
+          // Birthday → squad-wide annual event (cleared when unset).
+          final b = profile.birthday != null ? DateTime.tryParse(profile.birthday!) : null;
+          await svc.syncBirthdayEvent(uid,
+              month: b?.month, day: b?.day, displayName: auth.appUser?.displayName);
         }
       } catch (_) {/* best-effort — never block a local profile save */}
     }
@@ -132,6 +136,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ]),
           const SizedBox(height: Spacing.s12),
           _numField(_weight, 'Current weight (kg) — fallback if none logged'),
+          const SizedBox(height: Spacing.s20),
+          _birthdayField(),
           const SizedBox(height: Spacing.s20),
           Text('SEX', style: AppText.caption),
           const SizedBox(height: Spacing.s8),
@@ -207,6 +213,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
             AppColors.textPrimary),
       ]),
     ]);
+  }
+
+  Widget _birthdayField() {
+    final b = _birthday != null ? DateTime.tryParse(_birthday!) : null;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Text('BIRTHDAY', style: AppText.caption),
+      const SizedBox(height: Spacing.s8),
+      Row(children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: _pickBirthday,
+            icon: const Icon(Icons.cake_outlined, size: 18),
+            label: Text(b != null ? DateFormat('MMM d, yyyy').format(b) : 'Set birthday'),
+          ),
+        ),
+        if (_birthday != null)
+          IconButton(
+            tooltip: 'Clear birthday',
+            onPressed: () => setState(() => _birthday = null),
+            icon: const Icon(Icons.clear, color: AppColors.textSecondary),
+          ),
+      ]),
+      const SizedBox(height: Spacing.s4),
+      Text('Birthday lets us auto-update your age and lets squadmates celebrate with you.',
+          style: AppText.caption.copyWith(color: AppColors.textTertiary)),
+    ]);
+  }
+
+  Future<void> _pickBirthday() async {
+    final now = DateTime.now();
+    final initial = (_birthday != null ? DateTime.tryParse(_birthday!) : null) ?? DateTime(2000);
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(1900),
+      lastDate: DateTime(now.year - 13, now.month, now.day), // 13+ only
+    );
+    if (picked != null) {
+      setState(() => _birthday =
+          '${picked.year.toString().padLeft(4, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}');
+    }
   }
 
   Widget _healthGoals() {

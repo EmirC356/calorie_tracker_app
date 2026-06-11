@@ -13,6 +13,8 @@ import '../../widgets/ui/shimmer_placeholder.dart';
 import '../../widgets/edit_entry_sheets.dart';
 import '../../widgets/calendar/day_goal_row.dart';
 import '../../widgets/calendar/goal_action_dialog.dart';
+import '../../widgets/calendar/birthday_strip.dart';
+import '../../providers/auth_provider.dart';
 import '../weight_tracker_screen.dart';
 
 /// Single-day view: a Goals section (one row per occurrence) and an Activity
@@ -22,6 +24,18 @@ class CalendarDayView extends StatelessWidget {
   final VoidCallback onJumpToToday;
   const CalendarDayView({super.key, required this.date, required this.onJumpToToday});
 
+  /// Squad birthday banner (self + squadmates). Guarded so the local-first
+  /// calendar still works signed out / without Firebase.
+  Widget _birthdayStrip(BuildContext context) {
+    try {
+      final uid = context.read<AuthProvider>().firebaseUser?.uid;
+      if (uid == null) return const SizedBox.shrink();
+      return BirthdayStrip(viewerUid: uid, date: date);
+    } catch (_) {
+      return const SizedBox.shrink();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<GoalProvider>();
@@ -29,6 +43,7 @@ class CalendarDayView extends StatelessWidget {
     final isToday = dateOnly(date) == dateOnly(DateTime.now());
 
     return ListView(padding: const EdgeInsets.all(Spacing.s16), children: [
+      _birthdayStrip(context),
       // Hero header: caption weekday over the displayL date.
       Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Expanded(
