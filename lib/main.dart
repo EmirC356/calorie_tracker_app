@@ -17,6 +17,9 @@ import 'providers/snapshot_provider.dart';
 import 'providers/goal_provider.dart';
 import 'screens/home_screen.dart';
 import 'services/ai_service.dart';
+import 'services/streak_warning_service.dart';
+import 'services/prefs.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'theme/app_theme.dart';
 
 // Optional one-time key seed: launch with
@@ -49,6 +52,15 @@ void main() async {
     await aiService.initialize(_seedKey); // seed + persist
   } else {
     await aiService.loadFromStorage(); // restore on cold start
+  }
+  // (Re)schedule the daily squad streak warning from the saved preference.
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final hour = prefs.getInt(kStreakWarnHourPref) ?? 21;
+    await StreakWarningService.schedule(
+        hour: hour, body: "Don't lose your streak — log today to keep it alive.");
+  } catch (e) {
+    debugPrint('Streak warning scheduling skipped: $e');
   }
   runApp(const MyApp());
 }

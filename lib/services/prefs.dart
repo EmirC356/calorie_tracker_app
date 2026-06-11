@@ -25,3 +25,7 @@ const String kSquadVisiblePrivacyShownPref = 'squad_visible_privacy_shown';
 /// SharedPreferences flag: the global "Goal notifications" toggle (morning brief
 /// + reminders). Defaults to on; mirrored to Firestore for the Cloud Functions.
 const String kGoalNotificationsEnabledPref = 'goal_notifications_enabled';
+
+/// SharedPreferences int: local hour (0-23) for the squad streak at-risk
+/// warning. Default 21 (9 PM); -1 = off.
+const String kStreakWarnHourPref = 'squad.streak_warn_hour';

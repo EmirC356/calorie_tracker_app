@@ -7,6 +7,7 @@ import 'package:file_picker/file_picker.dart';
 import '../services/ai_service.dart';
 import '../services/prefs.dart';
 import '../services/backup_service.dart';
+import '../services/streak_warning_service.dart';
 import '../providers/auth_provider.dart';
 import '../providers/squad_provider.dart';
 import '../theme/app_theme.dart';
@@ -21,13 +22,53 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _goalNotifs = true;
+  int _streakWarnHour = 21; // -1 = off
 
   @override
   void initState() {
     super.initState();
     SharedPreferences.getInstance().then((p) {
-      if (mounted) setState(() => _goalNotifs = p.getBool(kGoalNotificationsEnabledPref) ?? true);
+      if (mounted) {
+        setState(() {
+          _goalNotifs = p.getBool(kGoalNotificationsEnabledPref) ?? true;
+          _streakWarnHour = p.getInt(kStreakWarnHourPref) ?? 21;
+        });
+      }
     });
+  }
+
+  Future<void> _setStreakWarnHour(int hour) async {
+    setState(() => _streakWarnHour = hour);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(kStreakWarnHourPref, hour);
+    await StreakWarningService.schedule(
+        hour: hour, body: "Don't lose your streak — log today to keep it alive.");
+  }
+
+  String _hourLabel(int h) {
+    if (h < 0) return 'Off';
+    final ampm = h < 12 ? 'AM' : 'PM';
+    final h12 = h % 12 == 0 ? 12 : h % 12;
+    return '$h12:00 $ampm';
+  }
+
+  Future<void> _pickStreakWarnTime() async {
+    final choice = await showDialog<int>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        backgroundColor: kSurface,
+        title: const Text('Streak warning time', style: TextStyle(color: kText, fontSize: 16)),
+        children: [
+          for (final h in [-1, 20, 21, 22])
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, h),
+              child: Text(_hourLabel(h),
+                  style: TextStyle(color: h == _streakWarnHour ? kAmber : kText)),
+            ),
+        ],
+      ),
+    );
+    if (choice != null) await _setStreakWarnHour(choice);
   }
 
   Future<void> _setGoalNotifs(bool v) async {
@@ -173,6 +214,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   style: TextStyle(color: kTextDim, fontSize: 12)),
               value: _goalNotifs,
               onChanged: _setGoalNotifs,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            decoration: neonBox(kAmber),
+            child: ListTile(
+              leading: const Icon(Icons.local_fire_department, color: kAmber),
+              title: const Text('Streak warning', style: TextStyle(color: kText, fontSize: 15)),
+              subtitle: Text(
+                _streakWarnHour < 0
+                    ? 'Off'
+                    : 'Daily nudge at ${_hourLabel(_streakWarnHour)} if a squad streak is at risk',
+                style: const TextStyle(color: kTextDim, fontSize: 12)),
+              trailing: Text(_hourLabel(_streakWarnHour),
+                  style: const TextStyle(color: kAmber, fontWeight: FontWeight.bold)),
+              onTap: _pickStreakWarnTime,
             ),
           ),
           const SizedBox(height: 32),
