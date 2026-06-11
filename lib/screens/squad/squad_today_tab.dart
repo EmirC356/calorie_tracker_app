@@ -10,6 +10,7 @@ import '../../services/snapshot_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/squad/member_card.dart';
 import '../../widgets/squad/checkin.dart';
+import '../../widgets/squad/intention_banner.dart';
 import 'member_day_detail_screen.dart';
 
 /// Today tab: a grid of member cards (avatar, goal, progress ring, status).
@@ -79,6 +80,7 @@ class _SquadTodayTabState extends State<SquadTodayTab> {
               builder: (context, rSnap) {
                 final emojiByUid = latestEmojiByRecipient(rSnap.data ?? const <SquadReaction>[]);
                 return Column(children: [
+                  if (myUid != null) IntentionBanner(squadId: widget.squadId, uid: myUid),
                   _checkinBar(context, entries[myUid]?.checkin),
                   Expanded(
                     child: GridView.builder(

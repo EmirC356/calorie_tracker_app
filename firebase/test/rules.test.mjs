@@ -144,6 +144,19 @@ await check('member CAN add self to a ghost mass-nudge',
 await check('member CANNOT nudge without including self',
   assertFails(setDoc(doc(member, 'squads/s1/ghostChecks/2026-06-15/aggregateNudges/owner'), { nudgerUids: ['x'], count: 1 })));
 
+// ── Weekly intentions (self-write, member-read, ≤80, immutable after grading) ──
+const intMembers = 'squads/s1/intentions/2026-W24/members';
+await check('member CAN declare an intention',
+  assertSucceeds(setDoc(doc(member, `${intMembers}/m1`), { uid: 'm1', text: 'Gym 3x', gradedStatus: 'unset' })));
+await check('member CANNOT declare for someone else',
+  assertFails(setDoc(doc(member, `${intMembers}/owner`), { uid: 'owner', text: 'x', gradedStatus: 'unset' })));
+await check('intention over 80 chars rejected',
+  assertFails(setDoc(doc(member, `${intMembers}/m1`), { text: 'x'.repeat(81) }, { merge: true })));
+await check('member CAN self-grade (unset -> hit)',
+  assertSucceeds(setDoc(doc(member, `${intMembers}/m1`), { gradedStatus: 'hit' }, { merge: true })));
+await check('intention is immutable after grading',
+  assertFails(setDoc(doc(member, `${intMembers}/m1`), { text: 'changed' }, { merge: true })));
+
 await testEnv.cleanup();
 console.log(`\nALL ${n} RULES TESTS PASSED`);
-assert(n === 42);
+assert(n === 47);

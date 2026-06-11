@@ -5,6 +5,7 @@ import '../models/app_user.dart';
 import '../models/squad.dart';
 import '../models/squad_member.dart';
 import '../models/squad_pause.dart';
+import '../models/squad_intention.dart';
 import '../models/squad_goal.dart';
 import '../models/squad_day_entry.dart';
 import '../models/squad_reaction.dart';
@@ -247,6 +248,22 @@ class SquadService {
   /// Writes the member's pause/vacation object (merge — keeps goal/sharing).
   Future<void> setPause(String squadId, String uid, SquadPause pause) =>
       _memberRef(squadId, uid).set({'pause': pause.toMap()}, SetOptions(merge: true));
+
+  // ── Weekly intentions ───────────────────────────────────────────────────────
+
+  CollectionReference<Map<String, dynamic>> _intentionMembers(String squadId, String weekKey) =>
+      _squads.doc(squadId).collection('intentions').doc(weekKey).collection('members');
+
+  Future<void> setIntention(String squadId, String weekKey, SquadIntention intention) =>
+      _intentionMembers(squadId, weekKey).doc(intention.uid).set(intention.toMap(), SetOptions(merge: true));
+
+  Stream<List<SquadIntention>> watchIntentions(String squadId, String weekKey) =>
+      _intentionMembers(squadId, weekKey).snapshots().map(
+          (qs) => qs.docs.map((d) => SquadIntention.fromMap(d.id, d.data())).toList());
+
+  Stream<SquadIntention?> watchMyIntention(String squadId, String weekKey, String uid) =>
+      _intentionMembers(squadId, weekKey).doc(uid).snapshots().map(
+          (d) => d.exists ? SquadIntention.fromMap(uid, d.data()!) : null);
 
   // ── owner controls ──────────────────────────────────────────────────────────
 

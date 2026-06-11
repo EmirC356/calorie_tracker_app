@@ -184,6 +184,20 @@ service cloud.firestore {
         allow write: if false;
       }
 
+      // ── intentions/{week}/members/{uid}: weekly public commitments ──────────
+      // Self-write only, member-read, ≤80 chars; immutable once graded.
+      match /intentions/{weekKey}/members/{memberUid} {
+        allow read: if isMemberOf(squadId);
+        allow create, update: if isSignedIn()
+          && uid() == memberUid
+          && isMemberOf(squadId)
+          && request.resource.data.text is string
+          && request.resource.data.text.size() <= 80
+          && (resource == null
+              || !('gradedStatus' in resource.data)
+              || resource.data.gradedStatus == 'unset');
+      }
+
       // ── activity/{id}: unified squad event feed ─────────────────────────────
       // Streak losses, full-squad days, group-goal hits — written by Cloud
       // Functions (admin SDK); members read the last N for the home feed.

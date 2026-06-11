@@ -31,6 +31,15 @@ DateTime mondayOf(DateTime d) {
 /// The Sunday (00:00 local) of the ISO week containing [d] — i.e. Monday + 6.
 DateTime sundayOf(DateTime d) => mondayOf(d).add(const Duration(days: 6));
 
+/// ISO-8601 week key `YYYY-Www` (Monday start; the week's year is the year of
+/// its Thursday). Matches the Cloud Functions' week keys for retros/intentions.
+String isoWeekKey(DateTime d) {
+  final thursday = mondayOf(d).add(const Duration(days: 3));
+  final dayOfYear = thursday.difference(DateTime(thursday.year, 1, 1)).inDays;
+  final week = (dayOfYear ~/ 7) + 1;
+  return '${thursday.year}-W${week.toString().padLeft(2, '0')}';
+}
+
 /// True when [a] and [b] fall on the same local calendar day.
 bool sameDay(DateTime a, DateTime b) =>
     a.year == b.year && a.month == b.month && a.day == b.day;
