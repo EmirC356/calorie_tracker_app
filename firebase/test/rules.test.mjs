@@ -157,6 +157,22 @@ await check('member CAN self-grade (unset -> hit)',
 await check('intention is immutable after grading',
   assertFails(setDoc(doc(member, `${intMembers}/m1`), { text: 'changed' }, { merge: true })));
 
+// ── Group goals (owner create/delete; members self-increment only) ────────────
+await check('owner CAN create a group goal',
+  assertSucceeds(setDoc(doc(owner, 'squads/s1/groupGoals/gg1'),
+    { title: '50 workouts', metric: 'exerciseSessionsTotal', target: 50, createdBy: 'owner', contributions: {}, currentValue: 0 })));
+await check('non-owner CANNOT create a group goal',
+  assertFails(setDoc(doc(member, 'squads/s1/groupGoals/gg2'),
+    { title: 'x', metric: 'mealsLoggedTotal', target: 1, createdBy: 'm1', contributions: {}, currentValue: 0 })));
+await check('member CAN read group goals',
+  assertSucceeds(getDoc(doc(member, 'squads/s1/groupGoals/gg1'))));
+await check('member CAN increment OWN contribution',
+  assertSucceeds(updateDoc(doc(member, 'squads/s1/groupGoals/gg1'), { 'contributions.m1': 5, currentValue: 5 })));
+await check("member CANNOT change another's contribution",
+  assertFails(updateDoc(doc(member, 'squads/s1/groupGoals/gg1'), { 'contributions.owner': 9 })));
+await check('member CANNOT edit the goal definition',
+  assertFails(updateDoc(doc(member, 'squads/s1/groupGoals/gg1'), { title: 'hacked' })));
+
 await testEnv.cleanup();
 console.log(`\nALL ${n} RULES TESTS PASSED`);
-assert(n === 47);
+assert(n === 53);

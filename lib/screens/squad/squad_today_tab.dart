@@ -11,6 +11,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/squad/member_card.dart';
 import '../../widgets/squad/checkin.dart';
 import '../../widgets/squad/intention_banner.dart';
+import '../../widgets/squad/group_goals_strip.dart';
 import 'member_day_detail_screen.dart';
 
 /// Today tab: a grid of member cards (avatar, goal, progress ring, status).
@@ -80,6 +81,7 @@ class _SquadTodayTabState extends State<SquadTodayTab> {
               builder: (context, rSnap) {
                 final emojiByUid = latestEmojiByRecipient(rSnap.data ?? const <SquadReaction>[]);
                 return Column(children: [
+                  GroupGoalsStrip(squadId: widget.squadId),
                   if (myUid != null) IntentionBanner(squadId: widget.squadId, uid: myUid),
                   _checkinBar(context, entries[myUid]?.checkin),
                   Expanded(

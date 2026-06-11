@@ -50,7 +50,7 @@ class SnapshotService {
     // Pause is the first gate: a paused day finalizes as `paused` and skips the
     // rest of the pipeline. Make-up runs after status to redeem a missed day.
     this.transformers = transformers ??
-        const [PauseTransformer(), StatusTransformer(), MakeupTransformer(), CheckinTransformer()];
+        const [PauseTransformer(), StatusTransformer(), MakeupTransformer(), CheckinTransformer(), GroupGoalTransformer()];
   }
 
   /// Local-timezone date key (a meal logged at 1am Tuesday counts as Tuesday).
@@ -407,6 +407,50 @@ class CheckinTransformer extends SnapshotTransformer {
   Future<bool> apply(SnapshotContext ctx, Map<String, dynamic> entry) async {
     final v = await ctx.db.getCheckin(ctx.dateKey);
     if (v != null) entry['checkin'] = v;
+    return true;
+  }
+}
+
+/// Group goals: for each active 'sum' goal, applies this member's daily
+/// contribution as a delta (new − the entry's previously-stored value), so the
+/// denormalized currentValue + contributions.{uid} stay correct across re-pushes
+/// AND when an entry is edited/deleted (the most failure-prone path). Stores the
+/// per-goal values + contributedTo on the entry for the next delta.
+class GroupGoalTransformer extends SnapshotTransformer {
+  const GroupGoalTransformer();
+
+  static double dailyContribution(String metric, DayStats stats) {
+    switch (metric) {
+      case 'mealsLoggedTotal':
+        return stats.meals.length.toDouble();
+      case 'exerciseSessionsTotal':
+        return stats.exercises.where((e) => e.durationMinutes >= 20).length.toDouble();
+      default:
+        return 0; // squad-level / complex metrics aren't per-member summable here
+    }
+  }
+
+  @override
+  Future<bool> apply(SnapshotContext ctx, Map<String, dynamic> entry) async {
+    final goals = (await ctx.squadService.watchGroupGoals(ctx.squad.id).first)
+        .where((g) => g.aggregateMode == 'sum' && g.isActiveOn(ctx.dateKey))
+        .toList();
+    if (goals.isEmpty) return true;
+
+    final old = await ctx.squadService.getDayEntry(ctx.squad.id, ctx.dateKey, ctx.uid);
+    final oldContribs = old?.contributions ?? const <String, double>{};
+
+    final newContribs = <String, double>{};
+    for (final g in goals) {
+      final v = dailyContribution(g.metric, ctx.stats);
+      newContribs[g.id] = v;
+      final delta = v - (oldContribs[g.id] ?? 0);
+      if (delta != 0) {
+        await ctx.squadService.contributeToGroupGoal(ctx.squad.id, g.id, ctx.uid, delta);
+      }
+    }
+    entry['contributions'] = newContribs;
+    entry['contributedTo'] = [for (final e in newContribs.entries) if (e.value > 0) e.key];
     return true;
   }
 }

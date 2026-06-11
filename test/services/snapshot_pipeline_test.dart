@@ -149,4 +149,46 @@ void main() {
 
     await db.close();
   });
+
+  test('group goal accumulates a member contribution idempotently + on edit', () async {
+    final fs = FakeFirebaseFirestore();
+    final db = DatabaseService(overridePath: inMemoryDatabasePath);
+    final ss = SquadService(firestore: fs);
+
+    await fs.doc('squads/s1').set({
+      'name': 'S', 'ownerUid': 'u1', 'memberUids': ['u1'],
+      'inviteCode': '123456', 'createdAt': Timestamp.fromDate(DateTime(2026, 1, 1)),
+    });
+    await fs.doc('squads/s1/members/u1').set({'sharingLevel': 'status', 'displayName': 'A'});
+    await fs.doc('squads/s1/groupGoals/gg1').set({
+      'title': '30 meals', 'metric': 'mealsLoggedTotal', 'target': 30, 'aggregateMode': 'sum',
+      'startDate': '2026-06-01', 'endDate': '2026-06-30', 'createdBy': 'u1', 'contributions': {}, 'currentValue': 0,
+    });
+
+    Future<void> logMeal(String n) => db.insertMeal(Meal(
+        name: n, portionGrams: 0,
+        nutrients: NutrientInfo(calories: 100, protein: 0, carbohydrates: 0, fat: 0, fiber: 0, sugar: 0),
+        timestamp: DateTime(2026, 6, 8, 12)));
+    for (var i = 0; i < 3; i++) {
+      await logMeal('m$i');
+    }
+
+    final snapshot = SnapshotService(db: db, squadService: ss);
+    Future<void> push() => snapshot.pushForUser(uid: 'u1', date: DateTime(2026, 6, 8), now: DateTime(2026, 6, 9, 12));
+    Future<Map<String, dynamic>> gg() async => (await fs.doc('squads/s1/groupGoals/gg1').get()).data()!;
+
+    await push();
+    expect((await gg())['currentValue'], 3);
+    expect((await gg())['contributions']['u1'], 3);
+
+    await push(); // re-push is a no-op (delta 0)
+    expect((await gg())['currentValue'], 3);
+
+    await logMeal('m3'); // edit: now 4 meals
+    await push();
+    expect((await gg())['currentValue'], 4);
+    expect((await gg())['contributions']['u1'], 4);
+
+    await db.close();
+  });
 }

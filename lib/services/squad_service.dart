@@ -6,6 +6,7 @@ import '../models/squad.dart';
 import '../models/squad_member.dart';
 import '../models/squad_pause.dart';
 import '../models/squad_intention.dart';
+import '../models/squad_group_goal.dart';
 import '../models/squad_goal.dart';
 import '../models/squad_day_entry.dart';
 import '../models/squad_reaction.dart';
@@ -248,6 +249,49 @@ class SquadService {
   /// Writes the member's pause/vacation object (merge — keeps goal/sharing).
   Future<void> setPause(String squadId, String uid, SquadPause pause) =>
       _memberRef(squadId, uid).set({'pause': pause.toMap()}, SetOptions(merge: true));
+
+  // ── Group goals ─────────────────────────────────────────────────────────────
+
+  CollectionReference<Map<String, dynamic>> _groupGoals(String squadId) =>
+      _squads.doc(squadId).collection('groupGoals');
+
+  Future<void> createGroupGoal(String squadId, SquadGroupGoal goal) =>
+      _groupGoals(squadId).add(goal.toCreateMap());
+
+  Future<void> deleteGroupGoal(String squadId, String goalId) =>
+      _groupGoals(squadId).doc(goalId).delete();
+
+  Stream<List<SquadGroupGoal>> watchGroupGoals(String squadId) =>
+      _groupGoals(squadId).snapshots().map(
+          (qs) => qs.docs.map((d) => SquadGroupGoal.fromMap(d.id, d.data())).toList());
+
+  Future<SquadDayEntry?> getDayEntry(String squadId, String dateKey, String uid) async {
+    final d = await _squads.doc(squadId).collection('days').doc(dateKey).collection('entries').doc(uid).get();
+    return d.exists ? SquadDayEntry.fromMap(uid, d.data()!) : null;
+  }
+
+  /// Transactionally applies [delta] to a member's contribution + currentValue,
+  /// stamping hitAt the first time it crosses the target. Idempotent at the call
+  /// site (the snapshot passes new−old, so a re-push with the same data is 0).
+  Future<void> contributeToGroupGoal(String squadId, String goalId, String uid, double delta) async {
+    if (delta == 0) return;
+    final ref = _groupGoals(squadId).doc(goalId);
+    await _db.runTransaction((tx) async {
+      final snap = await tx.get(ref);
+      if (!snap.exists) return;
+      final data = snap.data()!;
+      final contribs = Map<String, dynamic>.from((data['contributions'] as Map?) ?? {});
+      contribs[uid] = ((contribs[uid] as num?)?.toDouble() ?? 0) + delta;
+      final target = (data['target'] as num?)?.toDouble() ?? 0;
+      final current = (data['currentValue'] as num?)?.toDouble() ?? 0;
+      final newVal = current + delta;
+      final update = <String, dynamic>{'contributions': contribs, 'currentValue': newVal};
+      if (current < target && newVal >= target && data['hitAt'] == null) {
+        update['hitAt'] = FieldValue.serverTimestamp();
+      }
+      tx.update(ref, update);
+    });
+  }
 
   // ── Weekly intentions ───────────────────────────────────────────────────────
 

@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../../models/squad.dart';
 import '../../models/squad_member.dart';
 import '../../models/squad_pause.dart';
+import '../../models/squad_group_goal.dart';
+import '../../models/date_helpers.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/squad_provider.dart';
 import '../../services/squad_service.dart';
@@ -42,6 +44,15 @@ class SquadSettingsScreen extends StatelessWidget {
           _myGoalAndSharing(context, service, squad, myUid),
           const SizedBox(height: 16),
           _membersSection(context, service, squad, myUid, isOwner),
+          if (isOwner) ...[
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: () => _createGroupGoalDialog(context, service, squad.id, myUid),
+              style: OutlinedButton.styleFrom(foregroundColor: kNavy, side: const BorderSide(color: kNavy), minimumSize: const Size.fromHeight(46)),
+              icon: const Icon(Icons.flag, size: 18),
+              label: const Text('NEW GROUP GOAL'),
+            ),
+          ],
           const SizedBox(height: 24),
           _dangerZone(context, service, squad, myUid, isOwner),
         ]);
@@ -258,6 +269,56 @@ class SquadSettingsScreen extends StatelessWidget {
   static String _fmtDate(DateTime d) {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     return '${months[d.month - 1]} ${d.day}';
+  }
+
+  Future<void> _createGroupGoalDialog(BuildContext context, SquadService service, String squadId, String ownerUid) async {
+    final titleCtrl = TextEditingController();
+    final targetCtrl = TextEditingController();
+    var metric = 'mealsLoggedTotal';
+    const metricLabels = {
+      'mealsLoggedTotal': 'Meals logged (squad total)',
+      'exerciseSessionsTotal': 'Workout sessions (squad total)',
+    };
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          backgroundColor: kSurface,
+          title: const Text('New group goal', style: TextStyle(color: kText, fontSize: 16)),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            TextField(controller: titleCtrl, maxLength: 40, style: const TextStyle(color: kText),
+                decoration: const InputDecoration(hintText: 'e.g. 50 workouts this month')),
+            DropdownButton<String>(
+              isExpanded: true, value: metric, dropdownColor: kCard,
+              style: const TextStyle(color: kText, fontSize: 13),
+              items: [for (final e in metricLabels.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
+              onChanged: (v) => setState(() => metric = v ?? metric),
+            ),
+            TextField(controller: targetCtrl, keyboardType: TextInputType.number, style: const TextStyle(color: kText),
+                decoration: const InputDecoration(hintText: 'Target (e.g. 50)')),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('CANCEL')),
+            TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('CREATE')),
+          ],
+        ),
+      ),
+    );
+    if (ok != true) return;
+    final target = double.tryParse(targetCtrl.text.trim());
+    if (titleCtrl.text.trim().isEmpty || target == null || target <= 0) {
+      messenger.showSnackBar(const SnackBar(content: Text('Enter a title and a positive target')));
+      return;
+    }
+    final now = DateTime.now();
+    await service.createGroupGoal(
+      squadId,
+      SquadGroupGoal(
+        id: '', title: titleCtrl.text.trim(), metric: metric, target: target,
+        startDate: ymd(now), endDate: ymd(now.add(const Duration(days: 30))), createdBy: ownerUid),
+    );
+    messenger.showSnackBar(const SnackBar(content: Text('Group goal created 🎯')));
   }
 
   Widget _sharingToggle(BuildContext context, SquadService service, String squadId, String myUid, SharingLevel current) {

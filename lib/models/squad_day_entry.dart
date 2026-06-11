@@ -42,6 +42,8 @@ class SquadDayEntry {
   final bool redeemed; // a missed day rescued by a make-up (counts 0.5)
   final String? makeupForDate; // set on a make-up day's entry → the day it recovers
   final String? checkin; // one-tap daily check-in: onIt | offTrack | cheatDay
+  final List<String> contributedTo; // group-goal ids this day contributed to
+  final Map<String, double> contributions; // goalId -> amount (for edit deltas)
   final double? consumed; // totals+
   final double? burned;
   final int? exerciseMinutes;
@@ -56,6 +58,8 @@ class SquadDayEntry {
     this.redeemed = false,
     this.makeupForDate,
     this.checkin,
+    this.contributedTo = const [],
+    this.contributions = const {},
     this.consumed,
     this.burned,
     this.exerciseMinutes,
@@ -78,6 +82,9 @@ class SquadDayEntry {
       redeemed: (m['redeemed'] as bool?) ?? false,
       makeupForDate: m['makeupForDate'] as String?,
       checkin: m['checkin'] as String?,
+      contributedTo: (m['contributedTo'] as List?)?.cast<String>() ?? const [],
+      contributions: ((m['contributions'] as Map?) ?? const {})
+          .map((k, v) => MapEntry(k as String, (v as num).toDouble())),
       consumed: (m['consumed'] as num?)?.toDouble(),
       burned: (m['burned'] as num?)?.toDouble(),
       exerciseMinutes: (m['exerciseMinutes'] as num?)?.toInt(),

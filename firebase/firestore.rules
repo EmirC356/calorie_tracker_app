@@ -198,6 +198,20 @@ service cloud.firestore {
               || resource.data.gradedStatus == 'unset');
       }
 
+      // ── groupGoals/{id}: shared squad goals everyone contributes to ─────────
+      // Owner creates/deletes; any member may increment ONLY their own
+      // contributions key (+ currentValue / hitAt).
+      match /groupGoals/{goalId} {
+        allow read: if isMemberOf(squadId);
+        allow create: if isMemberOf(squadId)
+          && isOwnerOf(squadId)
+          && request.resource.data.createdBy == uid();
+        allow delete: if isOwnerOf(squadId);
+        allow update: if isMemberOf(squadId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['contributions', 'currentValue', 'hitAt'])
+          && request.resource.data.contributions.diff(resource.data.contributions).affectedKeys().hasOnly([uid()]);
+      }
+
       // ── activity/{id}: unified squad event feed ─────────────────────────────
       // Streak losses, full-squad days, group-goal hits — written by Cloud
       // Functions (admin SDK); members read the last N for the home feed.
