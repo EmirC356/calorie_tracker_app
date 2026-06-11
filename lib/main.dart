@@ -94,7 +94,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => SnapshotProvider(), lazy: false),
       ],
       child: MaterialApp(
-        title: 'Calorie Tracker',
+        title: 'Lanabuzer',
         theme: buildAppTheme(),
         scaffoldMessengerKey: rootMessengerKey, // foreground push -> in-app banner
         home: const HomeScreen(),
