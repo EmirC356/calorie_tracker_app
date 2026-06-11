@@ -63,4 +63,29 @@ void main() {
     expect(find.text('No goals shared today'), findsOneWidget);
     expect(find.text("TODAY'S GOALS"), findsNothing);
   });
+
+  // ── Task 4: calorie/meal sections gated on the effective calorie goal ──────
+  const totalsEntry = SquadDayEntry(
+      uid: 'them', status: GoalStatus.inProgress, consumed: 1820, burned: 300, exerciseMinutes: 45);
+
+  testWidgets('shows CONSUMED when the member has a calorie goal', (tester) async {
+    const member = SquadMember(
+      uid: 'them', displayName: 'Selin', inheritedFromProfile: true,
+      profileGoalSnapshot: ProfileGoalSnapshot(calorieMode: CalorieMode.cap, calorieTarget: 2200),
+    );
+    await pumpDetail(tester, member: member, entry: totalsEntry);
+    expect(find.text('CONSUMED'), findsOneWidget);
+    expect(find.text('EXERCISE'), findsOneWidget);
+  });
+
+  testWidgets('hides CONSUMED (keeps exercise) when there is no calorie goal', (tester) async {
+    const member = SquadMember(
+      uid: 'them', displayName: 'Selin', inheritedFromProfile: true,
+      profileGoalSnapshot: ProfileGoalSnapshot(weeklyExerciseSessions: 3, minSessionMinutes: 20),
+    );
+    await pumpDetail(tester, member: member, entry: totalsEntry);
+    expect(find.text('CONSUMED'), findsNothing);
+    expect(find.text('BURNED'), findsOneWidget);
+    expect(find.text('EXERCISE'), findsOneWidget);
+  });
 }

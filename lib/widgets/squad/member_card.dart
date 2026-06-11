@@ -36,6 +36,11 @@ class MemberCard extends StatelessWidget {
     final paused = entry?.paused ?? false;
     final status = entry?.status ?? GoalStatus.inProgress;
     final accent = entry == null ? AppColors.textTertiary : statusColor(status);
+    // Effective goal (profile snapshot when inherited, else the override). A
+    // member with no goal at all collapses to a minimal card rather than an
+    // empty ring + "missed" pill that would read as a peer comparison.
+    final goal = member.effectiveGoal;
+    final noGoals = !paused && goal.isEmpty;
 
     return Material(
       color: AppColors.surface1,
@@ -51,12 +56,15 @@ class MemberCard extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _identityRow(),
+              _identityRow(goal, showSummary: !noGoals),
               if (paused)
                 const Text('🌴', style: TextStyle(fontSize: 48))
+              else if (noGoals)
+                Text('No goals shared',
+                    style: AppText.caption.copyWith(color: AppColors.textTertiary))
               else
                 AnimatedRing(
-                  progress: progressFor(member.goal, entry) ?? 0,
+                  progress: progressFor(goal, entry) ?? 0,
                   accent: accent,
                   size: 116,
                   child: Icon(statusIcon(status), color: accent, size: 28),
@@ -68,6 +76,8 @@ class MemberCard extends StatelessWidget {
                       ? 'Paused til ${_shortDate(member.pause.until!)}'
                       : 'Paused',
                 )
+              else if (noGoals)
+                const SizedBox.shrink()
               else
                 StatusPill(
                   status: pillStatusFor(status),
@@ -81,7 +91,7 @@ class MemberCard extends StatelessWidget {
     );
   }
 
-  Widget _identityRow() {
+  Widget _identityRow(SquadGoal goal, {bool showSummary = true}) {
     return Row(children: [
       Hero(
         tag: 'squad-member-${member.uid}',
@@ -101,8 +111,10 @@ class MemberCard extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: AppText.titleL,
           ),
-          const SizedBox(height: Spacing.s4),
-          GoalSummary(goal: member.goal, fontSize: 14),
+          if (showSummary) ...[
+            const SizedBox(height: Spacing.s4),
+            GoalSummary(goal: goal, fontSize: 14),
+          ],
         ]),
       ),
       if (entry?.checkin != null) ...[

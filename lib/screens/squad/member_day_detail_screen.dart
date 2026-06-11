@@ -41,6 +41,9 @@ class MemberDayDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status = entry?.status;
+    // Hide calorie/meal sections when the member has no effective calorie goal —
+    // "1820 kcal" without a target is meaningless on a peer-comparison screen.
+    final showCalories = member.effectiveGoal.calorieActive;
     return Scaffold(
       appBar: AppBar(title: Text(member.displayName)),
       body: ListView(padding: const EdgeInsets.all(Spacing.s16), children: [
@@ -74,10 +77,10 @@ class MemberDayDetailScreen extends StatelessWidget {
           Text('No data logged yet today.',
               style: AppText.bodyM.copyWith(color: AppColors.textSecondary))
         else if (entry!.hasTotals) ...[
-          _totals(entry!),
+          _totals(entry!, showCalories),
           if (entry!.hasDetails) ...[
             const SizedBox(height: Spacing.s16),
-            _details(entry!),
+            _details(entry!, showCalories),
           ],
         ] else
           Text('This member shares only their status with the squad.',
@@ -253,9 +256,9 @@ class MemberDayDetailScreen extends StatelessWidget {
 
   /// Day stats stacked as hero numbers (tabular displayM), per the spec's
   /// "stats as HeroStats stacked" treatment.
-  Widget _totals(SquadDayEntry e) =>
+  Widget _totals(SquadDayEntry e, bool showCalories) =>
       Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
-        _stat('CONSUMED', e.consumed?.toStringAsFixed(0) ?? '–', 'kcal'),
+        if (showCalories) _stat('CONSUMED', e.consumed?.toStringAsFixed(0) ?? '–', 'kcal'),
         _stat('BURNED', e.burned?.toStringAsFixed(0) ?? '–', 'kcal'),
         _stat('EXERCISE', '${e.exerciseMinutes ?? '–'}', 'min'),
       ]);
@@ -267,10 +270,10 @@ class MemberDayDetailScreen extends StatelessWidget {
         Text(unit, style: AppText.caption),
       ]);
 
-  Widget _details(SquadDayEntry e) {
+  Widget _details(SquadDayEntry e, bool showCalories) {
     String fmt(DateTime? t) => t == null ? '' : DateFormat('HH:mm').format(t);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      if ((e.meals ?? []).isNotEmpty) ...[
+      if (showCalories && (e.meals ?? []).isNotEmpty) ...[
         Text('MEALS', style: AppText.caption),
         const SizedBox(height: Spacing.s8),
         ...e.meals!.map((m) => Padding(
