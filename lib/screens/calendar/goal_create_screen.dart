@@ -8,7 +8,10 @@ import 'goal_form_screen.dart';
 /// (used by the empty-state example goals).
 class GoalCreateScreen extends StatelessWidget {
   final Goal? template;
-  const GoalCreateScreen({super.key, this.template});
+
+  /// Pre-fills the start date (e.g. the calendar day in view). Null = today.
+  final DateTime? defaultStartDate;
+  const GoalCreateScreen({super.key, this.template, this.defaultStartDate});
 
   @override
   Widget build(BuildContext context) {
@@ -16,6 +19,7 @@ class GoalCreateScreen extends StatelessWidget {
       appBarTitle: 'New Goal',
       submitLabel: 'CREATE',
       initial: template,
+      defaultStartDate: defaultStartDate,
       onSubmit: (goal) => context.read<GoalProvider>().createGoal(goal),
     );
   }

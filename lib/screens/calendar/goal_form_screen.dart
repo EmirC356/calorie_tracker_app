@@ -25,6 +25,10 @@ class GoalFormScreen extends StatefulWidget {
   final String appBarTitle;
   final String submitLabel;
   final bool showSquadVisible;
+
+  /// Initial start date for a NEW goal (ignored when [initial] is provided — an
+  /// edit hydrates the goal's own start date). Defaults to today when null.
+  final DateTime? defaultStartDate;
   final Future<void> Function(Goal goal) onSubmit;
 
   const GoalFormScreen({
@@ -34,6 +38,7 @@ class GoalFormScreen extends StatefulWidget {
     this.appBarTitle = 'New Goal',
     this.submitLabel = 'SAVE',
     this.showSquadVisible = true,
+    this.defaultStartDate,
   });
 
   @override
@@ -91,7 +96,11 @@ class _GoalFormScreenState extends State<GoalFormScreen> {
   void initState() {
     super.initState();
     final g = widget.initial;
-    if (g != null) _hydrate(g);
+    if (g != null) {
+      _hydrate(g);
+    } else if (widget.defaultStartDate != null) {
+      _startDate = dateOnly(widget.defaultStartDate!);
+    }
   }
 
   void _hydrate(Goal g) {
@@ -333,6 +342,15 @@ class _GoalFormScreenState extends State<GoalFormScreen> {
           _recurrenceSection(),
           const SizedBox(height: Spacing.s8),
           _startDateField(),
+          if (_startDate.isBefore(dateOnly(DateTime.now())))
+            Padding(
+              padding: const EdgeInsets.only(top: Spacing.s4),
+              child: Text(
+                "Goals can't be backdated for tracking purposes — set the start "
+                'date to today or later if you want hit/miss tracking.',
+                style: AppText.caption.copyWith(color: AppColors.statusInProgress),
+              ),
+            ),
           // ── Advanced toggle (chevron, anchored bottom-right) ───────────────────
           Align(
             alignment: Alignment.centerRight,

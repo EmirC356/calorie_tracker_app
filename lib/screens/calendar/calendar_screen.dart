@@ -128,7 +128,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   Future<void> _createGoal() async {
-    await Navigator.push(context, MaterialPageRoute(builder: (_) => const GoalCreateScreen()));
+    // Default the new goal's start date to the day in view (Day mode); the
+    // month/week overview FAB stays "today". Tapping a day in Week/Month opens
+    // it in Day mode, so creating from there inherits that day's date too.
+    final defaultStart = _mode == CalendarViewMode.day ? _focused : null;
+    await Navigator.push(context,
+        MaterialPageRoute(builder: (_) => GoalCreateScreen(defaultStartDate: defaultStart)));
     if (mounted) await _loadActivity();
   }
 
