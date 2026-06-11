@@ -8,6 +8,7 @@ import '../models/squad_pause.dart';
 import '../models/squad_intention.dart';
 import '../models/squad_group_goal.dart';
 import '../models/squad_comment.dart';
+import '../models/squad_activity.dart';
 import '../models/squad_goal.dart';
 import '../models/squad_day_entry.dart';
 import '../models/squad_reaction.dart';
@@ -293,6 +294,24 @@ class SquadService {
       tx.update(ref, update);
     });
   }
+
+  // ── Notification prefs (master switches + quiet hours) ──────────────────────
+
+  DocumentReference<Map<String, dynamic>> _notifPrefs(String uid) =>
+      _users.doc(uid).collection('notificationPrefs').doc('master');
+
+  Stream<Map<String, dynamic>> watchNotificationPrefs(String uid) =>
+      _notifPrefs(uid).snapshots().map((d) => d.data() ?? const <String, dynamic>{});
+
+  Future<void> setNotificationPref(String uid, String key, Object value) =>
+      _notifPrefs(uid).set({key: value}, SetOptions(merge: true));
+
+  // ── Activity feed (written by Cloud Functions) ──────────────────────────────
+
+  Stream<List<SquadActivity>> watchActivity(String squadId, {int limit = 20}) =>
+      _squads.doc(squadId).collection('activity')
+          .orderBy('createdAt', descending: true).limit(limit).snapshots()
+          .map((qs) => qs.docs.map((d) => SquadActivity.fromMap(d.id, d.data())).toList());
 
   // ── Per-day comments ────────────────────────────────────────────────────────
 

@@ -204,6 +204,12 @@ await check('author CAN edit own comment',
 await check('non-author CANNOT edit a comment',
   assertFails(updateDoc(doc(owner, `${cday}/comments/c1`), { text: 'hax' })));
 
+// ── notificationPrefs/master (per-user push switches) ─────────────────────────
+await check('owner CAN write own notification prefs',
+  assertSucceeds(setDoc(doc(member, 'users/m1/notificationPrefs/master'), { retros: false, quietHoursStart: '22:00' })));
+await check("outsider CANNOT read another's notification prefs",
+  assertFails(getDoc(doc(outsider, 'users/m1/notificationPrefs/master'))));
+
 await testEnv.cleanup();
 console.log(`\nALL ${n} RULES TESTS PASSED`);
-assert(n === 60);
+assert(n === 62);

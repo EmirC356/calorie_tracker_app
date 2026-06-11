@@ -12,6 +12,7 @@ import '../../widgets/squad/member_card.dart';
 import '../../widgets/squad/checkin.dart';
 import '../../widgets/squad/intention_banner.dart';
 import '../../widgets/squad/group_goals_strip.dart';
+import '../../widgets/squad/activity_feed.dart';
 import 'member_day_detail_screen.dart';
 
 /// Today tab: a grid of member cards (avatar, goal, progress ring, status).
@@ -80,32 +81,33 @@ class _SquadTodayTabState extends State<SquadTodayTab> {
               stream: service.watchReactions(widget.squadId, _dateKey),
               builder: (context, rSnap) {
                 final emojiByUid = latestEmojiByRecipient(rSnap.data ?? const <SquadReaction>[]);
-                return Column(children: [
+                return ListView(children: [
                   GroupGoalsStrip(squadId: widget.squadId),
                   if (myUid != null) IntentionBanner(squadId: widget.squadId, uid: myUid),
                   _checkinBar(context, entries[myUid]?.checkin),
-                  Expanded(
-                    child: GridView.builder(
-                      padding: const EdgeInsets.all(16),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.82,
-                      ),
-                      itemCount: members.length,
-                      itemBuilder: (_, i) {
-                        final m = members[i];
-                        final entry = entries[m.uid];
-                        return MemberCard(
-                          member: m,
-                          entry: entry,
-                          isMe: m.uid == myUid,
-                          receivedEmoji: emojiByUid[m.uid],
-                          onTap: () => Navigator.push(context, MaterialPageRoute(
-                              builder: (_) => MemberDayDetailScreen(
-                                  member: m, entry: entry, squadId: widget.squadId, dateKey: _dateKey))),
-                        );
-                      },
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(16),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.82,
                     ),
+                    itemCount: members.length,
+                    itemBuilder: (_, i) {
+                      final m = members[i];
+                      final entry = entries[m.uid];
+                      return MemberCard(
+                        member: m,
+                        entry: entry,
+                        isMe: m.uid == myUid,
+                        receivedEmoji: emojiByUid[m.uid],
+                        onTap: () => Navigator.push(context, MaterialPageRoute(
+                            builder: (_) => MemberDayDetailScreen(
+                                member: m, entry: entry, squadId: widget.squadId, dateKey: _dateKey))),
+                      );
+                    },
                   ),
+                  ActivityFeed(squadId: widget.squadId),
                 ]);
               },
             );

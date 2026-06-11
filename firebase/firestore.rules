@@ -74,6 +74,12 @@ service cloud.firestore {
       match /pendingRetroPush/{weekKey} {
         allow read, write: if false;
       }
+
+      // ── notificationPrefs/master: per-user push master switches + quiet hours.
+      // Read/written by the owner; the Cloud Functions read it via the admin SDK.
+      match /notificationPrefs/{id} {
+        allow read, write: if isSignedIn() && uid() == userId;
+      }
     }
 
     // ── squadCodes/{code} ─────────────────────────────────────────────────────

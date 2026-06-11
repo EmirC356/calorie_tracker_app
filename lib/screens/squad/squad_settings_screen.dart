@@ -10,6 +10,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/squad_provider.dart';
 import '../../services/squad_service.dart';
 import '../../services/pause_service.dart';
+import 'squad_notifications_screen.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/squad/goal_summary.dart';
 import 'goal_editor_screen.dart';
@@ -170,6 +171,17 @@ class SquadSettingsScreen extends StatelessWidget {
                   style: TextStyle(color: kTextDim, fontSize: 11)),
               value: me.muted,
               onChanged: (v) => service.updateMuted(squad.id, myUid, v),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            decoration: neonBox(kBorderDim),
+            child: ListTile(
+              leading: const Icon(Icons.notifications_active_outlined, color: kNavy),
+              title: const Text('Notification settings', style: TextStyle(color: kText, fontSize: 14)),
+              subtitle: const Text('Push types + quiet hours (all squads)', style: TextStyle(color: kTextDim, fontSize: 11)),
+              trailing: const Icon(Icons.chevron_right, color: kTextDim),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SquadNotificationsScreen())),
             ),
           ),
           const SizedBox(height: 16),
