@@ -52,6 +52,24 @@
       ]
     },
     {
+      "//": "Proof: my photos in a sibling group (cascade delete/undo).",
+      "collectionGroup": "photos",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "siblingGroupId", "order": "ASCENDING" },
+        { "fieldPath": "uploadedByUid", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "//": "Proof: live photos in a sibling group (cascade react).",
+      "collectionGroup": "photos",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "siblingGroupId", "order": "ASCENDING" },
+        { "fieldPath": "deletedAt", "order": "ASCENDING" }
+      ]
+    },
+    {
       "//": "Proof: my reactions on a photo.",
       "collectionGroup": "photoReactions",
       "queryScope": "COLLECTION",

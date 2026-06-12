@@ -62,6 +62,12 @@ class Photo {
   final Map<String, int> reactionCounts;
   final DateTime? deletedAt;
 
+  /// Multi-squad fan-out: every copy of a photo shared to several squads carries
+  /// the same [siblingGroupId] (so deletes/reactions cascade). A single-squad
+  /// share is a group-of-one. [siblingSquadIds] is the denormalized squad list.
+  final String siblingGroupId;
+  final List<String> siblingSquadIds;
+
   /// True only for an in-memory optimistic placeholder not yet confirmed by the
   /// Firestore listener.
   final bool optimistic;
@@ -86,6 +92,8 @@ class Photo {
     this.goalRef,
     this.reactionCounts = const {'fire': 0, 'flex': 0, 'clap': 0},
     this.deletedAt,
+    this.siblingGroupId = '',
+    this.siblingSquadIds = const [],
     this.optimistic = false,
     this.localBytes,
   });
@@ -125,6 +133,13 @@ class Photo {
         'clap': (counts['clap'] as num?)?.toInt() ?? 0,
       },
       deletedAt: (m['deletedAt'] as Timestamp?)?.toDate(),
+      // Lazy backfill: a legacy photo with no group is a group-of-one keyed by
+      // its own id (so nothing cascades — it has no siblings).
+      siblingGroupId: (m['siblingGroupId'] as String?)?.isNotEmpty == true
+          ? m['siblingGroupId'] as String
+          : id,
+      siblingSquadIds:
+          ((m['siblingSquadIds'] as List?)?.cast<String>()) ?? const [],
     );
   }
 }

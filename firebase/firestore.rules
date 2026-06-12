@@ -293,11 +293,19 @@ service cloud.firestore {
           && resource.data.deletedAt == null
           && (resource.data.published == true || resource.data.uploadedByUid == uid());
         // Photos ship immediately (no undo window): created already-published.
+        // Multi-squad fan-out: each sibling doc is created in its OWN squad
+        // collection, so isMemberOf(squadId) already proves membership of every
+        // squad a user can write to — a non-member simply can't create the doc
+        // there. We require a non-empty siblingGroupId and that this squad is in
+        // the denormalized siblingSquadIds (a group-of-one for single shares).
         allow create: if isMemberOf(squadId)
           && request.resource.data.uploadedByUid == uid()
           && request.resource.data.published == true
           && request.resource.data.deletedAt == null
-          && request.resource.data.storagePath is string;
+          && request.resource.data.storagePath is string
+          && request.resource.data.siblingGroupId is string
+          && request.resource.data.siblingGroupId.size() > 0
+          && squadId in request.resource.data.siblingSquadIds;
         // Owner soft-deletes (deletedAt only); ANY member may bump reactionCounts
         // inside the reaction transaction. publishedAt/published/thumbStoragePath
         // are function-only (admin SDK bypasses rules). Letting any member write

@@ -6,7 +6,7 @@ import '../models/index.dart';
 
 class DatabaseService {
   static const String _dbName = 'calorie_tracker.db';
-  static const int _dbVersion = 9;
+  static const int _dbVersion = 10;
 
   /// Current local schema version (for backup metadata).
   static int get currentSchemaVersion => _dbVersion;
@@ -126,6 +126,21 @@ class DatabaseService {
       // Daily check-in mirror — additive.
       await _createCheckinsTable(db);
     }
+    if (oldVersion < 10) {
+      // Proof photos attached to a goal completion — additive nullable column
+      // (JSON array of {squadId, photoId} or {personal:true, photoId}). Guarded
+      // because the v5 step creates goal_occurrences from the current schema
+      // (which already includes the column) when migrating from before v5.
+      if (!await _columnExists(db, tablesGoalOccurrences, 'proof_photo_ids')) {
+        await db.execute(
+            'ALTER TABLE $tablesGoalOccurrences ADD COLUMN proof_photo_ids TEXT');
+      }
+    }
+  }
+
+  Future<bool> _columnExists(Database db, String table, String column) async {
+    final cols = await db.rawQuery('PRAGMA table_info($table)');
+    return cols.any((c) => c['name'] == column);
   }
 
   /// Indexes the date columns the dashboard queries hit on every load.
@@ -279,6 +294,7 @@ class DatabaseService {
         override_flag INTEGER NOT NULL DEFAULT 0,
         period_value_cached REAL,
         notes TEXT,
+        proof_photo_ids TEXT,
         UNIQUE(goal_id, occurrence_date),
         FOREIGN KEY(goal_id) REFERENCES $tablesGoals(id) ON DELETE CASCADE
       )

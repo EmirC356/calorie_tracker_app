@@ -111,17 +111,16 @@ void main() {
     if (tmp.existsSync()) tmp.deleteSync(recursive: true);
   });
 
-  test('v4 → v9 migration keeps all data and adds goal/water/pause/makeup/checkin', () async {
+  test('v4 → v10 migration keeps all data and adds goal/water/pause/makeup/checkin/proof', () async {
     await _createV4Database(dbPath);
 
-    // Reopen through the real DatabaseService (version 5) → runs the additive
-    // `if (oldVersion < 5)` upgrade step.
+    // Reopen through the real DatabaseService → runs every additive upgrade step.
     final service = DatabaseService(overridePath: dbPath);
     final db = await service.db;
 
     final version =
         (await db.rawQuery('PRAGMA user_version')).first.values.first;
-    expect(version, 9);
+    expect(version, 10);
 
     // v8 added the make-up column to meals + exercises.
     final mealCols = (await db.rawQuery('PRAGMA table_info(meals)')).map((c) => c['name']).toList();
@@ -130,6 +129,10 @@ void main() {
     expect(exCols, contains('makeup_for_date'));
     // v9 added the check-in mirror table.
     expect(await _tableExists(db, 'checkins'), isTrue);
+    // v10 added the proof_photo_ids column to goal_occurrences (additive, null).
+    final occCols =
+        (await db.rawQuery('PRAGMA table_info(goal_occurrences)')).map((c) => c['name']).toList();
+    expect(occCols, contains('proof_photo_ids'));
 
     // Existing v4 tables and their rows are intact.
     expect(await _tableExists(db, 'meals'), isTrue);

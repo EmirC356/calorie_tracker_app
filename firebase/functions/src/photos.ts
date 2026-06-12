@@ -20,6 +20,8 @@ import sharp from "sharp";
 import {db} from "./shared";
 import {sendSquadPush, logActivity} from "./social";
 
+const FieldValue = admin.firestore.FieldValue;
+
 const glyph = (emoji: string): string =>
   emoji === "fire" ? "🔥" : emoji === "flex" ? "💪" : "👏";
 
@@ -73,14 +75,30 @@ export const onPhotoCreated = onDocumentCreated(
         payload: {photoId, title: data.goalRef.title ?? "a goal"},
       });
     }
+    // Push — deduped across a multi-squad sibling group: the feed entry is
+    // written per squad (above), but only the canonical (alphabetically-first)
+    // squad sends ONE push, to the union of all sibling squads' members. A
+    // member of two sibling squads thus gets a single push, not N.
+    const siblingSquadIds = (data.siblingSquadIds as string[] | undefined) ?? [squadId];
+    const canonical = [...siblingSquadIds].sort()[0];
+    if (siblingSquadIds.length > 1 && squadId !== canonical) return;
+
     const squad = await db.doc(`squads/${squadId}`).get();
-    const members = (squad.get("memberUids") as string[] | undefined) ?? [];
     const squadName = (squad.get("name") as string | undefined) ?? "your squad";
-    const others = members.filter((m) => m !== data.uploadedByUid);
-    if (others.length > 0) {
+    const recipients = new Set<string>();
+    if (siblingSquadIds.length > 1) {
+      for (const sid of siblingSquadIds) {
+        const sq = await db.doc(`squads/${sid}`).get();
+        for (const m of (sq.get("memberUids") as string[] | undefined) ?? []) recipients.add(m);
+      }
+    } else {
+      for (const m of (squad.get("memberUids") as string[] | undefined) ?? []) recipients.add(m);
+    }
+    recipients.delete(data.uploadedByUid as string);
+    if (recipients.size > 0) {
       await sendSquadPush(
-        squadId,
-        others,
+        canonical,
+        [...recipients],
         {title: "New photo", body: `${actor.actorName} shared a photo to ${squadName}`},
         {pref: "squadAttributed"},
       );
@@ -100,6 +118,27 @@ export const onPhotoSoftDeleted = onDocumentUpdated(
     if (before.get("deletedAt") != null || after.get("deletedAt") == null) return;
 
     const {squadId, photoId} = event.params as {squadId: string; photoId: string};
+
+    // Cascade: soft-delete the other live siblings so one delete removes the
+    // whole group from every squad. Each sibling's own trigger then handles its
+    // Storage cleanup + feed entry. Idempotent (already-deleted siblings are
+    // excluded by the deletedAt filter), so this never loops.
+    const groupId = after.get("siblingGroupId") as string | undefined;
+    if (groupId) {
+      const siblings = await db
+        .collectionGroup("photos")
+        .where("siblingGroupId", "==", groupId)
+        .where("deletedAt", "==", null)
+        .get();
+      if (!siblings.empty) {
+        const batch = db.batch();
+        for (const sib of siblings.docs) {
+          batch.update(sib.ref, {deletedAt: FieldValue.serverTimestamp()});
+        }
+        await batch.commit();
+      }
+    }
+
     const bucket = admin.storage().bucket();
     const wasPublished = after.get("published") === true || after.get("publishedAt") != null;
 

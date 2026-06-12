@@ -30,6 +30,11 @@ await testEnv.withSecurityRulesDisabled(async (ctx) => {
     inviteCode: '123456', inviteCodeExpiresAt: new Date(Date.now() + week), createdAt: new Date(),
   });
   await setDoc(doc(db, 'squadCodes/123456'), { squadId: 's1', expiresAt: new Date(Date.now() + week) });
+  // A second squad m1 also belongs to (for multi-squad proof sibling tests).
+  await setDoc(doc(db, 'squads/s2'), {
+    name: 'S2', ownerUid: 'owner', memberUids: ['owner', 'm1'],
+    inviteCode: '654321', inviteCodeExpiresAt: new Date(Date.now() + week), createdAt: new Date(),
+  });
 
   // Phase 6: a squad-visible goal occurrence for m1 (readerUids = s1 members),
   // and a pending suggestion from owner -> m1.
@@ -255,10 +260,32 @@ await check('member CANNOT read a soft-deleted photo',
 
 await check('photo create as published succeeds (ships immediately)',
   assertSucceeds(setDoc(doc(member, 'squads/s1/photos/p_new1'),
-    { uploadedByUid: 'm1', published: true, publishedAt: new Date(), deletedAt: null, storagePath: 'x' })));
+    { uploadedByUid: 'm1', published: true, publishedAt: new Date(), deletedAt: null,
+      storagePath: 'x', siblingGroupId: 'g1', siblingSquadIds: ['s1'] })));
 await check('photo create as unpublished is rejected',
   assertFails(setDoc(doc(member, 'squads/s1/photos/p_new2'),
-    { uploadedByUid: 'm1', published: false, deletedAt: null, storagePath: 'x' })));
+    { uploadedByUid: 'm1', published: false, deletedAt: null, storagePath: 'x',
+      siblingGroupId: 'g2', siblingSquadIds: ['s1'] })));
+await check('photo create without a siblingGroupId is rejected',
+  assertFails(setDoc(doc(member, 'squads/s1/photos/p_new3'),
+    { uploadedByUid: 'm1', published: true, deletedAt: null, storagePath: 'x', siblingSquadIds: ['s1'] })));
+
+// Multi-squad sibling group: m1 belongs to s1 and s2, so can write the sibling
+// doc in BOTH; an outsider cannot create one in s1 at all.
+await check('member CAN create a multi-squad sibling photo in s1',
+  assertSucceeds(setDoc(doc(member, 'squads/s1/photos/sib_s1'),
+    { uploadedByUid: 'm1', published: true, deletedAt: null, storagePath: 'x',
+      siblingGroupId: 'mg', siblingSquadIds: ['s1', 's2'] })));
+await check('member CAN create the s2 sibling of the same group',
+  assertSucceeds(setDoc(doc(member, 'squads/s2/photos/sib_s2'),
+    { uploadedByUid: 'm1', published: true, deletedAt: null, storagePath: 'x',
+      siblingGroupId: 'mg', siblingSquadIds: ['s1', 's2'] })));
+await check('outsider CANNOT create a (sibling) photo in s1',
+  assertFails(setDoc(doc(outsider, 'squads/s1/photos/sib_bad'),
+    { uploadedByUid: 'out', published: true, deletedAt: null, storagePath: 'x',
+      siblingGroupId: 'mg', siblingSquadIds: ['s1'] })));
+await check("non-owner CANNOT soft-delete another member's sibling photo",
+  assertFails(updateDoc(doc(member, 'squads/s1/photos/p_upd'), { deletedAt: new Date() })));
 
 await check('member CAN bump reactionCounts only',
   assertSucceeds(updateDoc(doc(member, 'squads/s1/photos/p_upd'),
@@ -288,4 +315,4 @@ await check('double-react (overwrite existing reaction doc) is rejected',
 
 await testEnv.cleanup();
 console.log(`\nALL ${n} RULES TESTS PASSED`);
-assert(n === 81);
+assert(n === 86);
