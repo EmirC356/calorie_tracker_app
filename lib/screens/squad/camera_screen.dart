@@ -21,20 +21,63 @@ class PhotoSent {
   final String photoId;
   final String squadId;
   final PhotoGoalRef? goalRef;
-  const PhotoSent({required this.photoId, required this.squadId, this.goalRef});
+
+  /// Finish-mode extras: the sibling group (for multi-squad undo), the
+  /// occurrence's proof refs, and per-squad success/total counts.
+  final String? siblingGroupId;
+  final List<Map<String, dynamic>>? proofPhotoIds;
+  final int successCount;
+  final int totalCount;
+
+  /// The user chose "Mark done without photo" from the permission screen — the
+  /// goal should be marked done with no proof.
+  final bool noPhoto;
+  const PhotoSent({
+    required this.photoId,
+    required this.squadId,
+    this.goalRef,
+    this.siblingGroupId,
+    this.proofPhotoIds,
+    this.successCount = 1,
+    this.totalCount = 1,
+    this.noPhoto = false,
+  });
+
+  bool get isPersonal => squadId.isEmpty && siblingGroupId == null;
 }
 
 /// Full-screen camera for the Proof feature. Back camera + flash-auto by
-/// default; optional squad + goal selection; tap-shutter is fully optimistic
-/// (dismisses as soon as the upload is kicked off).
+/// default. Three modes: normal single-squad (squadId), a locked multi-squad
+/// "Finish" ([lockedSquadIds] non-empty), or personal proof ([lockedSquadIds]
+/// empty). In a locked mode the goal can't be detached and the squad isn't
+/// editable.
 class CameraScreen extends StatefulWidget {
   final String squadId;
   final PhotoGoalRef? defaultGoalRef;
-  const CameraScreen({super.key, required this.squadId, this.defaultGoalRef});
+  final List<String>? lockedSquadIds;
+  const CameraScreen({
+    super.key,
+    required this.squadId,
+    this.defaultGoalRef,
+    this.lockedSquadIds,
+  });
 
   static Route<PhotoSent> route({required String squadId, PhotoGoalRef? goalRef}) =>
       MaterialPageRoute<PhotoSent>(
           builder: (_) => CameraScreen(squadId: squadId, defaultGoalRef: goalRef));
+
+  /// Finish mode: share to [squadIds] (empty = personal proof), goal locked.
+  static Route<PhotoSent> finishRoute({
+    required List<String> squadIds,
+    required PhotoGoalRef goalRef,
+  }) =>
+      MaterialPageRoute<PhotoSent>(
+        builder: (_) => CameraScreen(
+          squadId: squadIds.isNotEmpty ? squadIds.first : '',
+          defaultGoalRef: goalRef,
+          lockedSquadIds: squadIds,
+        ),
+      );
 
   @override
   State<CameraScreen> createState() => _CameraScreenState();
@@ -159,29 +202,55 @@ class _CameraScreenState extends State<CameraScreen> {
     final service = photoP.service;
     final squadId = _squadId;
     final goalRef = _goalRef;
+    final locked = widget.lockedSquadIds;
+    final name = auth.appUser?.displayName;
+    final photoUrl = auth.appUser?.photoURL;
     String? id;
     try {
       final file = await _controller!.takePicture();
       final raw = await file.readAsBytes();
-      id = service.newPhotoId(squadId);
+      final bytes = await service.compressForUpload(raw);
 
-      // Optimistic placeholder renders instantly from the captured bytes.
+      // ── Finish mode: multi-squad fan-out or personal proof ──────────────────
+      if (locked != null) {
+        if (locked.isEmpty) {
+          final pid = await service.uploadPersonalProof(bytes: bytes, goalRef: goalRef!);
+          navigator.pop(PhotoSent(
+            photoId: pid, squadId: '', goalRef: goalRef,
+            proofPhotoIds: [{'personal': true, 'photoId': pid}],
+            successCount: 1, totalCount: 1,
+          ));
+        } else {
+          final r = await service.uploadPhotoToSquads(
+              squadIds: locked, bytes: bytes, goalRef: goalRef,
+              uploaderName: name, uploaderPhotoURL: photoUrl);
+          if (!r.anySucceeded) throw Exception('all squad uploads failed');
+          final first = r.uploaded.first;
+          navigator.pop(PhotoSent(
+            photoId: first.photoId, squadId: first.squadId, goalRef: goalRef,
+            siblingGroupId: r.siblingGroupId,
+            proofPhotoIds: r.photoIdPairs,
+            successCount: r.successCount, totalCount: r.totalCount,
+          ));
+        }
+        return;
+      }
+
+      // ── Normal mode: single squad, optimistic ──────────────────────────────
+      id = service.newPhotoId(squadId);
       photoP.addOptimisticPhoto(Photo(
         id: id,
         uploadedByUid: auth.firebaseUser?.uid ?? '',
-        uploadedByName: auth.appUser?.displayName ?? 'You',
-        uploadedByPhotoURL: auth.appUser?.photoURL ?? '',
+        uploadedByName: name ?? 'You',
+        uploadedByPhotoURL: photoUrl ?? '',
         uploadedAt: DateTime.now(),
         optimistic: true,
         localBytes: raw,
         goalRef: goalRef,
       ));
-
-      // Await the upload so failures surface (instead of vanishing).
-      final bytes = await service.compressForUpload(raw);
       await service.uploadPhoto(
         squadId: squadId, bytes: bytes, goalRef: goalRef, photoId: id,
-        uploaderName: auth.appUser?.displayName, uploaderPhotoURL: auth.appUser?.photoURL,
+        uploaderName: name, uploaderPhotoURL: photoUrl,
       );
       navigator.pop(PhotoSent(photoId: id, squadId: squadId, goalRef: goalRef));
     } catch (e) {
@@ -233,10 +302,7 @@ class _CameraScreenState extends State<CameraScreen> {
         Positioned(
           top: Spacing.s8, left: 0, right: 0,
           child: Column(children: [
-            _chip(
-              label: '$squadName ▾',
-              onTap: _pickSquad,
-            ),
+            _squadChip(squadName),
             const SizedBox(height: Spacing.s8),
             _goalChip(),
           ]),
@@ -259,16 +325,51 @@ class _CameraScreenState extends State<CameraScreen> {
     );
   }
 
+  Widget _squadChip(String squadName) {
+    final locked = widget.lockedSquadIds;
+    if (locked == null) return _chip(label: '$squadName ▾', onTap: _pickSquad);
+    if (locked.isEmpty) return _chip(label: 'Personal proof — not shared', onTap: () {});
+    final n = locked.length;
+    return _chip(label: '📤 Sharing to $n squad${n == 1 ? '' : 's'}', onTap: _showLockedSquads);
+  }
+
+  void _showLockedSquads() {
+    final squads = context.read<SquadProvider>().squads;
+    final names = widget.lockedSquadIds!.map((id) {
+      final m = squads.where((s) => s.id == id);
+      return m.isNotEmpty ? m.first.name : 'Squad';
+    }).toList();
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surface1,
+      builder: (_) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Padding(
+            padding: const EdgeInsets.all(Spacing.s16),
+            child: Text('Sharing this proof to', style: AppText.caption),
+          ),
+          for (final name in names)
+            ListTile(
+              leading: const Icon(LucideIcons.users, color: AppColors.squadBlue, size: 20),
+              title: Text(name, style: AppText.bodyL),
+            ),
+          const SizedBox(height: Spacing.s8),
+        ]),
+      ),
+    );
+  }
+
   Widget _goalChip() {
+    final locked = widget.lockedSquadIds != null;
     if (_goalRef != null) {
       return _chip(
         label: _goalRef!.title,
         leadingColor: Color(_goalRef!.colorArgb),
-        trailing: LucideIcons.x,
-        onTap: () => setState(() => _goalRef = null),
+        trailing: locked ? null : LucideIcons.x,
+        onTap: locked ? () {} : () => setState(() => _goalRef = null),
       );
     }
-    if (_todaysOpenGoals().isEmpty) return const SizedBox.shrink();
+    if (locked || _todaysOpenGoals().isEmpty) return const SizedBox.shrink();
     return _chip(label: '📎 Attach goal', onTap: _attachGoal, outlined: true);
   }
 
@@ -316,14 +417,17 @@ class _CameraScreenState extends State<CameraScreen> {
         ),
       );
 
-  Widget _shutterButton() => GestureDetector(
+  Widget _shutterButton() {
+    // Finish-mode shutter is tinted statusHit to reinforce "this completes a goal".
+    final tint = widget.lockedSquadIds != null ? AppColors.statusHit : Colors.white;
+    return GestureDetector(
         onTap: _capturing ? null : _shutter,
         child: Container(
           width: 72, height: 72,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: _capturing ? Colors.white54 : Colors.white,
-            border: Border.all(color: Colors.white, width: 4),
+            color: _capturing ? tint.withValues(alpha: 0.5) : tint,
+            border: Border.all(color: tint, width: 4),
           ),
           child: Container(
             margin: const EdgeInsets.all(4),
@@ -333,6 +437,7 @@ class _CameraScreenState extends State<CameraScreen> {
           ),
         ),
       );
+  }
 
   Widget _permissionScreen() => Scaffold(
         backgroundColor: AppColors.surface0,
@@ -345,8 +450,11 @@ class _CameraScreenState extends State<CameraScreen> {
               Text('Camera permission needed', style: AppText.displayM, textAlign: TextAlign.center),
               const SizedBox(height: Spacing.s8),
               Text(
-                  'Proof shares a quick photo with your squad. Enable camera access '
-                  'to take one. If you previously denied it, turn it on in system Settings.',
+                  widget.lockedSquadIds != null
+                      ? 'Finish needs camera access to record proof. Enable it, or in '
+                          'system Settings if you previously denied it.'
+                      : 'Proof shares a quick photo with your squad. Enable camera access '
+                          'to take one. If you previously denied it, turn it on in system Settings.',
                   style: AppText.bodyL.copyWith(color: AppColors.textSecondary),
                   textAlign: TextAlign.center),
               const SizedBox(height: Spacing.s24),
@@ -360,6 +468,13 @@ class _CameraScreenState extends State<CameraScreen> {
                 child: const Text('Try again'),
               ),
               const SizedBox(height: Spacing.s8),
+              // Finish-mode escape hatch: mark the goal done without a photo.
+              if (widget.lockedSquadIds != null)
+                TextButton(
+                  onPressed: () => Navigator.pop(
+                      context, const PhotoSent(photoId: '', squadId: '', noPhoto: true)),
+                  child: const Text('Mark done without photo'),
+                ),
               TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
             ]),
           ),

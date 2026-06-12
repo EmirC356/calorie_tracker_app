@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'date_helpers.dart';
 
 /// Status of a single goal occurrence.
@@ -23,6 +24,11 @@ class GoalOccurrence {
   final double? periodValueCached; // tracked: metric value when evaluated
   final String? notes;
 
+  /// Proof photos attached at Finish: a list of `{squadId, photoId}` (squad
+  /// shares) or `{personal: true, photoId}` (no-squad). Null when finished
+  /// without a photo or not yet finished.
+  final List<Map<String, dynamic>>? proofPhotoIds;
+
   GoalOccurrence({
     this.id,
     required this.goalId,
@@ -32,7 +38,10 @@ class GoalOccurrence {
     this.overrideFlag = false,
     this.periodValueCached,
     this.notes,
+    this.proofPhotoIds,
   }) : occurrenceDate = dateOnly(occurrenceDate);
+
+  bool get hasProof => proofPhotoIds != null && proofPhotoIds!.isNotEmpty;
 
   GoalOccurrence copyWith({
     int? id,
@@ -43,9 +52,11 @@ class GoalOccurrence {
     bool? overrideFlag,
     double? periodValueCached,
     String? notes,
+    List<Map<String, dynamic>>? proofPhotoIds,
     bool clearDoneAt = false,
     bool clearPeriodValue = false,
     bool clearNotes = false,
+    bool clearProof = false,
   }) =>
       GoalOccurrence(
         id: id ?? this.id,
@@ -57,6 +68,7 @@ class GoalOccurrence {
         periodValueCached:
             clearPeriodValue ? null : (periodValueCached ?? this.periodValueCached),
         notes: clearNotes ? null : (notes ?? this.notes),
+        proofPhotoIds: clearProof ? null : (proofPhotoIds ?? this.proofPhotoIds),
       );
 
   Map<String, dynamic> toMap() => {
@@ -68,6 +80,7 @@ class GoalOccurrence {
         'override_flag': overrideFlag ? 1 : 0,
         'period_value_cached': periodValueCached,
         'notes': notes,
+        'proof_photo_ids': proofPhotoIds == null ? null : jsonEncode(proofPhotoIds),
       };
 
   factory GoalOccurrence.fromMap(Map<String, dynamic> m) => GoalOccurrence(
@@ -81,6 +94,9 @@ class GoalOccurrence {
         overrideFlag: (m['override_flag'] as num?)?.toInt() == 1,
         periodValueCached: (m['period_value_cached'] as num?)?.toDouble(),
         notes: m['notes'] as String?,
+        proofPhotoIds: (m['proof_photo_ids'] as String?) == null
+            ? null
+            : (jsonDecode(m['proof_photo_ids'] as String) as List).cast<Map<String, dynamic>>(),
       );
 
   static OccurrenceStatus _statusFrom(String? name) {

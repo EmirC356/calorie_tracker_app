@@ -285,6 +285,25 @@ class GoalProvider extends ChangeNotifier {
     await refresh();
   }
 
+  /// Marks an occurrence done with attached proof photos (the Finish flow).
+  Future<void> finishWithProof({
+    required int goalId,
+    required DateTime date,
+    required List<Map<String, dynamic>> proofPhotoIds,
+  }) async {
+    await _service.setOccurrenceStatus(
+      goalId: goalId, date: date, status: OccurrenceStatus.done, proofPhotoIds: proofPhotoIds);
+    await refresh();
+  }
+
+  /// Reverts a proof-finished occurrence back to open and clears its proof refs
+  /// (the red Undo). Deleting the actual photos is the caller's job.
+  Future<void> undoFinish({required int goalId, required DateTime date}) async {
+    await _service.setOccurrenceStatus(
+      goalId: goalId, date: date, status: OccurrenceStatus.open, clearProof: true);
+    await refresh();
+  }
+
   // ─── Suggestions ─────────────────────────────────────────────────────────────
 
   Future<List<GoalSuggestion>> pendingSuggestions() =>

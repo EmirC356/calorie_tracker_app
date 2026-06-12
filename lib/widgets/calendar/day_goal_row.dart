@@ -22,11 +22,18 @@ class DayGoalRow extends StatelessWidget {
   final OccurrenceStatus status;
   final VoidCallback? onTap;
 
+  /// Green "Finish" (requires a proof photo) — shown on open manual goals when
+  /// provided. Red "Undo" — shown on a done occurrence that has proof.
+  final VoidCallback? onFinish;
+  final VoidCallback? onUndo;
+
   const DayGoalRow({
     super.key,
     required this.goal,
     required this.status,
     this.onTap,
+    this.onFinish,
+    this.onUndo,
   });
 
   @override
@@ -84,6 +91,14 @@ class DayGoalRow extends StatelessWidget {
                     ]),
                   ]),
             ),
+            if (onFinish != null && status == OccurrenceStatus.open) ...[
+              const SizedBox(width: Spacing.s8),
+              _pill('Finish', Icons.check, AppColors.statusHit, onFinish!),
+            ],
+            if (onUndo != null && status == OccurrenceStatus.done) ...[
+              const SizedBox(width: Spacing.s8),
+              _pill('Undo', Icons.undo, AppColors.statusMissed, onUndo!),
+            ],
             const SizedBox(width: Spacing.s12),
             Icon(occurrenceStatusIcon(status), color: statusColor, size: 22),
           ]),
@@ -91,4 +106,23 @@ class DayGoalRow extends StatelessWidget {
       ),
     );
   }
+
+  Widget _pill(String label, IconData icon, Color color, VoidCallback onTap) => Material(
+        color: color,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Spacing.s12, vertical: 6),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(icon, size: 14, color: AppColors.surface0),
+              const SizedBox(width: Spacing.s4),
+              Text(label,
+                  style: AppText.bodyS.copyWith(
+                      color: AppColors.surface0, fontWeight: FontWeight.w600)),
+            ]),
+          ),
+        ),
+      );
 }

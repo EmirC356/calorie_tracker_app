@@ -203,6 +203,8 @@ class GoalService {
     double? periodValueCached,
     String? notes,
     DateTime? doneAt,
+    List<Map<String, dynamic>>? proofPhotoIds,
+    bool clearProof = false,
   }) async {
     final existing = await getOccurrence(goalId, date);
     final occ = (existing ?? GoalOccurrence(goalId: goalId, occurrenceDate: date))
@@ -215,6 +217,8 @@ class GoalService {
           : null,
       clearDoneAt: status != OccurrenceStatus.done,
       notes: notes,
+      proofPhotoIds: proofPhotoIds,
+      clearProof: clearProof,
     );
     return upsertOccurrence(occ);
   }
