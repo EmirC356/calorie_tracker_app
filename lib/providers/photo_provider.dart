@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/photo.dart';
 import '../services/auth_service.dart';
 import '../services/photo_service.dart';
@@ -20,6 +21,9 @@ class PhotoProvider extends ChangeNotifier {
   List<Photo> _photos = const [];
   final List<Photo> _optimistic = [];
 
+  // View-once: photoIds the signed-in user has already viewed (local, per-account).
+  final Set<String> _seen = {};
+
   PhotoService get service => _service;
   String? get uid => _uid;
 
@@ -30,18 +34,47 @@ class PhotoProvider extends ChangeNotifier {
       final cur = _authService!.currentUser;
       _signedIn = cur != null;
       _uid = cur?.uid;
+      if (_signedIn) _loadSeen();
       _authSub = _authService!.authStateChanges().listen((u) {
         _signedIn = u != null;
         _uid = u?.uid;
         if (!_signedIn) {
           _detach();
-        } else if (_squadId != null && _sub == null) {
-          _attach(_squadId!);
+        } else {
+          _loadSeen();
+          if (_squadId != null && _sub == null) _attach(_squadId!);
         }
       });
     } catch (e) {
       debugPrint('PhotoProvider: auth unavailable: $e');
     }
+  }
+
+  String get _seenKey => 'proof.seen.${_uid ?? 'anon'}';
+
+  Future<void> _loadSeen() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _seen
+        ..clear()
+        ..addAll(prefs.getStringList(_seenKey) ?? const []);
+      notifyListeners();
+    } catch (_) {/* best-effort */}
+  }
+
+  /// Whether the current user has already viewed [photoId] (Snapchat view-once).
+  bool isSeen(String photoId) => _seen.contains(photoId);
+
+  /// Mark a photo viewed so it won't be shown again. Capped at the last 1000.
+  Future<void> markSeen(String photoId) async {
+    if (!_seen.add(photoId)) return;
+    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      var list = _seen.toList();
+      if (list.length > 1000) list = list.sublist(list.length - 1000);
+      await prefs.setStringList(_seenKey, list);
+    } catch (_) {}
   }
 
   DateTime _ts(Photo p) =>

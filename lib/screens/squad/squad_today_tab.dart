@@ -51,8 +51,13 @@ class _SquadTodayTabState extends State<SquadTodayTab> {
     final service = context.read<SquadProvider>().service;
     final auth = context.read<AuthProvider>();
     final myUid = auth.firebaseUser?.uid;
-    // Members who have shared photos get a tappable story ring.
-    final storyUids = context.watch<PhotoProvider>().recentPhotos.map((p) => p.uploadedByUid).toSet();
+    // A story ring shows on members with photos I haven't viewed yet (my own
+    // always count — I can rewatch mine).
+    final photoP = context.watch<PhotoProvider>();
+    final storyUids = photoP.recentPhotos
+        .where((p) => p.uploadedByUid == myUid || !photoP.isSeen(p.id))
+        .map((p) => p.uploadedByUid)
+        .toSet();
 
     return StreamBuilder<List<SquadMember>>(
       stream: service.watchMembers(widget.squadId),

@@ -52,9 +52,18 @@ void main() {
     expect(find.text('No photos yet'), findsNothing);
   });
 
-  testWidgets('shows the empty state when the member has none', (tester) async {
+  testWidgets('shows the empty state when the member has no new photos', (tester) async {
     final fs = FakeFirebaseFirestore();
     await pumpStory(tester, fs, uploaderUid: 'bob', name: 'Bob');
-    expect(find.text('No photos yet'), findsOneWidget);
+    expect(find.text('No new photos'), findsOneWidget);
+  });
+
+  testWidgets('view-once: an already-seen photo is not shown again', (tester) async {
+    final fs = FakeFirebaseFirestore();
+    await fs.doc('squads/s1/photos/a1').set(photo('alice', 1));
+    // Pre-mark a1 seen via the provider's prefs key for uid "me".
+    SharedPreferences.setMockInitialValues({'proof.seen.me': ['a1']});
+    await pumpStory(tester, fs, uploaderUid: 'alice', name: 'Alice');
+    expect(find.text('No new photos'), findsOneWidget); // a1 filtered out
   });
 }

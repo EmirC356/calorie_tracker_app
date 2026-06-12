@@ -41,21 +41,28 @@ class PhotoStoryViewer extends StatefulWidget {
 
 class _PhotoStoryViewerState extends State<PhotoStoryViewer> {
   StreamSubscription<List<Photo>>? _sub;
-  List<Photo> _photos = const [];
+  // Snapshot of the photos to show this session (view-once: unseen only, except
+  // your own — taken once on open so marking-seen doesn't pull the rug mid-view).
+  List<Photo> _shown = const [];
   bool _loaded = false;
+  bool _initialized = false;
+  bool _isOwn = false;
   int _i = 0;
 
   @override
   void initState() {
     super.initState();
-    final service = context.read<PhotoProvider>().service;
-    _sub = service.streamForUser(widget.squadId, widget.uploaderUid).listen((list) {
-      if (!mounted) return;
+    final provider = context.read<PhotoProvider>();
+    final myUid = context.read<AuthProvider>().firebaseUser?.uid;
+    _isOwn = widget.uploaderUid == myUid;
+    _sub = provider.service.streamForUser(widget.squadId, widget.uploaderUid).listen((list) {
+      if (!mounted || _initialized) return; // snapshot once
+      _initialized = true;
       setState(() {
-        _photos = list;
+        _shown = _isOwn ? list : list.where((p) => !provider.isSeen(p.id)).toList();
         _loaded = true;
-        if (_i >= list.length) _i = list.isEmpty ? 0 : list.length - 1;
       });
+      _markSeen(0);
     });
   }
 
@@ -65,9 +72,17 @@ class _PhotoStoryViewerState extends State<PhotoStoryViewer> {
     super.dispose();
   }
 
+  void _markSeen(int idx) {
+    if (_isOwn) return;
+    if (idx >= 0 && idx < _shown.length) {
+      context.read<PhotoProvider>().markSeen(_shown[idx].id);
+    }
+  }
+
   void _next() {
-    if (_i < _photos.length - 1) {
+    if (_i < _shown.length - 1) {
       setState(() => _i++);
+      _markSeen(_i);
     } else {
       Navigator.pop(context);
     }
@@ -104,21 +119,21 @@ class _PhotoStoryViewerState extends State<PhotoStoryViewer> {
           backgroundColor: Colors.black,
           body: Center(child: CircularProgressIndicator(color: Colors.white)));
     }
-    if (_photos.isEmpty) {
+    if (_shown.isEmpty) {
       return Scaffold(
         backgroundColor: Colors.black,
         body: Stack(children: [
           Center(
-            child: Text('No photos yet', style: AppText.bodyL.copyWith(color: Colors.white70)),
+            child: Text(_isOwn ? 'No photos yet' : 'No new photos',
+                style: AppText.bodyL.copyWith(color: Colors.white70)),
           ),
           _closeButton(),
         ]),
       );
     }
 
-    final p = _photos[_i];
-    final myUid = context.read<AuthProvider>().firebaseUser?.uid;
-    final isMine = p.uploadedByUid == myUid;
+    final p = _shown[_i];
+    final isMine = _isOwn;
     final service = context.read<PhotoProvider>().service;
 
     return Scaffold(
@@ -156,7 +171,7 @@ class _PhotoStoryViewerState extends State<PhotoStoryViewer> {
                     ),
             ),
           ),
-          // Top gradient + progress segments + header.
+          // Top gradient + header (no progress bars — Snapchat-style).
           Positioned(
             top: 0, left: 0, right: 0,
             child: Container(
@@ -168,22 +183,6 @@ class _PhotoStoryViewerState extends State<PhotoStoryViewer> {
               child: SafeArea(
                 bottom: false,
                 child: Column(children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(Spacing.s8, Spacing.s8, Spacing.s8, 0),
-                    child: Row(children: [
-                      for (var k = 0; k < _photos.length; k++)
-                        Expanded(
-                          child: Container(
-                            height: 3,
-                            margin: const EdgeInsets.symmetric(horizontal: 2),
-                            decoration: BoxDecoration(
-                              color: k <= _i ? Colors.white : Colors.white24,
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
-                        ),
-                    ]),
-                  ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(Spacing.s12, Spacing.s8, Spacing.s8, Spacing.s8),
                     child: Row(children: [
