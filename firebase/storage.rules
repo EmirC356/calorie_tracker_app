@@ -25,5 +25,13 @@ service firebase.storage {
       allow read: if isSignedIn();
       allow write: if false;
     }
+
+    // Personal proof — goals shared with no squad. Strictly owner-only.
+    match /users/{userId}/personalProof/{photoId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow write: if isSignedIn() && request.auth.uid == userId
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
   }
 }

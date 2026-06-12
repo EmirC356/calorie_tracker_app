@@ -15,6 +15,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_text_styles.dart';
 import 'settings/api_key_screen.dart';
+import 'health/personal_proof_gallery_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -184,6 +185,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   MaterialPageRoute(builder: (_) => const ApiKeyScreen())),
             );
           }),
+          const SizedBox(height: Spacing.s32),
+          Text('PROOF', style: AppText.caption),
+          const SizedBox(height: Spacing.s8),
+          _SettingsRow(
+            icon: LucideIcons.image,
+            title: 'Personal proof gallery',
+            subtitle: 'Photos from goals you finished privately',
+            onTap: () => Navigator.push(context, PersonalProofGalleryScreen.route()),
+          ),
           const SizedBox(height: Spacing.s32),
           Text('DATA & BACKUP', style: AppText.caption),
           const SizedBox(height: Spacing.s8),

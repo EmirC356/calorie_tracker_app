@@ -68,6 +68,11 @@ await testEnv.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'squads/s1/photos/p_upd'), photo({ uploadedByUid: 'owner' }));
   await setDoc(doc(db, 'squads/s1/photoReactions/p_pub_owner_fire'),
     { photoId: 'p_pub', fromUid: 'owner', fromName: 'O', emoji: 'fire', createdAt: new Date() });
+
+  // A personal proof photo owned by m1 (goal finished with no squad).
+  await setDoc(doc(db, 'users/m1/personalProof/pp1'),
+    { ownerUid: 'm1', storagePath: 'x', uploadedAt: new Date(), deletedAt: null,
+      goalRef: { goalId: 'g', occurrenceDate: '2026-06-12', title: 'Read' } });
 });
 
 const owner = testEnv.authenticatedContext('owner').firestore();
@@ -313,6 +318,18 @@ await check('double-react (overwrite existing reaction doc) is rejected',
   assertFails(setDoc(doc(owner, 'squads/s1/photoReactions/p_pub_owner_fire'),
     { photoId: 'p_pub', fromUid: 'owner', fromName: 'O', emoji: 'fire', createdAt: new Date() })));
 
+// ── Proof: personal proof is strictly owner-only ─────────────────────────────
+await check('owner CAN read their own personal proof',
+  assertSucceeds(getDoc(doc(member, 'users/m1/personalProof/pp1'))));
+await check('another user CANNOT read someone\'s personal proof',
+  assertFails(getDoc(doc(owner, 'users/m1/personalProof/pp1'))));
+await check('owner CAN write their own personal proof',
+  assertSucceeds(setDoc(doc(member, 'users/m1/personalProof/pp2'),
+    { ownerUid: 'm1', storagePath: 'y', uploadedAt: new Date(), deletedAt: null })));
+await check('another user CANNOT write to someone\'s personal proof',
+  assertFails(setDoc(doc(owner, 'users/m1/personalProof/pp3'),
+    { ownerUid: 'owner', storagePath: 'z', uploadedAt: new Date() })));
+
 await testEnv.cleanup();
 console.log(`\nALL ${n} RULES TESTS PASSED`);
-assert(n === 86);
+assert(n === 90);

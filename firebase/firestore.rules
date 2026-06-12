@@ -54,6 +54,12 @@ service cloud.firestore {
         allow write: if isSignedIn() && uid() == userId;
       }
 
+      // ── personalProof/{photoId}: proof photos for goals shared with no squad.
+      // Strictly owner-only — there is no audience.
+      match /personalProof/{photoId} {
+        allow read, write: if isSignedIn() && uid() == userId;
+      }
+
       // ── Notification queue (Phase 8): the device writes the morning brief and
       // pending reminders so the Cloud Functions can read + send them. Private
       // to the owner; the functions use the admin SDK (which bypasses rules).

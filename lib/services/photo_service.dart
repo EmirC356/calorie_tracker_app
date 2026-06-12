@@ -243,6 +243,51 @@ class PhotoService {
   Future<void> deletePhoto(String squadId, String photoId) =>
       _photos(squadId).doc(photoId).update({'deletedAt': FieldValue.serverTimestamp()});
 
+  // ── Personal proof (goals shared with no squad) — owner-private ────────────
+  CollectionReference<Map<String, dynamic>> _personalProof(String uid) =>
+      _fs.collection('users/$uid/personalProof');
+
+  /// Uploads a personal proof photo (always goal-attached) to the user's private
+  /// collection. No squad, no push, no audience.
+  Future<String> uploadPersonalProof({required Uint8List bytes, required PhotoGoalRef goalRef}) async {
+    final uid = _uid;
+    final ref = _personalProof(uid).doc();
+    final id = ref.id;
+    final storagePath = 'users/$uid/personalProof/$id.jpg';
+    final dims = img.readJpegDimensions(bytes);
+    await _put(storagePath, bytes, 'image/jpeg', {'ownerUid': uid});
+    await ref.set({
+      'ownerUid': uid,
+      'storagePath': storagePath,
+      'width': dims?.width ?? 0,
+      'height': dims?.height ?? 0,
+      'uploadedAt': FieldValue.serverTimestamp(),
+      'goalRef': goalRef.toMap(),
+      'deletedAt': null,
+    });
+    return id;
+  }
+
+  Future<void> deletePersonalProof(String photoId) =>
+      _personalProof(_uid).doc(photoId).update({'deletedAt': FieldValue.serverTimestamp()});
+
+  /// The user's personal proof photos, newest first (mapped onto [Photo]).
+  Stream<List<Photo>> streamPersonalProof({int limit = 100}) {
+    final uid = _uid;
+    return _personalProof(uid)
+        .where('deletedAt', isNull: true)
+        .orderBy('uploadedAt', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((qs) => qs.docs
+            .map((d) => Photo.fromMap(d.id, {
+                  ...d.data(),
+                  'uploadedByUid': d.data()['ownerUid'],
+                  'published': true,
+                }))
+            .toList());
+  }
+
   /// Toggle a reaction: the composite-id doc enforces one-per-(user,emoji,photo).
   /// The denormalized `reactionCounts` aggregate is kept consistent in the same
   /// transaction.
